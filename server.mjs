@@ -57,22 +57,52 @@ function investigate(p){
  const boss=p.rumor.enemy,first=!p.region.discoveries.includes("glass-shrine");
  if(first){p.region.discoveries.push("glass-shrine");p.region.history.unshift(p.name+" discovered the Glass Shrine.");addFeed(p,"FIRST DISCOVERY — Glass Shrine.");}
  const hp=72+p.level*12;
- p.combat={name:boss,hp,maxHp:hp,turn:1,intent:"The enemy circles for an opening."};
+ p.combat={name:boss,hp,maxHp:hp,turn:1,intent:"The enemy circles for an opening.",stamina:100,focus:0,lastResult:"Encounter started.",phase:1};
  addFeed(p,boss+" emerged from the distortion.");
 }
 function fight(p,type){
  const c=p.combat;if(!c)return;
- let dmg=type==="skill"?22+p.level*3:type==="attack"?12+p.level*2:0;
- if(type==="potion"){const pot=p.inventory.find(i=>i.id==="potion"&&(i.qty||0)>0);if(pot){pot.qty--;p.hp=Math.min(p.maxHp,p.hp+42);addFeed(p,"You used a Wayfarer Tonic.");}return;}
- if(type==="guard"){p.hp=Math.min(p.maxHp,p.hp+3);addFeed(p,"You brace for the impact.");}
- else {c.hp=Math.max(0,c.hp-dmg);addFeed(p,(type==="skill"?p.skill:"Attack")+" dealt "+dmg+" damage.");}
+ c.stamina??=100;c.focus??=0;c.phase??=1;
+ const heavy=/HEAVY/.test(c.intent),base=10+p.level*2;
+ let dmg=0,mitigation=0,evaded=false;
+ if(type==="potion"){
+  const pot=p.inventory.find(i=>i.id==="potion"&&(i.qty||0)>0);
+  if(pot){pot.qty--;p.hp=Math.min(p.maxHp,p.hp+42);c.lastResult="Tonic restored vitality.";addFeed(p,"You used a Wayfarer Tonic.");}
+  else c.lastResult="No tonics remain.";
+  c.stamina=Math.min(100,c.stamina+8);
+ } else if(type==="dodge"){
+  if(c.stamina<25){c.lastResult="Not enough stamina to evade.";return;}
+  c.stamina-=25;evaded=heavy||((hash(p.key+c.turn)%100)<58);c.focus=Math.min(100,c.focus+8);
+  c.lastResult=evaded?"Perfect evade — attack avoided.":"You evade early; the enemy adjusts.";
+  addFeed(p,c.lastResult);
+ } else if(type==="guard"){
+  mitigation=heavy?0.72:0.5;c.stamina=Math.min(100,c.stamina+12);c.focus=Math.min(100,c.focus+10);
+  c.lastResult=heavy?"Perfect guard — heavy impact broken.":"Guarded the incoming strike.";
+  addFeed(p,c.lastResult);
+ } else if(type==="skill"){
+  if(c.focus<35){c.lastResult="Build Focus with attacks, guards, and evades.";return;}
+  c.focus-=35;dmg=24+p.level*4+(heavy?8:0);c.stamina=Math.min(100,c.stamina+5);
+  c.lastResult=p.skill+" breaks through for "+dmg+" damage.";addFeed(p,c.lastResult);
+ } else {
+  dmg=base;c.focus=Math.min(100,c.focus+18);c.stamina=Math.min(100,c.stamina+9);
+  c.lastResult="Weapon strike dealt "+dmg+" damage.";addFeed(p,c.lastResult);
+ }
+ if(dmg)c.hp=Math.max(0,c.hp-dmg);
+ if(c.hp<=Math.ceil(c.maxHp*.45)&&c.phase===1){c.phase=2;c.lastResult+=" The enemy enters a desperate second phase.";addFeed(p,c.name+" entered PHASE II.");}
  if(c.hp<=0){
   const enemy=c.name;p.combat=null;p.gold+=24+p.level*3;level(p,42);p.reputation+=2;
-  p.inventory.push({id:"loot-"+Date.now(),name:enemy==="Pale Hound"?"Moon-Split Fang":"Veilbound Fragment",rarity:p.level>=3?"Epic":"Rare"});
+  const rare=(hash(p.key+enemy+p.region.day)%100)<18;
+  p.inventory.push({id:"loot-"+Date.now(),name:enemy==="Pale Hound"?(rare?"Pale Moon Edge":"Moon-Split Fang"):(rare?"Warden's Glassheart":"Veilbound Fragment"),rarity:rare?"Epic":"Rare"});
   p.pendingChoice="glass-shrine";p.region.history.unshift(p.name+" defeated "+enemy+".");addFeed(p,enemy+" fell. The region remembers.");
   return;
  }
- const incoming=Math.max(4,10+p.region.threat/12-(type==="guard"?7:0));p.hp=Math.max(0,Math.round(p.hp-incoming));c.turn++;c.intent=c.turn%3===0?"HEAVY ATTACK TELEGRAPHED — guard or risk the hit.":"The enemy searches for an opening.";
+ if(type!=="potion"){
+  let incoming=(heavy?20:10)+p.region.threat/12+(c.phase===2?4:0);
+  if(evaded)incoming=0;else incoming*=1-mitigation;
+  p.hp=Math.max(0,Math.round(p.hp-incoming));
+ }
+ c.turn++;
+ c.intent=c.turn%3===0?"HEAVY ATTACK TELEGRAPHED — GUARD, EVADE, OR INTERRUPT.":c.phase===2?"The wounded enemy feints, then lunges.":"The enemy searches for an opening.";
  if(p.hp<=0){p.hp=Math.ceil(p.maxHp*.55);p.combat=null;p.region.threat=Math.min(100,p.region.threat+4);p.region.history.unshift(p.name+" left a Death Echo.");addFeed(p,"DEATH ECHO — You awaken wounded, but permanent gear remains.");}
 }
 function shrine(p,choice){
@@ -112,7 +142,7 @@ const server=http.createServer(async(req,res)=>{
   }
   if(req.method==="GET"){
    const path=u.pathname==="/"?"/index.html":u.pathname;
-   if(["/index.html","/manifest.webmanifest"].includes(path)){const data=await readFile(new URL("./public"+path,import.meta.url));res.writeHead(200,{"content-type":path.endsWith(".webmanifest")?"application/manifest+json":"text/html; charset=utf-8"});return res.end(data);}
+   if(["/index.html","/manifest.webmanifest","/styles.css","/game.js"].includes(path)){const data=await readFile(new URL("./public"+path,import.meta.url));const type=path.endsWith(".webmanifest")?"application/manifest+json":path.endsWith(".css")?"text/css; charset=utf-8":path.endsWith(".js")?"text/javascript; charset=utf-8":"text/html; charset=utf-8";res.writeHead(200,{"content-type":type,"cache-control":"no-cache"});return res.end(data);}
   }
   json(res,404,{ok:false,error:"route_not_found"});
  }catch(e){json(res,400,{ok:false,error:e.message||"bad_request"});}
