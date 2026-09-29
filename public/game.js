@@ -1,4 +1,16 @@
 const $=s=>document.querySelector(s),SK="ordinal-session",PK="ordinal-player";let sid=localStorage.getItem(SK),pk=localStorage.getItem(PK),state=null,origin="Rogue",tab="world",notice="",presence=[],lastHp=null;
+let audioCtx=null;
+function sfx(kind){
+ try{
+  audioCtx??=new (window.AudioContext||window.webkitAudioContext)();
+  const o=audioCtx.createOscillator(),g=audioCtx.createGain(),now=audioCtx.currentTime;
+  o.connect(g);g.connect(audioCtx.destination);o.type=kind==="loot"?"sine":kind==="guard"?"square":"triangle";
+  const start=kind==="loot"?420:kind==="skill"?180:kind==="guard"?110:150,end=kind==="loot"?840:kind==="skill"?90:kind==="guard"?70:65;
+  o.frequency.setValueAtTime(start,now);o.frequency.exponentialRampToValueAtTime(end,now+.16);
+  g.gain.setValueAtTime(.0001,now);g.gain.exponentialRampToValueAtTime(.08,now+.01);g.gain.exponentialRampToValueAtTime(.0001,now+.19);
+  o.start(now);o.stop(now+.2);
+ }catch{}
+}
 const esc=(v="")=>String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])),pct=(a,b)=>Math.max(0,Math.min(100,Math.round(a/b*100)));
 async function api(path,opt={}){const r=await fetch(path,{method:opt.method||"GET",headers:opt.body?{"content-type":"application/json"}:undefined,body:opt.body?JSON.stringify(opt.body):undefined});const j=await r.json();if(!r.ok)throw Error(j.error||"server_error");return j}
 async function shared(){if(!sid)return;try{presence=(await api("/api/session/"+sid+"/presence")).players||[]}catch{presence=[]}}
@@ -26,6 +38,6 @@ function journal(){const e=state.region.ecology||{predators:42,prey:61,anomalies
 function nav(){return '<div class="bottomnav"><div class="navinner">'+[["world","✦"],["inventory","◈"],["history","⌁"],["journal","≡"]].map(([t,i])=>'<button class="navbtn '+(tab===t?"active":"")+'" data-tab="'+t+'"><i><span>'+i+'</span></i>'+t.toUpperCase()+'</button>').join("")+'</div></div>'}
 function game(){if(state.combat)return combat();if(state.pendingLoot)return lootReveal();if(state.pendingChoice)return choice();const r=state.region;const biome=state.region.name.toLowerCase().replace(/[^a-z]+/g,"-");return '<div class="game biome-'+biome+'"><div class="world-bg"></div><div class="mist"></div>'+(tab==="world"?'<main class="hud"><header class="topbar"><div><div class="brand">ORDINAL NETWORK // '+esc(r.key)+'</div><div class="region">'+esc(r.name)+'</div><div class="worldmeta">DAY '+r.day+' · '+esc(r.stage).toUpperCase()+' · '+esc(r.faction).toUpperCase()+'</div></div><div class="currency"><i></i>'+state.gold+'g</div></header>'+playerStrip()+worldViewport()+quest()+'</main>':tab==="inventory"?inventory():tab==="history"?history():journal())+nav()+'</div>'}
 function render(){return !state?startView():game()}function draw(){ $("#app").innerHTML=(notice?'<div class="notice">'+esc(notice)+'</div>':"")+render();wire()}
-function wire(){$$("[data-origin]").forEach(b=>b.onclick=()=>{origin=b.dataset.origin;draw()});const e=$("#enter");if(e)e.onclick=async()=>{try{e.disabled=true;e.textContent="CONNECTING…";await start();notice="";draw()}catch(x){notice=x.message;draw()}};$$("[data-tab]").forEach(b=>b.onclick=()=>{tab=b.dataset.tab;draw()});$$("[data-simple]").forEach(b=>b.onclick=async()=>{try{await act(b.dataset.simple);notice="";draw()}catch(x){notice=x.message;draw()}});$$("[data-act]").forEach(b=>b.onclick=async()=>{try{await act(b.dataset.act,{type:b.dataset.type});notice="";draw()}catch(x){notice=x.message;draw()}});$("[data-loot]").forEach(b=>b.onclick=async()=>{try{await act("loot");notice="";draw()}catch(x){notice=x.message;draw()}});$("[data-choice]").forEach(b=>b.onclick=async()=>{try{await act("choice",{choice:b.dataset.choice});notice="";draw()}catch(x){notice=x.message;draw()}})}
+function wire(){$$("[data-origin]").forEach(b=>b.onclick=()=>{origin=b.dataset.origin;draw()});const e=$("#enter");if(e)e.onclick=async()=>{try{e.disabled=true;e.textContent="CONNECTING…";await start();notice="";draw()}catch(x){notice=x.message;draw()}};$$("[data-tab]").forEach(b=>b.onclick=()=>{tab=b.dataset.tab;draw()});$("[data-simple]").forEach(b=>b.onclick=async()=>{try{sfx("signal");await act(b.dataset.simple);notice="";draw()}catch(x){notice=x.message;draw()}});$("[data-act]").forEach(b=>b.onclick=async()=>{try{sfx(b.dataset.type);await act(b.dataset.act,{type:b.dataset.type});notice="";draw()}catch(x){notice=x.message;draw()}});$("[data-loot]").forEach(b=>b.onclick=async()=>{try{await act("loot");notice="";draw()}catch(x){notice=x.message;draw()}});$("[data-choice]").forEach(b=>b.onclick=async()=>{try{await act("choice",{choice:b.dataset.choice});notice="";draw()}catch(x){notice=x.message;draw()}})}
 function $$(s){return [...document.querySelectorAll(s)]}
 await restore();draw();setInterval(async()=>{if(sid&&state&&!document.hidden&&!state.combat){await shared();if(tab==="journal")draw()}},5000);
