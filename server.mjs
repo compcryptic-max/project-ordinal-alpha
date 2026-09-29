@@ -6,8 +6,11 @@ import {randomUUID,createHash} from "node:crypto";
 const PORT=Number(process.env.PORT||8787);
 const DB=process.env.DATABASE_URL||"";
 const pool=DB?new Pool({connectionString:DB,ssl:{rejectUnauthorized:false},max:5}):null;
-const memory=new Map();
-if(pool) await pool.query("create table if not exists ordinal_players (player_key text primary key, payload jsonb not null, updated_at timestamptz default now())");
+const memory=new Map(),regions=new Map();
+if(pool){
+ await pool.query("create table if not exists ordinal_players (player_key text primary key, payload jsonb not null, updated_at timestamptz default now())");
+ await pool.query("create table if not exists ordinal_regions (region_key text primary key, payload jsonb not null, updated_at timestamptz default now())");
+}
 const origins={
  Vanguard:{hp:125,skill:"Shield Break",weapon:"Iron Longsword"},
  Ranger:{hp:105,skill:"Piercing Shot",weapon:"Ashwood Bow"},
@@ -30,15 +33,25 @@ function regionFrom(lat,lon){
  }
  return {key:"demo-region",name:"Ashen Reach",source:"demo"};
 }
+function freshRegion(region){return {key:region.key,name:region.name,day:1,stage:"Unsettled",faction:"Wayfall Compact",corruption:37,order:48,prosperity:55,threat:31,ecology:{predators:42,prey:61,anomalies:18},history:[],discoveries:[]}}
 function freshPlayer(key,name,origin,region){
  const o=origins[origin]||origins.Rogue;
- return {key,name:String(name||"Wayfarer").slice(0,18),origin:origins[origin]?origin:"Rogue",level:1,xp:0,xpNeeded:100,gold:35,hp:o.hp,maxHp:o.hp,skill:o.skill,inventory:[{id:"starter",name:o.weapon,rarity:"Common"},{id:"potion",name:"Wayfarer Tonic",rarity:"Uncommon",qty:2}],equipment:{weapon:"starter"},titles:[],reputation:0,region:{key,name:region.name,day:1,stage:"Unsettled",faction:"Wayfall Compact",corruption:37,order:48,prosperity:55,threat:31,ecology:{predators:42,prey:61,anomalies:18},history:[],discoveries:[]},rumor:null,combat:null,pendingChoice:null,feed:[{text:"You entered "+region.name+". The region was already moving before you arrived."}]};
+ return {key,name:String(name||"Wayfarer").slice(0,18),origin:origins[origin]?origin:"Rogue",level:1,xp:0,xpNeeded:100,gold:35,hp:o.hp,maxHp:o.hp,skill:o.skill,inventory:[{id:"starter",name:o.weapon,rarity:"Common"},{id:"potion",name:"Wayfarer Tonic",rarity:"Uncommon",qty:2}],equipment:{weapon:"starter"},titles:[],reputation:0,region:freshRegion(region),rumor:null,combat:null,pendingChoice:null,feed:[{text:"You entered "+region.name+". The region was already moving before you arrived."}]};
 }
 async function load(key){
  if(pool){const {rows}=await pool.query("select payload from ordinal_players where player_key=$1",[key]);return rows[0]?.payload||null;}
  return memory.get(key)||null;
 }
+async function loadRegion(key){
+ if(pool){const {rows}=await pool.query("select payload from ordinal_regions where region_key=$1",[key]);return rows[0]?.payload||null;}
+ return regions.get(key)||null;
+}
+async function saveRegion(r){
+ regions.set(r.key,r);
+ if(pool)await pool.query("insert into ordinal_regions(region_key,payload,updated_at) values($1,$2::jsonb,now()) on conflict(region_key) do update set payload=excluded.payload,updated_at=now()",[r.key,JSON.stringify(r)]);
+}
 async function save(p){
+ await saveRegion(p.region);
  if(pool)await pool.query("insert into ordinal_players(player_key,payload,updated_at) values($1,$2::jsonb,now()) on conflict(player_key) do update set payload=excluded.payload,updated_at=now()",[p.key,JSON.stringify(p)]);
  else memory.set(p.key,clone(p));
 }
@@ -132,8 +145,14 @@ const server=http.createServer(async(req,res)=>{
   if(req.method==="GET"&&u.pathname==="/health")return json(res,200,{ok:true,name:"project-ordinal-alpha",version:"0.7.0",storage:pool?"postgres":"memory"});
   if(req.method==="POST"&&u.pathname==="/api/session"){
    const b=await body(req),key=String(b.playerKey||randomUUID()).replace(/[^a-zA-Z0-9_-]/g,"").slice(0,80),reg=regionFrom(b.lat,b.lon);
-   let p=await load(key);if(!p){p=freshPlayer(key,b.playerName,b.origin,reg);newRumor(p);}else addFeed(p,"Your character returned from persistent storage.");
-   const id=randomUUID();sessions.set(id,p);await save(p);return json(res,201,{sessionId:id,playerKey:key,regionKey:p.region.key,regionSource:p.region.key===reg.key?reg.source:"persistent",state:publicState(p)});
+   let p=await load(key);
+   if(!p){p=freshPlayer(key,b.playerName,b.origin,reg);newRumor(p);}
+   else {
+    addFeed(p,"Your character returned from persistent storage.");
+    if(reg.source==="coarse-location"&&reg.key!==p.region.key){p.region=(await loadRegion(reg.key))||freshRegion(reg);p.rumor=null;newRumor(p);addFeed(p,"TRAVEL — You crossed into "+p.region.name+".");}
+   }
+   const shared=(await loadRegion(p.region.key))||p.region;p.region=shared;regions.set(shared.key,shared);
+   const id=randomUUID();sessions.set(id,p);await save(p);return json(res,201,{sessionId:id,playerKey:key,regionKey:p.region.key,regionSource:reg.source,state:publicState(p)});
   }
   const m=u.pathname.match(/^\/api\/session\/([^/]+)(?:\/(.*))?$/);
   if(m){
