@@ -36,7 +36,7 @@ function regionFrom(lat,lon){
 function freshRegion(region){return {key:region.key,name:region.name,day:1,stage:"Unsettled",faction:"Wayfall Compact",corruption:37,order:48,prosperity:55,threat:31,ecology:{predators:42,prey:61,anomalies:18},history:[],discoveries:[]}}
 function freshPlayer(key,name,origin,region){
  const o=origins[origin]||origins.Rogue;
- return {key,name:String(name||"Wayfarer").slice(0,18),origin:origins[origin]?origin:"Rogue",level:1,xp:0,xpNeeded:100,gold:35,hp:o.hp,maxHp:o.hp,skill:o.skill,inventory:[{id:"starter",name:o.weapon,rarity:"Common"},{id:"potion",name:"Wayfarer Tonic",rarity:"Uncommon",qty:2}],equipment:{weapon:"starter"},titles:[],reputation:0,region:freshRegion(region),rumor:null,combat:null,pendingChoice:null,feed:[{text:"You entered "+region.name+". The region was already moving before you arrived."}]};
+ return {key,name:String(name||"Wayfarer").slice(0,18),origin:origins[origin]?origin:"Rogue",level:1,xp:0,xpNeeded:100,gold:35,hp:o.hp,maxHp:o.hp,skill:o.skill,inventory:[{id:"starter",name:o.weapon,rarity:"Common"},{id:"potion",name:"Wayfarer Tonic",rarity:"Uncommon",qty:2}],equipment:{weapon:"starter"},titles:[],reputation:0,region:freshRegion(region),rumor:null,combat:null,pendingLoot:null,pendingChoice:null,feed:[{text:"You entered "+region.name+". The region was already moving before you arrived."}]};
 }
 async function load(key){
  if(pool){const {rows}=await pool.query("select payload from ordinal_players where player_key=$1",[key]);return rows[0]?.payload||null;}
@@ -105,8 +105,8 @@ function fight(p,type){
  if(c.hp<=0){
   const enemy=c.name;p.combat=null;p.gold+=24+p.level*3;level(p,42);p.reputation+=2;
   const rare=(hash(p.key+enemy+p.region.day)%100)<18;
-  p.inventory.push({id:"loot-"+Date.now(),name:enemy==="Pale Hound"?(rare?"Pale Moon Edge":"Moon-Split Fang"):(rare?"Warden's Glassheart":"Veilbound Fragment"),rarity:rare?"Epic":"Rare"});
-  p.pendingChoice="glass-shrine";p.region.history.unshift(p.name+" defeated "+enemy+".");addFeed(p,enemy+" fell. The region remembers.");
+  p.pendingLoot={id:"loot-"+Date.now(),name:enemy==="Pale Hound"?(rare?"Pale Moon Edge":"Moon-Split Fang"):(rare?"Warden's Glassheart":"Veilbound Fragment"),rarity:rare?"Epic":"Rare",source:enemy};
+  p.pendingChoice=null;p.region.history.unshift(p.name+" defeated "+enemy+".");addFeed(p,enemy+" fell. Something remains in the Veil.");
   return;
  }
  if(type!=="potion"){
@@ -127,6 +127,10 @@ function evolveRegion(p){
  r.stage=r.corruption>=65?"Veil-Touched":r.threat>=60?"Besieged":r.order>=65?"Fortified":r.prosperity>=70?"Flourishing":"Unsettled";
  if(old!==r.stage){r.history.unshift("REGION SHIFT — "+r.name+" became "+r.stage+".");addFeed(p,"WORLD SHIFT — "+r.name+" is now "+r.stage+".");}
  r.history=r.history.slice(0,40);
+}
+function claimLoot(p){
+ if(!p.pendingLoot)return;
+ p.inventory.push(p.pendingLoot);addFeed(p,"RELIC ACQUIRED — "+p.pendingLoot.name+".");p.pendingLoot=null;p.pendingChoice="glass-shrine";
 }
 function shrine(p,choice){
  if(p.pendingChoice!=="glass-shrine")return;
@@ -163,6 +167,7 @@ const server=http.createServer(async(req,res)=>{
     const b=await body(req);
     if(action==="investigate")investigate(p);
     else if(action==="combat")fight(p,b.type);
+    else if(action==="loot")claimLoot(p);
     else if(action==="choice")shrine(p,b.choice);
     else if(action==="advance")advance(p);
     else return json(res,404,{ok:false,error:"route_not_found"});
