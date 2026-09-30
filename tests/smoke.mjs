@@ -1,5 +1,10 @@
 import {spawn,spawnSync} from "node:child_process";
 import process from "node:process";
+import {readFile} from "node:fs/promises";
+const gameSource=await readFile("public/game.js","utf8");
+if(/(?<!\\$)\\$\\("\\[data-[^"]+\\]"\\)\\.forEach/.test(gameSource))throw new Error("regression: querySelector used with forEach");
+if(!gameSource.includes('$=s=>[...document.querySelectorAll(s)]'))throw new Error("multi-selector helper missing");
+if(!gameSource.includes('function regionMap()'))throw new Error("regional map renderer missing");
 for(const file of ["server.mjs","public/game.js","public/effects.js"]){
  const c=spawnSync(process.execPath,["--check",file],{stdio:"pipe"});
  if(c.status!==0)throw new Error(file+" syntax check failed: "+c.stderr.toString());
@@ -17,6 +22,8 @@ try{
  const created=await fetch(base+"/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerKey:"smoke-player",playerName:"Smoke",origin:"Rogue"})}).then(r=>r.json());
  if(!created.sessionId||created.state.origin!=="Rogue")throw new Error("session create failed");
  const sid=created.sessionId;
+ const scout=await fetch(base+"/api/session/"+sid+"/scout",{method:"POST",headers:{"content-type":"application/json"},body:"{}"}).then(r=>r.json());
+ if(!(scout.state.region.discoveries||[]).includes("sunken-road"))throw new Error("scouting did not reveal first map landmark");
  const inv=await fetch(base+"/api/session/"+sid+"/investigate",{method:"POST",headers:{"content-type":"application/json"},body:"{}"}).then(r=>r.json());
  if(!inv.state.combat)throw new Error("investigate did not create combat");
  const hit=await fetch(base+"/api/session/"+sid+"/combat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({type:"attack"})}).then(r=>r.json());
