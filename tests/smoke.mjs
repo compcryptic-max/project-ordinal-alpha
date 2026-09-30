@@ -24,6 +24,9 @@ try{
  const created=await fetch(base+"/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerKey:"smoke-player",playerName:"Smoke",origin:"Rogue"})}).then(r=>r.json());
  if(!created.sessionId||created.state.origin!=="Rogue")throw new Error("session create failed");
  const sid=created.sessionId;
+ const peer=await fetch(base+"/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerKey:"smoke-peer",playerName:"Peer",origin:"Vanguard"})}).then(r=>r.json());
+ if(!peer.sessionId)throw new Error("peer session create failed");
+ const peerSid=peer.sessionId;
  if(!Array.isArray(created.state.field)||created.state.field.length<4)throw new Error("timed field nodes missing");
  if(!(created.state.ordinalRating>=100))throw new Error("ordinal rating missing");
  if(!created.state.region.objective?.title)throw new Error("shared regional directive missing");
@@ -33,6 +36,8 @@ try{
  const collected=await fetch(base+"/api/session/"+sid+"/collect",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({id:collectable.id})}).then(r=>r.json());
  if(!collected.state.activity.collected.includes(collectable.id))throw new Error("field collection failed");
  if(!(collected.state.region.objective.progress>=1))throw new Error("regional directive did not receive contribution");
+ const peerRefresh=await fetch(base+"/api/session/"+peerSid).then(r=>r.json());
+ if(peerRefresh.state.region.objective.progress!==collected.state.region.objective.progress)throw new Error("shared region state did not synchronize across sessions");
  if(!collected.state.journey?.title||!Array.isArray(collected.state.contractList))throw new Error("personal journey system missing");
  const called=await fetch(base+"/api/session/"+sid+"/calling",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({id:"hunter"})}).then(r=>r.json());
  if(called.state.journey.calling!=="hunter")throw new Error("calling selection failed");
@@ -42,6 +47,8 @@ try{
  const inv=await fetch(base+"/api/session/"+sid+"/investigate",{method:"POST",headers:{"content-type":"application/json"},body:"{}"}).then(r=>r.json());
  if(!inv.state.combat)throw new Error("investigate did not create combat");
  if(!inv.state.combat.modifier?.name||!inv.state.combat.archetype||inv.state.combat.break!==0)throw new Error("enemy archetype/modifier/Break system missing");
+ const failedSkill=await fetch(base+"/api/session/"+sid+"/combat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({type:"skill"})}).then(r=>r.json());
+ if(failedSkill.state.combat.turn!==inv.state.combat.turn||failedSkill.state.combat.flow!==inv.state.combat.flow||failedSkill.state.combat.lastAction!==inv.state.combat.lastAction)throw new Error("failed combat action mutated turn state");
  const hit=await fetch(base+"/api/session/"+sid+"/combat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({type:"attack"})}).then(r=>r.json());
  if(!(hit.state.combat?.hp<inv.state.combat.hp))throw new Error("combat attack did not deal damage");
  if(!(hit.state.mastery?.xp>0))throw new Error("mastery did not progress");
