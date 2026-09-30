@@ -38,6 +38,7 @@ try{
  if(!(scout.state.region.discoveries||[]).includes("sunken-road"))throw new Error("scouting did not reveal first map landmark");
  const inv=await fetch(base+"/api/session/"+sid+"/investigate",{method:"POST",headers:{"content-type":"application/json"},body:"{}"}).then(r=>r.json());
  if(!inv.state.combat)throw new Error("investigate did not create combat");
+ if(!inv.state.combat.modifier?.name||!inv.state.combat.archetype||inv.state.combat.break!==0)throw new Error("enemy archetype/modifier/Break system missing");
  const hit=await fetch(base+"/api/session/"+sid+"/combat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({type:"attack"})}).then(r=>r.json());
  if(!(hit.state.combat?.hp<inv.state.combat.hp))throw new Error("combat attack did not deal damage");
  if(!(hit.state.mastery?.xp>0))throw new Error("mastery did not progress");
