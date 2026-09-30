@@ -176,7 +176,7 @@ function claimContract(p,id){
 }
 function freshPlayer(key,name,origin,region){
  const o=origins[origin]||origins.Rogue;
- return {key,name:String(name||"Wayfarer").slice(0,18),origin:origins[origin]?origin:"Rogue",level:1,xp:0,xpNeeded:100,gold:35,hp:o.hp,maxHp:o.hp,skill:o.skill,inventory:[{id:"starter",name:o.weapon,rarity:"Common",power:2,trait:"Wayfarer Issue"},{id:"potion",name:"Wayfarer Tonic",rarity:"Uncommon",qty:2}],equipment:{weapon:"starter"},mastery:{rank:1,xp:0,next:25,name:"Unproven"},travel:{mode:"explore",lastChangeAt:0,changes:0},titles:[],activeTitle:null,stats:{kills:0,perfectGuards:0,perfectEvades:0,elites:0,scans:0,relics:0},codex:{enemies:{}},reputation:0,activity:{date:utcDay(),streak:0,lastCheckin:null,collected:[],dailyScore:0,totalFieldActions:0},journey:null,contracts:{field:0,hunts:0,discoveries:0,completed:0},region:freshRegion(region),rumor:null,combat:null,pendingLoot:null,pendingChoice:null,feed:[{text:"You entered "+region.name+". The region was already moving before you arrived."}]};
+ return {key,name:String(name||"Wayfarer").slice(0,18),origin:origins[origin]?origin:"Rogue",level:1,xp:0,xpNeeded:100,gold:35,hp:o.hp,maxHp:o.hp,skill:o.skill,inventory:[{id:"starter",name:o.weapon,rarity:"Common",power:2,trait:"Wayfarer Issue"},{id:"potion",name:"Wayfarer Tonic",rarity:"Uncommon",qty:2}],equipment:{weapon:"starter"},mastery:{rank:1,xp:0,next:25,name:"Unproven"},path:{attack:0,guard:0,evade:0,skill:0,specialization:null,revealedAt:0},travel:{mode:"explore",lastChangeAt:0,changes:0},titles:[],activeTitle:null,stats:{kills:0,perfectGuards:0,perfectEvades:0,elites:0,scans:0,relics:0},codex:{enemies:{}},reputation:0,activity:{date:utcDay(),streak:0,lastCheckin:null,collected:[],dailyScore:0,totalFieldActions:0},journey:null,contracts:{field:0,hunts:0,discoveries:0,completed:0},region:freshRegion(region),rumor:null,combat:null,pendingEncounter:null,pendingLoot:null,pendingChoice:null,feed:[{text:"You entered "+region.name+". The region was already moving before you arrived."}]};
 }
 async function load(key){
  if(pool){const {rows}=await pool.query("select payload from ordinal_players where player_key=$1",[key]);return rows[0]?.payload||null;}
@@ -247,17 +247,31 @@ function enemyIntent(c){
  return t%3===0?"HEAVY ATTACK TELEGRAPHED — GUARD OR EVADE.":"The enemy searches for an opening.";
 }
 function weaponPower(p){const w=p.inventory.find(i=>i.id===p.equipment?.weapon);return Number(w?.power||0)}
+function ensurePath(p){p.path??={attack:0,guard:0,evade:0,skill:0,specialization:null,revealedAt:0};return p.path}
+function trainPath(p,type){
+ const path=ensurePath(p);if(!["attack","guard","evade","skill"].includes(type))return;
+ path[type]=(path[type]||0)+1;
+ if(!path.specialization){
+  const total=path.attack+path.guard+path.evade+path.skill;
+  if(total>=25){
+   const lead=Object.entries({attack:path.attack,guard:path.guard,evade:path.evade,skill:path.skill}).sort((a,b)=>b[1]-a[1])[0][0];
+   path.specialization={attack:"Duelist",guard:"Warden",evade:"Nightstalker",skill:"Hexbinder"}[lead];path.revealedAt=total;
+   addFeed(p,"HIDDEN PATH REVEALED — "+path.specialization+". Your combat habits shaped this specialization.");
+   awardTitle(p,path.specialization,"Reveal a hidden specialization through combat behavior.");
+  }
+ }
+}
 function combatProfile(p){
- const rank=p.mastery?.rank||1,w=Math.max(0,weaponPower(p)),item=p.inventory.find(i=>i.id===p.equipment?.weapon),trait=item?.trait||"";
+ const rank=p.mastery?.rank||1,w=Math.max(0,weaponPower(p)),item=p.inventory.find(i=>i.id===p.equipment?.weapon),trait=item?.trait||"",spec=ensurePath(p).specialization||"";
  return {
   attack:10+p.level*2+Math.round(w*.65)+rank,
   skill:22+p.level*3+Math.round(w*.8)+rank*2,
-  guard:(p.origin==="Vanguard"?.08:0)+(trait==="Prism Guard"?.05:0),
-  evade:(p.origin==="Rogue"?.10:0)+(trait==="Veilstep"?.06:0),
+  guard:(p.origin==="Vanguard"?.08:0)+(trait==="Prism Guard"?.05:0)+(spec==="Warden"?.03:0),
+  evade:(p.origin==="Rogue"?.10:0)+(trait==="Veilstep"?.06:0)+(spec==="Nightstalker"?.03:0),
   skillCost:p.origin==="Arcanist"?32:38,
-  crit:(p.origin==="Ranger"?.12:0)+(trait==="Predator's Tempo"?.05:0),
+  crit:(p.origin==="Ranger"?.12:0)+(trait==="Predator's Tempo"?.05:0)+(spec==="Duelist"?.03:0),
   focusGain:trait==="Predator's Tempo"?4:0,
-  skillMult:trait==="Veil-Touched"?1.08:1,
+  skillMult:(trait==="Veil-Touched"?1.08:1)*(spec==="Hexbinder"?1.05:1),
   execute:trait==="Executioner"?.12:0,
   trait
  };
@@ -274,7 +288,7 @@ function fight(p,type){
  if(type==="dodge"&&c.stamina<24){c.lastResult="Not enough stamina to evade.";return;}
  if(type==="attack"&&c.stamina<8){c.lastResult="You are exhausted. Guard to recover stamina.";return;}
  if(type==="potion"&&!p.inventory.some(i=>i.id==="potion"&&(i.qty||0)>0)){c.lastResult="No tonics remain.";return;}
- c.lastResult="";
+ c.lastResult="";trainPath(p,type);
  const heavy=/HEAVY/.test(c.intent),repeat=c.lastAction===type,mod=c.modifier||{},wasExposed=(c.exposed||0)>0;
  c.flow=Math.max(0,Math.min(5,repeat?c.flow-1:c.flow+1));c.lastAction=type;
  const flowMult=1+c.flow*.04;
@@ -394,7 +408,7 @@ function propagateRegion(region){
  regions.set(region.key,region);
  for(const other of sessions.values())if(other.region?.key===region.key)other.region=region;
 }
-function publicState(p){ensureJourney(p);ensureProgress(p);checkFeats(p);ensureRegionObjective(p.region);const x=clone(p);x.field=fieldState(p);x.contractList=contractState(p);x.callingOptions=callings;x.ordinalRating=ordinalRating(p);x.serverNow=Date.now();return x;}
+function publicState(p){ensureJourney(p);ensureProgress(p);ensurePath(p);checkFeats(p);ensureRegionObjective(p.region);const x=clone(p);x.field=fieldState(p);x.contractList=contractState(p);x.callingOptions=callings;x.ordinalRating=ordinalRating(p);x.serverNow=Date.now();return x;}
 function json(res,status,data){res.writeHead(status,{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"});res.end(JSON.stringify(data));}
 async function body(req){let s="";for await(const c of req){s+=c;if(s.length>100000)throw Error("body_too_large");}return s?JSON.parse(s):{};}
 const sessions=new Map();
