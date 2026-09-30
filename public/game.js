@@ -1,4 +1,4 @@
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],SK="ordinal-session",PK="ordinal-player";let sid=localStorage.getItem(SK),pk=localStorage.getItem(PK),state=null,origin="Rogue",tab="map",notice="",presence=[],lastHp=null,lastPlayerHp=null,actionBusy=false,fieldFocus=null,fieldStep=0,recoveryCode="";
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],SK="ordinal-session",PK="ordinal-player";let sid=localStorage.getItem(SK),pk=localStorage.getItem(PK),state=null,origin="Rogue",tab="map",notice="",presence=[],lastHp=null,lastPlayerHp=null,actionBusy=false,fieldFocus=null,fieldStep=0,recoveryCode="",lensOpen=false,lensStream=null;
 let audioCtx=null;
 function sfx(kind){
  try{
@@ -83,13 +83,26 @@ function ico(n,cls=""){
 function fieldIcon(kind){return ico(kind==="signal"?"signal":kind==="cache"?"cache":kind==="echo"?"echo":kind==="resource"?"trace":"event")}
 function hash32(v){let h=2166136261;for(const c of String(v)){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
 function worldIntel(){const r=state.region,e=r.ecology||{},rule=state.regionRule||{};return '<div class="world-intel"><div><small>VEIL WEATHER</small><b>'+(e.anomalies>55?'ARC STORM':e.anomalies>30?'DRIFTING MIST':'CLEAR VEIL')+'</b></div><div><small>REGION ACTIVITY</small><b>'+presence.length+' WAYFARER'+(presence.length===1?'':'S')+'</b></div><div><small>WORLD STATE</small><b>'+esc(r.stage).toUpperCase()+'</b></div><div class="region-rule"><small>'+esc(rule.label||"REGION EFFECT")+'</small><b>'+esc(rule.desc||"No dominant regional modifier.")+'</b></div></div>'}
+function veilLens(){
+ const nodes=(state.field||[]).filter(n=>!n.collected),r=state.region;
+ return '<div class="veil-lens"><video id="lens-video" autoplay muted playsinline></video><div class="lens-shade"></div><div class="lens-grid"></div><div class="lens-scan"></div><header class="lens-hud"><button data-lens-close>×</button><div><small>ORDINAL // VEIL LENS</small><b>'+esc(r.name).toUpperCase()+'</b></div><div class="lens-rating"><small>RATING</small><strong>'+(state.ordinalRating||100)+'</strong></div></header><div class="lens-compass"><span>NW</span><b>N</b><span>NE</span></div><div class="lens-reticle"><i></i><span>LIVE FIELD</span></div>'+
+ nodes.slice(0,5).map((n,i)=>'<button class="lens-contact '+esc(n.kind)+'" style="left:'+(14+(hash32(n.id)%72))+'%;top:'+(25+(hash32(n.id+"y")%43))+'%" '+(n.action==="investigate"?'data-lens-investigate':'data-lens-node="'+esc(n.id)+'"')+'><i>'+fieldIcon(n.kind)+'</i><b>'+esc(n.label)+'</b><small>'+Math.round(n.distance)+'m</small><span></span></button>').join("")+
+ '<div class="lens-threat"><span></span><div><small>FIELD DENSITY</small><b>'+nodes.length+' ACTIVE CONTACTS</b></div></div><div class="lens-footer"><div><small>VEIL STATE</small><b>'+esc(r.stage).toUpperCase()+'</b></div><button data-lens-pulse>'+ico("radar")+' PULSE SCAN</button><div><small>THREAT</small><b>'+r.threat+'%</b></div></div></div>'
+}
+async function openLens(){
+ if(!navigator.mediaDevices?.getUserMedia){notice="VEIL LENS requires camera access on a supported secure browser.";return draw()}
+ try{lensStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}},audio:false});lensOpen=true;notice="";draw();attachLensStream();sfx("signal")}
+ catch{notice="Camera access was not granted. The Field remains fully playable without Veil Lens.";lensOpen=false;draw()}
+}
+function attachLensStream(){const v=$("#lens-video");if(v&&lensStream&&v.srcObject!==lensStream){v.srcObject=lensStream;v.play().catch(()=>{})}}
+function closeLens(){lensOpen=false;if(lensStream){lensStream.getTracks().forEach(t=>t.stop());lensStream=null}draw()}
 function regionMap(){
  const r=state.region,nodes=state.field||[],a=state.activity||{},rating=state.ordinalRating||100,objective=r.objective;
  const active=nodes.filter(n=>!n.collected),nearest=[...active].sort((x,y)=>x.distance-y.distance)[0];
  const weather=(r.ecology?.anomalies||0)>55?"ARC INTERFERENCE":(r.ecology?.anomalies||0)>30?"VEIL HAZE":"CLEAR SIGNAL";
  const checked=a.lastCheckin===new Date().toISOString().slice(0,10);
  return '<main class="field-home">'+
-  '<header class="field-top"><div class="field-brand"><span class="ordinal-mark">O</span><div><small>ORDINAL // FIELD NETWORK</small><b>'+esc(r.name)+'</b></div></div><div class="rating-chip"><small>RATING</small><strong>'+rating+'</strong></div></header>'+
+  '<header class="field-top"><div class="field-brand"><span class="ordinal-mark">O</span><div><small>ORDINAL // FIELD NETWORK</small><b>'+esc(r.name)+'</b></div></div><div class="field-head-actions"><button class="lens-launch" data-lens-open>'+ico("radar")+' LENS</button><div class="rating-chip"><small>RATING</small><strong>'+rating+'</strong></div></div></header>'+
   '<section class="field-status"><span>'+ico("pin")+' LOCATION SYNCED</span><span>'+ico("signal")+' '+weather+'</span><span class="'+(state.travel?.mode==="transit"?"warn":"")+'">'+ico("bolt")+' '+(state.travel?.mode==="transit"?"TRANSIT":"FIELD ACTIVE")+'</span></section>'+
   '<section class="live-map"><div class="map-mesh"></div><div class="sector-lines"></div><div class="range-ring rr1"></div><div class="range-ring rr2"></div><div class="range-ring rr3"></div>'+
    '<div class="heading-strip"><span>NW</span><span>N</span><span>NE</span><span>E</span></div>'+
@@ -137,17 +150,23 @@ function journal(){
  '<div class="subhead"><div><small>RECENT</small><b>Your field record</b></div></div><div class="list">'+state.feed.slice(0,8).map(x=>'<div class="row"><b>'+esc(x.text)+'</b></div>').join("")+'</div></div>'
 }
 function nav(){const items=[["map","map","FIELD"],["nearby","radar","NEARBY"],["inventory","gear","GEAR"],["journal","log","LOG"]];return '<div class="bottomnav"><div class="navinner">'+items.map(([t,i,l])=>'<button class="navbtn '+(tab===t?"active":"")+'" data-tab="'+t+'"><i>'+ico(i)+'</i><span>'+l+'</span></button>').join("")+'</div></div>'}
-function game(){if(state.combat)return combat();if(state.pendingEncounter)return encounterReveal();if(state.pendingLoot)return lootReveal();if(state.pendingChoice)return choice();const biome=state.region.name.toLowerCase().replace(/[^a-z]+/g,"-");return '<div class="game field-shell biome-'+biome+(state.travel?.mode==="transit"?" travel-paused":"")+'"><div class="world-bg"></div><div class="mist"></div>'+(tab==="map"?regionMap():tab==="nearby"?nearby():tab==="inventory"?inventory():journal())+fieldInteraction()+nav()+'</div>'}
+function game(){if(state.combat)return combat();if(state.pendingEncounter)return encounterReveal();if(state.pendingLoot)return lootReveal();if(state.pendingChoice)return choice();if(lensOpen)return veilLens()+fieldInteraction();const biome=state.region.name.toLowerCase().replace(/[^a-z]+/g,"-");return '<div class="game field-shell biome-'+biome+(state.travel?.mode==="transit"?" travel-paused":"")+'"><div class="world-bg"></div><div class="mist"></div>'+(tab==="map"?regionMap():tab==="nearby"?nearby():tab==="inventory"?inventory():journal())+fieldInteraction()+nav()+'</div>'}
 function render(){return !state?startView():game()}
 
-function draw(){ $("#app").innerHTML=(notice?'<div class="notice">'+esc(notice)+'</div>':"")+render();wire()}
+function draw(){ $("#app").innerHTML=(notice?'<div class="notice">'+esc(notice)+'</div>':"")+render();wire();if(lensOpen)attachLensStream()}
 function wire(){
  $$("[data-origin]").forEach(b=>b.onclick=()=>{origin=b.dataset.origin;draw()});
  const e=$("#enter");if(e)e.onclick=async()=>{try{e.disabled=true;e.textContent="CONNECTING…";await start();notice="";draw()}catch(x){notice=x.message;draw()}};
  const recover=$("#recover");if(recover)recover.onclick=async()=>{const code=$("#recovery-input")?.value?.trim();if(!code)return;try{recover.disabled=true;recover.textContent="LINKING…";const j=await api("/api/recovery/use",{method:"POST",body:{code}});sid=j.sessionId;pk=j.playerKey;state=j.state;localStorage.setItem(SK,sid);localStorage.setItem(PK,pk);await shared();tab="map";notice="WAYFARER RECOVERED · this device is now linked.";draw()}catch(x){notice=x.message;draw()}};
 
  $$("[data-tab]").forEach(b=>b.onclick=()=>{tab=b.dataset.tab;draw()});
- $$("[data-map-world]").forEach(b=>b.onclick=()=>{tab="map";draw()});
+ $("[data-map-world]").forEach(b=>b.onclick=()=>{tab="map";draw()});
+ $("[data-lens-open]").forEach(b=>b.onclick=openLens);
+ $("[data-lens-close]").forEach(b=>b.onclick=closeLens);
+ $("[data-lens-pulse]").forEach(b=>b.onclick=()=>{sfx("signal");document.querySelector(".veil-lens")?.classList.add("pulse-active");setTimeout(()=>document.querySelector(".veil-lens")?.classList.remove("pulse-active"),900)});
+ $("[data-lens-node]").forEach(b=>b.onclick=()=>{fieldFocus=b.dataset.lensNode;fieldStep=0;sfx("signal");draw();attachLensStream()});
+ $("[data-lens-investigate]").forEach(b=>b.onclick=async()=>{try{await act("investigate");closeLens()}catch(x){notice=x.message;draw();attachLensStream()}});
+
  $$("[data-simple]").forEach(b=>b.onclick=async()=>{try{sfx("signal");await act(b.dataset.simple);notice="";draw()}catch(x){notice=x.message;draw()}});
  $$("[data-field-id]").forEach(b=>b.onclick=()=>{fieldFocus=b.dataset.fieldId;fieldStep=0;sfx("signal");draw()});
  $$("[data-recovery-create]").forEach(b=>b.onclick=async()=>{try{const j=await api("/api/recovery/create",{method:"POST",body:{sessionId:sid}});recoveryCode=j.code;notice="Recovery code generated. Keep it private.";draw()}catch(x){notice=x.message;draw()}});
