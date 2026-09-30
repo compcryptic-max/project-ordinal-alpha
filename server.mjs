@@ -33,7 +33,19 @@ function regionFrom(lat,lon){
  }
  return {key:"demo-region",name:"Ashen Reach",source:"demo"};
 }
-function freshRegion(region){return {key:region.key,name:region.name,day:1,stage:"Unsettled",faction:"Wayfall Compact",corruption:37,order:48,prosperity:55,threat:31,ecology:{predators:42,prey:61,anomalies:18},nemesis:null,history:[],discoveries:[]}}
+function freshRegion(region){return {key:region.key,name:region.name,day:1,stage:"Unsettled",faction:"Wayfall Compact",corruption:37,order:48,prosperity:55,threat:31,ecology:{predators:42,prey:61,anomalies:18},nemesis:null,objective:null,history:[],discoveries:[]}}
+function ensureRegionObjective(r){
+ if(!r.objective||r.objective.day!==r.day){
+  const spec=r.threat>=52?["Suppress the Surge","Hunt threats until the local signal stabilizes.","hunt",12]:r.corruption>=52?["Seal the Fractures","Recover Field anomalies and weaken the Veil.","field",15]:["Hold the Line","Any active Wayfarer can help stabilize this sector.","any",18];
+  r.objective={day:r.day,title:spec[0],desc:spec[1],metric:spec[2],progress:0,target:spec[3],complete:false};
+ }
+ return r.objective;
+}
+function regionContribution(p,type,amount=1){
+ const o=ensureRegionObjective(p.region);if(o.complete||!(o.metric===type||o.metric==="any"))return;
+ o.progress=Math.min(o.target,o.progress+Math.max(1,amount));
+ if(o.progress>=o.target){o.complete=true;p.region.threat=Math.max(5,p.region.threat-6);p.region.corruption=Math.max(0,p.region.corruption-4);p.region.order=Math.min(100,p.region.order+4);p.region.prosperity=Math.min(100,p.region.prosperity+3);p.region.history.unshift("REGIONAL DIRECTIVE COMPLETE — "+o.title+". Wayfarers stabilized the sector.");addFeed(p,"WORLD EVENT COMPLETE — "+o.title+". The entire region benefits.");}
+}
 function utcDay(){return new Date().toISOString().slice(0,10)}
 function ensureActivity(p){
  const today=utcDay();
@@ -58,7 +70,7 @@ function fieldState(p){
 function fieldCollect(p,id){
  const a=ensureActivity(p),node=fieldState(p).find(n=>n.id===id);
  if(!node||node.action!=="collect"||node.collected)return;
- a.collected.push(id);a.totalFieldActions++;a.dailyScore++;journeyAction(p,"field",1);
+ a.collected.push(id);a.totalFieldActions++;a.dailyScore++;journeyAction(p,"field",1);regionContribution(p,"field",1);
  if(node.kind==="cache"){p.gold+=6;level(p,12);if((hash(p.key+id)%100)<28){let pot=p.inventory.find(i=>i.id==="potion");if(pot)pot.qty=(pot.qty||0)+1;else p.inventory.push({id:"potion",name:"Wayfarer Tonic",rarity:"Uncommon",qty:1});addFeed(p,"CACHE BONUS — Wayfarer Tonic recovered.");}}
  else if(node.kind==="echo"){p.reputation+=1;level(p,8);}
  else if(node.kind==="event"){p.reputation+=2;level(p,10);p.region.threat=Math.max(5,p.region.threat-1);}
@@ -288,7 +300,7 @@ function fight(p,type){
   const enemy=c.name,nemesisKill=c.nemesisPower>0;ensureProgress(p);p.stats.kills++;if(c.elite)p.stats.elites++;p.codex.enemies[enemy]=(p.codex.enemies[enemy]||0)+1;checkFeats(p);p.combat=null;p.gold+=24+p.level*3+(nemesisKill?c.nemesisPower*18:0);level(p,42+(nemesisKill?20:0));p.reputation+=2+(nemesisKill?2:0);if(nemesisKill){p.region.history.unshift(p.name+" ended the Nemesis "+enemy+" after "+p.region.nemesis.victories+" recorded victory.");p.region.nemesis=null;}
   const rare=(hash(p.key+enemy+p.region.day)%100)<18;
   p.pendingLoot={id:"loot-"+Date.now(),name:enemy==="Pale Hound"?(rare?"Pale Moon Edge":"Moon-Split Fang"):(rare?"Warden's Glassheart":"Veilbound Fragment"),rarity:rare?"Epic":"Rare",source:enemy,power:4+Math.ceil(p.level*1.35)+(rare?4:0),trait:enemy==="Pale Hound"?"Predator's Tempo":enemy==="Glass Warden"?"Prism Guard":enemy==="Veil Stalker"?"Veilstep":enemy==="Hollow Marauder"?"Executioner":"Veil-Touched"};
-  p.pendingChoice=null;p.region.history.unshift(p.name+" defeated "+enemy+".");journeyAction(p,"hunt",2);addFeed(p,enemy+" fell. Something remains in the Veil.");return;
+  p.pendingChoice=null;p.region.history.unshift(p.name+" defeated "+enemy+".");journeyAction(p,"hunt",2);regionContribution(p,"hunt",c.elite?2:1);addFeed(p,enemy+" fell. Something remains in the Veil.");return;
  }
  let incoming=((heavy?18:9)+p.level*1.15+p.region.threat/15+(c.phase===2?3:0)+(c.nemesisPower||0)*2)*(mod.damage||1);
  if(/Marauder/i.test(c.name))incoming+=3;if(/Hound/i.test(c.name)&&heavy)incoming+=2;
@@ -327,7 +339,7 @@ function claimLoot(p){
 }
 function shrine(p,choice){
  if(p.pendingChoice!=="glass-shrine")return;
- if(choice==="cleanse"){p.region.corruption=Math.max(0,p.region.corruption-9);p.region.order=Math.min(100,p.region.order+6);p.region.history.unshift(p.name+" cleansed the Glass Shrine.");addFeed(p,"The shrine clears. Order strengthens.");}
+ if(choice==="cleanse"){regionContribution(p,"field",3);p.region.corruption=Math.max(0,p.region.corruption-9);p.region.order=Math.min(100,p.region.order+6);p.region.history.unshift(p.name+" cleansed the Glass Shrine.");addFeed(p,"The shrine clears. Order strengthens.");}
  else {p.region.corruption=Math.min(100,p.region.corruption+7);p.region.threat=Math.min(100,p.region.threat+5);p.gold+=40;p.region.history.unshift(p.name+" bound the Glass Shrine.");addFeed(p,"You bind the shrine and take its power.");}
  p.pendingChoice=null;p.rumor=null;evolveRegion(p);
 }
@@ -350,7 +362,7 @@ async function relocate(p,lat,lon){
  p.region=(await loadRegion(reg.key))||freshRegion(reg);p.rumor=null;newRumor(p);
  addFeed(p,(rapid?"TRAVEL MODE — rapid movement detected. Combat signals are suppressed.":"REGION CROSSED — ")+p.region.name+".");
 }
-function publicState(p){ensureJourney(p);ensureProgress(p);checkFeats(p);const x=clone(p);x.field=fieldState(p);x.contractList=contractState(p);x.callingOptions=callings;x.ordinalRating=ordinalRating(p);x.serverNow=Date.now();return x;}
+function publicState(p){ensureJourney(p);ensureProgress(p);checkFeats(p);ensureRegionObjective(p.region);const x=clone(p);x.field=fieldState(p);x.contractList=contractState(p);x.callingOptions=callings;x.ordinalRating=ordinalRating(p);x.serverNow=Date.now();return x;}
 function json(res,status,data){res.writeHead(status,{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"});res.end(JSON.stringify(data));}
 async function body(req){let s="";for await(const c of req){s+=c;if(s.length>100000)throw Error("body_too_large");}return s?JSON.parse(s):{};}
 const sessions=new Map();
