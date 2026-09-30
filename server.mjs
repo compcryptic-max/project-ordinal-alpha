@@ -58,11 +58,26 @@ function fieldCollect(p,id){
  const a=ensureActivity(p),node=fieldState(p).find(n=>n.id===id);
  if(!node||node.action!=="collect"||node.collected)return;
  a.collected.push(id);a.totalFieldActions++;a.dailyScore++;journeyAction(p,"field",1);
- if(node.kind==="cache"){p.gold+=6;level(p,12);}
+ if(node.kind==="cache"){p.gold+=6;level(p,12);if((hash(p.key+id)%100)<28){let pot=p.inventory.find(i=>i.id==="potion");if(pot)pot.qty=(pot.qty||0)+1;else p.inventory.push({id:"potion",name:"Wayfarer Tonic",rarity:"Uncommon",qty:1});addFeed(p,"CACHE BONUS — Wayfarer Tonic recovered.");}}
  else if(node.kind==="echo"){p.reputation+=1;level(p,8);}
  else if(node.kind==="event"){p.reputation+=2;level(p,10);p.region.threat=Math.max(5,p.region.threat-1);}
  else level(p,10);
  addFeed(p,"FIELD RECOVERY — "+node.label+" secured.");
+}
+function roam(p){
+ if(p.combat||p.pendingChoice)return;
+ const a=ensureActivity(p),now=Date.now(),wait=12000-(now-(a.lastRoamAt||0));
+ if(wait>0){addFeed(p,"DEEP SCAN — signal resolving. "+Math.ceil(wait/1000)+"s.");return;}
+ a.lastRoamAt=now;a.roams++;a.totalFieldActions++;
+ const roll=hash(p.key+":"+a.roams+":"+Math.floor(now/12000))%100;
+ if(roll<58){
+  if(!p.rumor)newRumor(p);investigate(p);addFeed(p,"DEEP SCAN — a roaming hostile answered your signal.");
+ }else{
+  const finds=["Veil residue","Broken waypoint","Forgotten inscription","Aether bloom","Unregistered footprint"];
+  const found=finds[roll%finds.length];level(p,6);journeyAction(p,"field",1);p.contracts.field++;a.dailyScore++;
+  if(roll>90)p.reputation+=1;
+  addFeed(p,"DEEP SCAN — "+found+" recovered. The trail continues.");
+ }
 }
 function checkin(p){
  const a=ensureActivity(p),today=utcDay();
@@ -322,6 +337,7 @@ const server=http.createServer(async(req,res)=>{
     else if(action==="advance")advance(p);
     else if(action==="scout")scout(p);
     else if(action==="collect")fieldCollect(p,String(b.id||""));
+    else if(action==="roam")roam(p);
     else if(action==="checkin")checkin(p);
     else if(action==="calling")chooseCalling(p,String(b.id||""));
     else if(action==="contract")claimContract(p,String(b.id||""));
