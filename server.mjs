@@ -76,6 +76,21 @@ function simulateRegion(r){
  if(old!==r.stage){r.history.unshift("WORLD PULSE — "+r.name+" shifted from "+old+" to "+r.stage+" while the region evolved.");r.history=r.history.slice(0,40)}
  return r;
 }
+function ensureApex(r){
+ const day=utcDay();if(!r.apex||r.apex.date!==day){const pool=["Crowned Rift Weaver","Sovereign Mirehorn","Ascendant Glass Warden","Ash Revenant Prime"],name=pool[hash(r.key+":"+day+":apex")%pool.length];r.apex={date:day,name,seals:0,target:5,complete:false,contributors:[]};}
+ return r.apex;
+}
+function enterApex(p){
+ if(p.combat||p.pendingEncounter)return;const a=ensureApex(p.region);
+ if(a.complete){addFeed(p,"APEX INCURSION — this region has already sealed "+a.name+" today.");return;}
+ startEncounter(p,a.name,2);p.combat.apex=true;p.combat.lastResult="APEX INCURSION — shared regional target engaged.";addFeed(p,"APEX ENGAGED — your victory will damage the shared incursion.");
+}
+function apexVictory(p,name){
+ const a=ensureApex(p.region);if(a.complete||a.name!==name)return;
+ a.seals=Math.min(a.target,a.seals+1);if(!a.contributors.includes(p.name))a.contributors.push(p.name);p.gold+=12;p.reputation+=1;
+ if(a.seals>=a.target){a.complete=true;p.region.threat=Math.max(5,p.region.threat-8);p.region.order=Math.min(100,p.region.order+5);p.region.history.unshift("APEX SEALED — "+a.name+" was defeated by "+a.contributors.join(", ")+".");addFeed(p,"APEX SEALED — the entire region stabilizes.");}
+ else addFeed(p,"APEX DAMAGE — "+a.seals+"/"+a.target+" seals broken across the region.");
+}
 function ensureRegionObjective(r){
  if(!r.objective||r.objective.day!==r.day){
   const spec=r.threat>=52?["Suppress the Surge","Hunt threats until the local signal stabilizes.","hunt",12]:r.corruption>=52?["Seal the Fractures","Recover Field anomalies and weaken the Veil.","field",15]:["Hold the Line","Any active Wayfarer can help stabilize this sector.","any",18];
@@ -398,9 +413,9 @@ function fight(p,type){
  if(dmg)c.hp=Math.max(0,c.hp-dmg);
  if(c.hp<=Math.ceil(c.maxHp*.45)&&c.phase===1){c.phase=2;c.lastResult+=" The enemy enters a desperate second phase.";addFeed(p,c.name+" entered PHASE II.");}
  if(c.hp<=0){
-  const enemy=c.name,nemesisKill=c.nemesisPower>0;ensureProgress(p);p.stats.kills++;if(c.elite)p.stats.elites++;p.codex.enemies[enemy]=(p.codex.enemies[enemy]||0)+1;checkFeats(p);p.combat=null;p.gold+=24+p.level*3+(nemesisKill?c.nemesisPower*18:0);level(p,42+(nemesisKill?20:0));p.reputation+=2+(nemesisKill?2:0);if(nemesisKill){p.region.history.unshift(p.name+" ended the Nemesis "+enemy+" after "+p.region.nemesis.victories+" recorded victory.");p.region.nemesis=null;}
+  const enemy=c.name,nemesisKill=c.nemesisPower>0,apexKill=!!c.apex;ensureProgress(p);p.stats.kills++;if(c.elite)p.stats.elites++;p.codex.enemies[enemy]=(p.codex.enemies[enemy]||0)+1;checkFeats(p);p.combat=null;p.gold+=24+p.level*3+(nemesisKill?c.nemesisPower*18:0);level(p,42+(nemesisKill?20:0));p.reputation+=2+(nemesisKill?2:0);if(nemesisKill){p.region.history.unshift(p.name+" ended the Nemesis "+enemy+" after "+p.region.nemesis.victories+" recorded victory.");p.region.nemesis=null;}
   const rare=(hash(p.key+enemy+p.region.day)%100)<18+regionRules(p.region).rare+Math.min(5,Math.floor((ensureActivity(p).momentum||0)/10));
-  p.pendingLoot=enemyLoot(enemy,rare,p.level);
+  p.pendingLoot=enemyLoot(enemy,rare,p.level);if(apexKill)apexVictory(p,enemy);
   p.pendingChoice=null;p.region.history.unshift(p.name+" defeated "+enemy+".");journeyAction(p,"hunt",2);regionContribution(p,"hunt",c.elite?2:1);addFeed(p,enemy+" fell. Something remains in the Veil.");return;
  }
  let incoming=((heavy?18:9)+p.level*1.15+p.region.threat/15+(c.phase===2?3:0)+(c.nemesisPower||0)*2)*(mod.damage||1)*regionRules(p.region).incoming;
@@ -492,7 +507,7 @@ function propagateRegion(region){
  regions.set(region.key,region);
  for(const other of sessions.values())if(other.region?.key===region.key)other.region=region;
 }
-function publicState(p){ensureJourney(p);ensureProgress(p);ensurePath(p);ensureKnowledge(p);checkFeats(p);ensureRegionObjective(p.region);const x=clone(p);x.field=fieldState(p);x.contractList=contractState(p);x.callingOptions=callings;x.ordinalRating=ordinalRating(p);x.regionRule=regionRules(p.region);x.playBalance={momentum:ensureActivity(p).momentum||0,restedCharges:ensureActivity(p).restedCharges||0};x.serverNow=Date.now();return x;}
+function publicState(p){ensureJourney(p);ensureProgress(p);ensurePath(p);ensureKnowledge(p);checkFeats(p);ensureRegionObjective(p.region);ensureApex(p.region);const x=clone(p);x.field=fieldState(p);x.contractList=contractState(p);x.callingOptions=callings;x.ordinalRating=ordinalRating(p);x.regionRule=regionRules(p.region);x.playBalance={momentum:ensureActivity(p).momentum||0,restedCharges:ensureActivity(p).restedCharges||0};x.serverNow=Date.now();return x;}
 function json(res,status,data){res.writeHead(status,{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"});res.end(JSON.stringify(data));}
 function recoveryHash(code){return createHash("sha256").update(String(code).replace(/[^a-zA-Z0-9]/g,"").toUpperCase()).digest("hex")}
 function newRecoveryCode(){return randomBytes(16).toString("hex").toUpperCase().match(/.{1,4}/g).join("-")}
@@ -560,6 +575,7 @@ const server=http.createServer(async(req,res)=>{
     else if(action==="scout")scout(p);
     else if(action==="collect")fieldCollect(p,String(b.id||""));
     else if(action==="roam")roam(p);
+    else if(action==="apex")enterApex(p);
     else if(action==="checkin")checkin(p);
     else if(action==="calling")chooseCalling(p,String(b.id||""));
     else if(action==="contract")claimContract(p,String(b.id||""));
