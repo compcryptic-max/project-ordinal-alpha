@@ -25,6 +25,7 @@ try{
  const base="http://127.0.0.1:"+port;
  const health=await fetch(base+"/health").then(r=>r.json());
  if(!health.ok)throw new Error("health failed");
+ if(health.storage!=="memory"||health.databaseConfigured!==false||health.databaseStatus!=="not_configured")throw new Error("database fallback health reporting failed");
  for(const asset of ["/","/styles.css","/game.js","/effects.js","/ordinal-icon.svg"]){const r=await fetch(base+asset);if(!r.ok)throw new Error(asset+" not served");}
  const created=await fetch(base+"/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerKey:"smoke-player",playerName:"Smoke",origin:"Rogue"})}).then(r=>r.json());
  if(!created.sessionId||created.state.origin!=="Rogue")throw new Error("session create failed");
