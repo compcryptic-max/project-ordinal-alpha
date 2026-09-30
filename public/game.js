@@ -97,24 +97,18 @@ async function openLens(){
 function attachLensStream(){const v=$("#lens-video");if(v&&lensStream&&v.srcObject!==lensStream){v.srcObject=lensStream;v.play().catch(()=>{})}}
 function closeLens(){lensOpen=false;if(lensStream){lensStream.getTracks().forEach(t=>t.stop());lensStream=null}draw()}
 function regionMap(){
- const r=state.region,nodes=state.field||[],a=state.activity||{},rating=state.ordinalRating||100,objective=r.objective;
- const active=nodes.filter(n=>!n.collected),nearest=[...active].sort((x,y)=>x.distance-y.distance)[0];
- const weather=(r.ecology?.anomalies||0)>55?"ARC INTERFERENCE":(r.ecology?.anomalies||0)>30?"VEIL HAZE":"CLEAR SIGNAL";
- const checked=a.lastCheckin===new Date().toISOString().slice(0,10);
- return '<main class="field-home">'+
-  '<header class="field-top"><div class="field-brand"><span class="ordinal-mark">O</span><div><small>ORDINAL // FIELD NETWORK</small><b>'+esc(r.name)+'</b></div></div><div class="field-head-actions"><button class="lens-launch" data-lens-open>'+ico("radar")+' LENS</button><div class="rating-chip"><small>RATING</small><strong>'+rating+'</strong></div></div></header>'+
-  '<section class="field-status"><span>'+ico("pin")+' LOCATION SYNCED</span><span>'+ico("signal")+' '+weather+'</span><span class="'+(state.travel?.mode==="transit"?"warn":"")+'">'+ico("bolt")+' '+(state.travel?.mode==="transit"?"TRANSIT":"FIELD ACTIVE")+'</span></section>'+
-  '<section class="live-map"><div class="map-mesh"></div><div class="sector-lines"></div><div class="range-ring rr1"></div><div class="range-ring rr2"></div><div class="range-ring rr3"></div>'+
-   '<div class="heading-strip"><span>NW</span><span>N</span><span>NE</span><span>E</span></div>'+
-   nodes.map(n=>'<button class="field-node '+n.kind+' '+(n.collected?"spent":"")+'" style="left:'+n.x+'%;top:'+n.y+'%" '+(n.collected?'disabled':n.action==="investigate"?'data-simple="investigate"':'data-field-id="'+esc(n.id)+'"')+'><span class="node-pulse"></span><i>'+fieldIcon(n.kind)+'</i><em>'+Math.round(n.distance)+'m</em></button>').join("")+
-   '<div class="player-beacon"><span></span><i>'+ico("user")+'</i><b>YOU</b></div>'+
-   '<div class="map-scanline"></div><div class="map-coord">SECTOR '+esc(r.key.split(":").slice(-2).join("·")||"LOCAL")+'</div>'+
+ const r=state.region,nodes=state.field||[],a=state.activity||{},rating=state.ordinalRating||100,objective=r.objective,balance=state.playBalance||{};
+ const active=nodes.filter(n=>!n.collected),signal=active.find(n=>n.kind==="signal"),checked=a.lastCheckin===new Date().toISOString().slice(0,10);
+ const weather=(r.ecology?.anomalies||0)>55?"ARC STORM":(r.ecology?.anomalies||0)>30?"VEIL HAZE":"CLEAR VEIL";
+ return '<main class="world-field">'+
+  '<header class="world-hud"><div class="world-identity"><span class="ordinal-mark">O</span><div><small>ORDINAL // '+esc(r.stage).toUpperCase()+'</small><b>'+esc(r.name)+'</b></div></div><div class="world-rank"><small>RATING</small><strong>'+rating+'</strong></div></header>'+
+  '<section class="world-stage"><div class="world-sky"><i class="world-moon"></i><i class="world-rift"></i></div><div class="world-horizon"></div><div class="world-ground"><i></i><i></i><i></i><i></i></div><div class="world-weather"><span>'+weather+'</span></div>'+
+   (signal?'<button class="roaming-hostile" data-simple="investigate"><span class="hostile-aura"></span>'+stalker()+'<b>UNREGISTERED HOSTILE</b><small>'+Math.round(signal.distance)+'m · THREAT '+r.threat+'</small></button>':'')+
+   active.filter(n=>n.kind!=="signal").slice(0,4).map((n,i)=>'<button class="world-contact '+n.kind+'" style="left:'+Math.max(12,Math.min(88,n.x))+'%;top:'+Math.max(28,Math.min(68,n.y))+'%" data-field-id="'+esc(n.id)+'"><span>'+fieldIcon(n.kind)+'</span><b>'+Math.round(n.distance)+'m</b><i></i></button>').join("")+
+   '<div class="world-player">'+avatar()+'<span></span><b>'+esc(state.name)+'</b><small>LV '+state.level+' · '+esc(state.origin).toUpperCase()+'</small></div>'+
+   '<div class="world-scan-arc"></div>'+
   '</section>'+
-  '<section class="field-dock">'+
-   '<div class="daily-card"><div class="daily-icon">'+ico("bolt")+'</div><div><small>DAILY SYNC · '+(a.streak||0)+' DAY STREAK</small><b>'+(checked?'SYNC COMPLETE':'FIELD BONUS READY')+'</b><span>'+(a.dailyScore||0)+' actions today</span></div><button class="mini-action '+(checked?"done":"")+'" '+(checked?'disabled':'data-simple="checkin"')+'>'+(checked?'DONE':'SYNC')+'</button></div>'+
-   (objective?'<div class="region-directive '+(objective.complete?"complete":"")+'"><div><small>SHARED REGION DIRECTIVE · DAY '+objective.day+'</small><b>'+esc(objective.title)+'</b><p>'+esc(objective.desc)+'</p></div><div class="directive-progress"><strong>'+objective.progress+'/'+objective.target+'</strong><i><span style="width:'+pct(objective.progress,objective.target)+'%"></span></i><em>'+(objective.complete?"STABILIZED":"ALL LOCAL WAYFARERS")+'</em></div></div>':'')+
-   (nearest?'<div class="nearby-focus"><div class="focus-icon '+nearest.kind+'">'+fieldIcon(nearest.kind)+'</div><div class="focus-copy"><small>NEAREST · '+nearest.distance+'m · REFRESH '+Math.max(1,Math.ceil(nearest.expiresIn/60))+'m</small><b>'+esc(nearest.label)+'</b><p>'+esc(nearest.detail)+'</p></div><button class="focus-action" '+(nearest.action==="investigate"?'data-simple="investigate"':'data-field-id="'+esc(nearest.id)+'"')+'>'+ico(nearest.action==="investigate"?"compass":"bolt")+' '+(nearest.action==="investigate"?"OPEN":"COLLECT")+'</button></div>':'<div class="nearby-focus empty"><div class="focus-copy"><small>LOCAL FIELD</small><b>Area cleared</b><p>New activity will surface when the field refreshes.</p></div></div>')+
-  '</section>'+
+  '<section class="world-controls"><div class="world-objective"><small>'+(objective?'REGION DIRECTIVE · '+objective.progress+'/'+objective.target:'LIVE WORLD')+'</small><b>'+esc(objective?.title||"The Veil is shifting")+'</b><i><span style="width:'+pct(objective?.progress||0,objective?.target||1)+'%"></span></i></div><div class="world-actions"><button data-simple="roam">'+ico("compass")+'<span><small>EXPLORE</small><b>'+(state.trail?"TRACK TRAIL":"ROAM")+'</b></span></button><button class="lens-main" data-lens-open>'+ico("radar")+'<span><small>CAMERA</small><b>VEIL LENS</b></span></button></div><div class="world-mini"><span>'+ico("signal")+' '+active.length+' SIGNALS</span><span>'+ico("bolt")+' '+(balance.momentum||0)+' MOMENTUM</span><button '+(checked?'disabled':'data-simple="checkin"')+'>'+(checked?"SYNCED":"DAILY SYNC")+'</button></div></section>'+
  '</main>'
 }
 function nearby(){
