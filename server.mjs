@@ -498,6 +498,7 @@ const server=http.createServer(async(req,res)=>{
   if(req.method==="POST"&&u.pathname==="/api/session"){
    const b=await body(req),key=String(b.playerKey||randomUUID()).replace(/[^a-zA-Z0-9_-]/g,"").slice(0,80),reg=regionFrom(b.lat,b.lon);
    let p=await load(key);
+   if(!p&&b.recoverOnly)return json(res,404,{ok:false,error:"player_not_found"});
    if(!p){p=freshPlayer(key,b.playerName,b.origin,reg);newRumor(p);}
    else {
     ensureJourney(p);
