@@ -30,6 +30,10 @@ try{
  const collectable=checkin.state.field.find(n=>n.action==="collect"&&!n.collected);
  const collected=await fetch(base+"/api/session/"+sid+"/collect",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({id:collectable.id})}).then(r=>r.json());
  if(!collected.state.activity.collected.includes(collectable.id))throw new Error("field collection failed");
+ if(!collected.state.journey?.title||!Array.isArray(collected.state.contractList))throw new Error("personal journey system missing");
+ const called=await fetch(base+"/api/session/"+sid+"/calling",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({id:"hunter"})}).then(r=>r.json());
+ if(called.state.journey.calling!=="hunter")throw new Error("calling selection failed");
+
  const scout=await fetch(base+"/api/session/"+sid+"/scout",{method:"POST",headers:{"content-type":"application/json"},body:"{}"}).then(r=>r.json());
  if(!(scout.state.region.discoveries||[]).includes("sunken-road"))throw new Error("scouting did not reveal first map landmark");
  const inv=await fetch(base+"/api/session/"+sid+"/investigate",{method:"POST",headers:{"content-type":"application/json"},body:"{}"}).then(r=>r.json());
