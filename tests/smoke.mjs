@@ -42,6 +42,13 @@ try{
  if(!(collected.state.region.objective.progress>=1))throw new Error("regional directive did not receive contribution");
  const peerRefresh=await fetch(base+"/api/session/"+peerSid).then(r=>r.json());
  if(peerRefresh.state.region.objective.progress!==collected.state.region.objective.progress)throw new Error("shared region state did not synchronize across sessions");
+ const beforeRace=peerRefresh.state.region.objective.progress;
+ const raceA=await fetch(base+"/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerKey:"race-a",playerName:"RaceA",origin:"Ranger"})}).then(r=>r.json());
+ const raceB=await fetch(base+"/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerKey:"race-b",playerName:"RaceB",origin:"Arcanist"})}).then(r=>r.json());
+ const raceNode=raceA.state.field.find(n=>n.action==="collect");
+ await Promise.all([raceA.sessionId,raceB.sessionId].map(x=>fetch(base+"/api/session/"+x+"/collect",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({id:raceNode.id})}).then(r=>r.json())));
+ const raceCheck=await fetch(base+"/api/session/"+sid).then(r=>r.json());
+ if(raceCheck.state.region.objective.progress!==beforeRace+2)throw new Error("concurrent regional contributions were lost");
  if(!collected.state.journey?.title||!Array.isArray(collected.state.contractList))throw new Error("personal journey system missing");
  const called=await fetch(base+"/api/session/"+sid+"/calling",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({id:"hunter"})}).then(r=>r.json());
  if(called.state.journey.calling!=="hunter")throw new Error("calling selection failed");
