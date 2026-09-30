@@ -461,6 +461,13 @@ function publicState(p){ensureJourney(p);ensureProgress(p);ensurePath(p);checkFe
 function json(res,status,data){res.writeHead(status,{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"});res.end(JSON.stringify(data));}
 async function body(req){let s="";for await(const c of req){s+=c;if(s.length>100000)throw Error("body_too_large");}return s?JSON.parse(s):{};}
 const sessions=new Map();
+const regionLocks=new Map();
+async function acquireRegionLock(key){
+ const previous=regionLocks.get(key)||Promise.resolve();let release;
+ const gate=new Promise(r=>release=r),tail=previous.then(()=>gate);regionLocks.set(key,tail);await previous;
+ return ()=>{release();if(regionLocks.get(key)===tail)regionLocks.delete(key)};
+}
+
 const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
@@ -483,7 +490,7 @@ const server=http.createServer(async(req,res)=>{
    if(req.method==="GET"&&!action){await refreshSharedRegion(p);return json(res,200,{ok:true,state:publicState(p)});}
    if(req.method==="GET"&&action==="presence")return json(res,200,{ok:true,players:[...sessions.values()].filter(x=>x!==p&&x.region.key===p.region.key).slice(0,25).map(x=>({name:x.name,origin:x.origin,level:x.level,title:x.titles[0]||null}))});
    if(req.method==="POST"){
-    const b=await body(req);await refreshSharedRegion(p);
+    const b=await body(req),unlock=await acquireRegionLock(p.region.key);try{await refreshSharedRegion(p);
     if(action==="investigate"){if(p.travel?.mode==="transit")addFeed(p,"TRAVEL MODE — arrive safely before entering combat.");else investigate(p);}
     else if(action==="engage")engageEncounter(p,String(b.choice||"leave"));
     else if(action==="combat")fight(p,b.type);
@@ -499,7 +506,7 @@ const server=http.createServer(async(req,res)=>{
     else if(action==="contract")claimContract(p,String(b.id||""));
     else if(action==="relocate")await relocate(p,b.lat,b.lon);
     else return json(res,404,{ok:false,error:"route_not_found"});
-    await save(p);propagateRegion(p.region);return json(res,200,{ok:true,state:publicState(p)});
+    await save(p);propagateRegion(p.region);return json(res,200,{ok:true,state:publicState(p)});}finally{unlock();}
    }
   }
   if(req.method==="GET"){
