@@ -22,5 +22,7 @@ try{
  const hit=await fetch(base+"/api/session/"+sid+"/combat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({type:"attack"})}).then(r=>r.json());
  if(!(hit.state.combat?.hp<inv.state.combat.hp))throw new Error("combat attack did not deal damage");
  if(!(hit.state.mastery?.xp>0))throw new Error("mastery did not progress");
+ const equipped=await fetch(base+"/api/session/"+sid+"/equip",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({id:"starter"})}).then(r=>r.json());
+ if(equipped.state.equipment.weapon!=="starter")throw new Error("equip route failed");
  console.log("Project Ordinal smoke tests passed");
 }finally{child.kill("SIGTERM")}
