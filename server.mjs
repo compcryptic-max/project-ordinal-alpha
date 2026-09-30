@@ -511,7 +511,8 @@ const server=http.createServer(async(req,res)=>{
    if(req.method==="GET"&&action==="presence")return json(res,200,{ok:true,players:[...sessions.values()].filter(x=>x!==p&&x.region.key===p.region.key).slice(0,25).map(x=>({name:x.name,origin:x.origin,level:x.level,title:x.titles[0]||null}))});
    if(req.method==="POST"){
     const b=await body(req),unlock=await acquireRegionLock(p.region.key);try{await refreshSharedRegion(p);
-    if(action==="investigate"){if(p.travel?.mode==="transit")addFeed(p,"TRAVEL MODE — arrive safely before entering combat.");else investigate(p);}
+    if(p.travel?.mode==="transit"&&["investigate","collect","roam","scout"].includes(action))addFeed(p,"TRAVEL MODE — Field interactions are paused during rapid movement. Arrive safely to resume.");
+    else if(action==="investigate")investigate(p);
     else if(action==="engage")engageEncounter(p,String(b.choice||"leave"));
     else if(action==="combat")fight(p,b.type);
     else if(action==="loot")claimLoot(p);
