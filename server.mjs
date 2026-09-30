@@ -107,7 +107,7 @@ function fieldXp(p,base){
  if(a.restedCharges>0){const bonus=Math.ceil(base*.5);xp+=bonus;a.restedCharges--;addFeed(p,"RESTED RESONANCE — +"+bonus+" catch-up XP.");}
  level(p,xp);return xp;
 }
-function ordinalRating(p){return Math.max(100,Math.round(100+(p.level-1)*85+p.reputation*14+(p.mastery?.rank||1)*28+(p.activity?.totalFieldActions||0)*3))}
+function ordinalRating(p){const actions=Math.max(0,p.activity?.totalFieldActions||0),feats=Object.keys(p.feats||{}).length;return Math.max(100,Math.round(100+(p.level-1)*85+p.reputation*14+(p.mastery?.rank||1)*28+Math.sqrt(actions)*18+feats*22))}
 function fieldState(p){
  const a=ensureActivity(p),slot=Math.floor(Date.now()/1200000),seed=hash(p.region.key+":"+slot);
  const types=[
@@ -118,7 +118,7 @@ function fieldState(p){
   {kind:"event",label:p.region.threat>50?"Threat Surge":"World Pulse",detail:p.region.threat>50?"Hostile pressure is rising in this sector.":"The region is briefly resonating.",reward:"+2 REP · +10 XP",action:"collect"}
  ];
  const pos=[[52,35],[27,58],[73,62],[37,23],[82,31]];
- return types.map((n,i)=>{const id="f:"+p.region.key+":"+slot+":"+i;return {...n,id,x:Math.max(12,Math.min(88,pos[i][0]+((seed>>(i*4))%9)-4)),y:Math.max(15,Math.min(82,pos[i][1]+((seed>>(i*3+2))%9)-4)),distance:90+((seed>>(i*5))%620),collected:a.collected.includes(id),expiresIn:1200-(Math.floor(Date.now()/1000)%1200)}});
+ return types.map((n,i)=>{const id="f:"+p.region.key+":"+slot+":"+i,sx=(seed>>>((i*4)%24)),sy=(seed>>>((i*3+2)%24)),sd=(seed>>>((i*5)%24));return {...n,id,x:Math.max(12,Math.min(88,pos[i][0]+(sx%9)-4)),y:Math.max(15,Math.min(82,pos[i][1]+(sy%9)-4)),distance:90+(sd%620),collected:a.collected.includes(id),expiresIn:1200-(Math.floor(Date.now()/1000)%1200)}});
 }
 function fieldCollect(p,id){
  const a=ensureActivity(p),node=fieldState(p).find(n=>n.id===id);
@@ -540,6 +540,13 @@ const server=http.createServer(async(req,res)=>{
    const p=sessions.get(m[1]),action=m[2]||"";if(!p)return json(res,404,{ok:false,error:"session_not_found"});
    if(req.method==="GET"&&!action){await refreshSharedRegion(p);return json(res,200,{ok:true,state:publicState(p)});}
    if(req.method==="GET"&&action==="presence")return json(res,200,{ok:true,players:[...sessions.values()].filter(x=>x!==p&&x.region.key===p.region.key).slice(0,25).map(x=>({name:x.name,origin:x.origin,level:x.level,title:x.titles[0]||null}))});
+   if(req.method==="GET"&&action==="leaderboard"){
+    let roster;
+    if(pool){const q=await pool.query("select payload from ordinal_players order by updated_at desc limit 2000");roster=q.rows.map(x=>x.payload);}
+    else roster=[...new Map([...sessions.values()].map(x=>[x.key,x])).values()];
+    const ranked=roster.map(x=>({key:x.key,name:x.name||"Wayfarer",origin:x.origin||"Unknown",level:x.level||1,rating:ordinalRating(x),title:x.titles?.[0]||null})).sort((a,b)=>b.rating-a.rating||b.level-a.level);
+    const rank=Math.max(1,ranked.findIndex(x=>x.key===p.key)+1);return json(res,200,{ok:true,rank,total:ranked.length,leaders:ranked.slice(0,20).map(({key,...x},i)=>({...x,rank:i+1}))});
+   }
    if(req.method==="POST"){
     const b=await body(req),unlock=await acquireRegionLock(p.region.key);try{await refreshSharedRegion(p);
     if(p.travel?.mode==="transit"&&["investigate","collect","roam","scout"].includes(action))addFeed(p,"TRAVEL MODE — Field interactions are paused during rapid movement. Arrive safely to resume.");
