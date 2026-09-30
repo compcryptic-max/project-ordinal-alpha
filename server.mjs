@@ -34,9 +34,46 @@ function regionFrom(lat,lon){
  return {key:"demo-region",name:"Ashen Reach",source:"demo"};
 }
 function freshRegion(region){return {key:region.key,name:region.name,day:1,stage:"Unsettled",faction:"Wayfall Compact",corruption:37,order:48,prosperity:55,threat:31,ecology:{predators:42,prey:61,anomalies:18},nemesis:null,history:[],discoveries:[]}}
+function utcDay(){return new Date().toISOString().slice(0,10)}
+function ensureActivity(p){
+ const today=utcDay();
+ p.activity??={date:today,streak:0,lastCheckin:null,collected:[],dailyScore:0,totalFieldActions:0};
+ if(p.activity.date!==today){p.activity.date=today;p.activity.collected=[];p.activity.dailyScore=0;}
+ return p.activity;
+}
+function ordinalRating(p){return Math.max(100,Math.round(100+(p.level-1)*85+p.reputation*14+(p.mastery?.rank||1)*28+(p.activity?.totalFieldActions||0)*3))}
+function fieldState(p){
+ const a=ensureActivity(p),slot=Math.floor(Date.now()/1200000),seed=hash(p.region.key+":"+slot);
+ const types=[
+  {kind:"signal",label:p.rumor?.title||"Unresolved Signal",detail:"An active distortion is moving through this sector.",reward:"ENCOUNTER",action:"investigate"},
+  {kind:"cache",label:"Veil Cache",detail:"A short-lived field cache surfaced nearby.",reward:"+12 XP · +6G",action:"collect"},
+  {kind:"echo",label:"Memory Echo",detail:"Residual world data can be recovered here.",reward:"+1 REP · +8 XP",action:"collect"},
+  {kind:"resource",label:"Aether Trace",detail:"A weak trace is stable enough to recover.",reward:"+10 XP",action:"collect"},
+  {kind:"event",label:p.region.threat>50?"Threat Surge":"World Pulse",detail:p.region.threat>50?"Hostile pressure is rising in this sector.":"The region is briefly resonating.",reward:"+2 REP · +10 XP",action:"collect"}
+ ];
+ const pos=[[52,35],[27,58],[73,62],[37,23],[82,31]];
+ return types.map((n,i)=>{const id="f:"+p.region.key+":"+slot+":"+i;return {...n,id,x:Math.max(12,Math.min(88,pos[i][0]+((seed>>(i*4))%9)-4)),y:Math.max(15,Math.min(82,pos[i][1]+((seed>>(i*3+2))%9)-4)),distance:90+((seed>>(i*5))%620),collected:a.collected.includes(id),expiresIn:1200-(Math.floor(Date.now()/1000)%1200)}});
+}
+function fieldCollect(p,id){
+ const a=ensureActivity(p),node=fieldState(p).find(n=>n.id===id);
+ if(!node||node.action!=="collect"||node.collected)return;
+ a.collected.push(id);a.totalFieldActions++;a.dailyScore++;
+ if(node.kind==="cache"){p.gold+=6;level(p,12);}
+ else if(node.kind==="echo"){p.reputation+=1;level(p,8);}
+ else if(node.kind==="event"){p.reputation+=2;level(p,10);p.region.threat=Math.max(5,p.region.threat-1);}
+ else level(p,10);
+ addFeed(p,"FIELD RECOVERY — "+node.label+" secured.");
+}
+function checkin(p){
+ const a=ensureActivity(p),today=utcDay();
+ if(a.lastCheckin===today){addFeed(p,"DAILY SYNC — already completed today.");return;}
+ const yesterday=new Date(Date.now()-86400000).toISOString().slice(0,10);
+ a.streak=a.lastCheckin===yesterday?(a.streak||0)+1:1;a.lastCheckin=today;a.dailyScore++;a.totalFieldActions++;
+ p.gold+=5;level(p,10+Math.min(20,a.streak*2));addFeed(p,"DAILY SYNC — streak "+a.streak+". Field bonus received.");
+}
 function freshPlayer(key,name,origin,region){
  const o=origins[origin]||origins.Rogue;
- return {key,name:String(name||"Wayfarer").slice(0,18),origin:origins[origin]?origin:"Rogue",level:1,xp:0,xpNeeded:100,gold:35,hp:o.hp,maxHp:o.hp,skill:o.skill,inventory:[{id:"starter",name:o.weapon,rarity:"Common",power:2,trait:"Wayfarer Issue"},{id:"potion",name:"Wayfarer Tonic",rarity:"Uncommon",qty:2}],equipment:{weapon:"starter"},mastery:{rank:1,xp:0,next:25,name:"Unproven"},travel:{mode:"explore",lastChangeAt:0,changes:0},titles:[],reputation:0,region:freshRegion(region),rumor:null,combat:null,pendingLoot:null,pendingChoice:null,feed:[{text:"You entered "+region.name+". The region was already moving before you arrived."}]};
+ return {key,name:String(name||"Wayfarer").slice(0,18),origin:origins[origin]?origin:"Rogue",level:1,xp:0,xpNeeded:100,gold:35,hp:o.hp,maxHp:o.hp,skill:o.skill,inventory:[{id:"starter",name:o.weapon,rarity:"Common",power:2,trait:"Wayfarer Issue"},{id:"potion",name:"Wayfarer Tonic",rarity:"Uncommon",qty:2}],equipment:{weapon:"starter"},mastery:{rank:1,xp:0,next:25,name:"Unproven"},travel:{mode:"explore",lastChangeAt:0,changes:0},titles:[],reputation:0,activity:{date:utcDay(),streak:0,lastCheckin:null,collected:[],dailyScore:0,totalFieldActions:0},region:freshRegion(region),rumor:null,combat:null,pendingLoot:null,pendingChoice:null,feed:[{text:"You entered "+region.name+". The region was already moving before you arrived."}]};
 }
 async function load(key){
  if(pool){const {rows}=await pool.query("select payload from ordinal_players where player_key=$1",[key]);return rows[0]?.payload||null;}
@@ -178,7 +215,7 @@ async function relocate(p,lat,lon){
  p.region=(await loadRegion(reg.key))||freshRegion(reg);p.rumor=null;newRumor(p);
  addFeed(p,(rapid?"TRAVEL MODE — rapid movement detected. Combat signals are suppressed.":"REGION CROSSED — ")+p.region.name+".");
 }
-function publicState(p){return clone(p);}
+function publicState(p){const x=clone(p);x.field=fieldState(p);x.ordinalRating=ordinalRating(p);x.serverNow=Date.now();return x;}
 function json(res,status,data){res.writeHead(status,{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"});res.end(JSON.stringify(data));}
 async function body(req){let s="";for await(const c of req){s+=c;if(s.length>100000)throw Error("body_too_large");}return s?JSON.parse(s):{};}
 const sessions=new Map();
@@ -211,6 +248,8 @@ const server=http.createServer(async(req,res)=>{
     else if(action==="choice")shrine(p,b.choice);
     else if(action==="advance")advance(p);
     else if(action==="scout")scout(p);
+    else if(action==="collect")fieldCollect(p,String(b.id||""));
+    else if(action==="checkin")checkin(p);
     else if(action==="relocate")await relocate(p,b.lat,b.lon);
     else return json(res,404,{ok:false,error:"route_not_found"});
     await save(p);return json(res,200,{ok:true,state:publicState(p)});
