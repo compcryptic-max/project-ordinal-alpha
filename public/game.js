@@ -163,7 +163,7 @@ function wire(){
  $$("[data-rank-close]").forEach(b=>b.onclick=()=>{rankOpen=false;draw()});
  $$("[data-lens-open]").forEach(b=>b.onclick=openLens);
  $$("[data-lens-close]").forEach(b=>b.onclick=closeLens);
- $("[data-lens-pulse]").forEach(b=>b.onclick=async()=>{if(actionBusy)return;sfx("signal");document.querySelector(".veil-lens")?.classList.add("pulse-active");try{await act("roam");if(state.combat||state.pendingEncounter){lensOpen=false;if(lensStream){lensStream.getTracks().forEach(t=>t.stop());lensStream=null}draw()}else{draw();attachLensStream()}}catch(x){notice=x.message;draw();attachLensStream()}});
+ $$("[data-lens-pulse]").forEach(b=>b.onclick=async()=>{if(actionBusy)return;sfx("signal");document.querySelector(".veil-lens")?.classList.add("pulse-active");try{await act("roam");if(state.combat||state.pendingEncounter){lensOpen=false;if(lensStream){lensStream.getTracks().forEach(t=>t.stop());lensStream=null}draw()}else{draw();attachLensStream()}}catch(x){notice=x.message;draw();attachLensStream()}});
  $$("[data-lens-node]").forEach(b=>b.onclick=()=>{fieldFocus=b.dataset.lensNode;fieldStep=0;sfx("signal");draw();attachLensStream()});
  $$("[data-lens-investigate]").forEach(b=>b.onclick=async()=>{try{await act("investigate");closeLens()}catch(x){notice=x.message;draw();attachLensStream()}});
 
