@@ -1,4 +1,4 @@
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],SK="ordinal-session",PK="ordinal-player";let sid=localStorage.getItem(SK),pk=localStorage.getItem(PK),state=null,origin="Rogue",tab="map",notice="",presence=[],lastHp=null;
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],SK="ordinal-session",PK="ordinal-player";let sid=localStorage.getItem(SK),pk=localStorage.getItem(PK),state=null,origin="Rogue",tab="map",notice="",presence=[],lastHp=null,actionBusy=false;
 let audioCtx=null;
 function sfx(kind){
  try{
@@ -14,6 +14,7 @@ function sfx(kind){
 const esc=(v="")=>String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])),pct=(a,b)=>Math.max(0,Math.min(100,Math.round(a/b*100)));
 async function api(path,opt={}){const r=await fetch(path,{method:opt.method||"GET",headers:opt.body?{"content-type":"application/json"}:undefined,body:opt.body?JSON.stringify(opt.body):undefined});const j=await r.json();if(!r.ok)throw Error(j.error||"server_error");return j}
 async function shared(){if(!sid)return;try{presence=(await api("/api/session/"+sid+"/presence")).players||[]}catch{presence=[]}}
+async function syncWorld(){if(!sid||actionBusy||document.hidden||state?.combat)return;try{const [fresh,p]=await Promise.all([api("/api/session/"+sid),api("/api/session/"+sid+"/presence")]);state=fresh.state;presence=p.players||[];if(tab==="journal"||tab==="map"||tab==="nearby")draw()}catch{}}
 async function restore(){if(!sid)return;try{state=(await api("/api/session/"+sid)).state;await shared()}catch{localStorage.removeItem(SK);sid=null}}
 function geo(){return new Promise(resolve=>{if(!window.isSecureContext||!navigator.geolocation)return resolve(null);navigator.geolocation.getCurrentPosition(p=>resolve({lat:p.coords.latitude,lon:p.coords.longitude}),()=>resolve(null),{enableHighAccuracy:false,timeout:6000,maximumAge:300000})})}
 async function syncTravel(){
@@ -22,7 +23,7 @@ async function syncTravel(){
  try{const before=state?.region?.key;await act("relocate",g);if(before!==state?.region?.key)draw()}catch{}
 }
 async function start(){if(!pk){pk=crypto.randomUUID();localStorage.setItem(PK,pk)}const g=await geo(),name=$("#name")?.value||"Wayfarer",j=await api("/api/session",{method:"POST",body:{playerKey:pk,playerName:name.slice(0,18),origin,...(g||{})}});sid=j.sessionId;pk=j.playerKey;state=j.state;localStorage.setItem(SK,sid);localStorage.setItem(PK,pk);await shared();tab="map"}
-async function act(a,b={}){lastHp=state?.combat?.hp??null;const j=await api("/api/session/"+sid+"/"+a,{method:"POST",body:b});state=j.state;await shared()}
+async function act(a,b={}){lastHp=state?.combat?.hp??null;actionBusy=true;try{const j=await api("/api/session/"+sid+"/"+a,{method:"POST",body:b});state=j.state;await shared()}finally{actionBusy=false}}
 function castle(){return '<svg class="castle" viewBox="0 0 600 500" aria-hidden="true"><defs><linearGradient id="cg" x2="0" y2="1"><stop stop-color="#61747a"/><stop offset="1" stop-color="#10171b"/></linearGradient></defs><path fill="url(#cg)" d="M72 414 125 270l41-17 16-91 33-13 15-83 25 83 40 13 13 91 45 17 63 144Z"/><path fill="#0b1013" d="M0 414h600v86H0z"/><g fill="#9ee7de" opacity=".45"><rect x="221" y="185" width="6" height="17"/><rect x="278" y="211" width="6" height="18"/><rect x="326" y="272" width="7" height="18"/><rect x="171" y="293" width="6" height="17"/></g><ellipse cx="300" cy="421" rx="260" ry="23" fill="#050708"/></svg>'}
 function startView(){return '<div class="start">'+castle()+'<div class="startbox"><div class="startbrand">PROJECT ORDINAL // FIELD BUILD 0.8</div><h1>THE WORLD<br>REMEMBERS.</h1><p>Your surroundings are only the doorway. Beyond them is a persistent dark-fantasy world of hidden paths, evolving regions, rare creatures and history written by players.</p><div class="create"><input class="nameinput" id="name" maxlength="18" placeholder="Choose a character name"><div class="origins">'+["Vanguard","Ranger","Arcanist","Rogue"].map(o=>'<button class="origin '+(origin===o?"active":"")+'" data-origin="'+o+'">'+o+'</button>').join("")+'</div><button class="enter" id="enter">'+(pk?"RECONNECT TO WORLD":"ENTER THE WORLD")+'</button></div></div></div>'}
 function playerStrip(){return '<div class="player-strip"><div class="portrait"></div><div><div class="pname">'+esc(state.name)+'</div><div class="plevel">'+state.origin.toUpperCase()+' · LEVEL '+state.level+' · '+state.reputation+' REP · MASTERY '+(state.mastery?.rank||1)+'</div><div class="bars"><div class="bar"><span style="width:'+pct(state.hp,state.maxHp)+'%"></span></div><div class="bar xp"><span style="width:'+pct(state.xp,state.xpNeeded)+'%"></span></div></div></div><div class="hpnum">'+state.hp+'/'+state.maxHp+'</div></div>'}
@@ -123,4 +124,4 @@ function wire(){
  $$("[data-choice]").forEach(b=>b.onclick=async()=>{try{await act("choice",{choice:b.dataset.choice});notice="";draw()}catch(x){notice=x.message;draw()}});
  $$("[data-equip]").forEach(b=>b.onclick=async()=>{try{await act("equip",{id:b.dataset.equip});notice="";draw()}catch(x){notice=x.message;draw()}});
 }
-await restore();draw();setInterval(async()=>{if(sid&&state&&!document.hidden&&!state.combat){await shared();if(tab==="journal"||tab==="map"||tab==="nearby")draw()}},5000);setInterval(syncTravel,60000);
+await restore();draw();setInterval(syncWorld,8000);setInterval(syncTravel,60000);
