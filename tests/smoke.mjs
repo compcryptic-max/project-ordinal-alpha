@@ -10,7 +10,7 @@ if(!serverSource.includes("function ensureApex")||!serverSource.includes("functi
 if(!gameSource.includes("data-recovery-create")||!gameSource.includes('id="recovery-input"'))throw new Error("cross-device recovery UI missing");
 const bindingSource=gameSource.replaceAll("$$(","__ALL__("); if(bindingSource.includes('$("[data-')||gameSource.includes("$$$("))throw new Error("regression: broken selector binding");
 if(!gameSource.includes('$=s=>[...document.querySelectorAll(s)]'))throw new Error("multi-selector helper missing");
-if(!gameSource.includes("function nearby()")||!gameSource.includes("field-node"))throw new Error("field network UI missing");
+if(!gameSource.includes("function nearby()")||!gameSource.includes("world-contact"))throw new Error("visual Field network UI missing");
 if(!gameSource.includes("function traitEffect")||!gameSource.includes("breakbar"))throw new Error("combat depth UI missing");
 for(const mapping of ['trait==="Prism Guard"?"shield"','trait==="Veilstep"?"twin"','trait==="Executioner"?"axe"','trait==="Veil-Touched"?"core"'])if(!gameSource.includes(mapping))throw new Error("trait-specific relic art mapping missing: "+mapping);
 if(!gameSource.includes("function encounterReveal")||!gameSource.includes("function combatSignature"))throw new Error("encounter/specialization UI missing");
