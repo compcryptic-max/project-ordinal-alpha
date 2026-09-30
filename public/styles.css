@@ -46,3 +46,10 @@
 .time-dusk .world-bg{filter:sepia(.18) brightness(.82) saturate(1.15)}.time-dusk .moon{opacity:.48}
 .time-night .world-bg{filter:brightness(.62) saturate(.85)}.time-night .moon{opacity:.95;box-shadow:0 0 55px rgba(200,222,216,.28)}.time-night .worldnode .sigil{box-shadow:0 0 0 8px rgba(143,232,224,.04),0 0 38px rgba(143,232,224,.28)}
 .viewport:after{content:"";position:absolute;z-index:2;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 48%,transparent 25%,rgba(2,4,5,.16) 72%,rgba(2,4,5,.55) 110%);box-shadow:inset 0 -70px 80px rgba(0,0,0,.28)}
+
+.enemy-pale-hound{background:radial-gradient(circle at 50% 25%,#39444a,#10161a 48%,#030506)}
+.enemy-glass-warden{background:radial-gradient(circle at 50% 25%,#40375a,#11101b 48%,#030305)}
+.enemy-veil-stalker{background:radial-gradient(circle at 50% 25%,#33294b,#0d0b14 48%,#020204)}
+.enemy-hollow-marauder{background:radial-gradient(circle at 50% 25%,#4a352d,#17100d 48%,#040302)}
+.enemy-pale-hound .arena:after,.enemy-veil-stalker .arena:after,.enemy-hollow-marauder .arena:after,.enemy-glass-warden .arena:after{content:"";position:absolute;left:50%;bottom:0;width:78%;height:22%;transform:translateX(-50%);border-radius:50%;background:radial-gradient(ellipse,rgba(164,201,194,.12),transparent 65%);filter:blur(4px)}
+.enemy-glass-warden .arena:after,.enemy-veil-stalker .arena:after{background:radial-gradient(ellipse,rgba(169,145,232,.16),transparent 65%)}.enemy-hollow-marauder .arena:after{background:radial-gradient(ellipse,rgba(205,118,77,.13),transparent 65%)}
