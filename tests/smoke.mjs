@@ -25,11 +25,13 @@ try{
  const sid=created.sessionId;
  if(!Array.isArray(created.state.field)||created.state.field.length<4)throw new Error("timed field nodes missing");
  if(!(created.state.ordinalRating>=100))throw new Error("ordinal rating missing");
+ if(!created.state.region.objective?.title)throw new Error("shared regional directive missing");
  const checkin=await fetch(base+"/api/session/"+sid+"/checkin",{method:"POST",headers:{"content-type":"application/json"},body:"{}"}).then(r=>r.json());
  if(checkin.state.activity.streak<1)throw new Error("daily sync failed");
  const collectable=checkin.state.field.find(n=>n.action==="collect"&&!n.collected);
  const collected=await fetch(base+"/api/session/"+sid+"/collect",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({id:collectable.id})}).then(r=>r.json());
  if(!collected.state.activity.collected.includes(collectable.id))throw new Error("field collection failed");
+ if(!(collected.state.region.objective.progress>=1))throw new Error("regional directive did not receive contribution");
  if(!collected.state.journey?.title||!Array.isArray(collected.state.contractList))throw new Error("personal journey system missing");
  const called=await fetch(base+"/api/session/"+sid+"/calling",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({id:"hunter"})}).then(r=>r.json());
  if(called.state.journey.calling!=="hunter")throw new Error("calling selection failed");
