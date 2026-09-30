@@ -25,3 +25,12 @@
 .biome-dusk-march .terrain:before{background:radial-gradient(ellipse at 48% 10%,#4f846344,transparent 20%),linear-gradient(175deg,#142c20,#08110d 70%)}
 
 .loot-screen{position:fixed;z-index:35;inset:0;overflow:hidden;background:radial-gradient(circle at 50% 44%,#244440,#080d0e 38%,#030506 75%);display:grid;place-items:center;padding:20px}.loot-rays{position:absolute;width:620px;height:620px;left:50%;top:45%;transform:translate(-50%,-50%);background:repeating-conic-gradient(from 0deg,rgba(143,232,224,.08) 0 4deg,transparent 4deg 15deg);mask-image:radial-gradient(circle,#000,transparent 68%);animation:spin 28s linear infinite}.loot-center{position:relative;z-index:2;text-align:center;width:min(100%,420px)}.relic-art{width:190px;height:250px;filter:drop-shadow(0 0 18px #8fe8e055) drop-shadow(0 22px 20px #000);animation:relicfloat 2.8s ease-in-out infinite}.loot-center h2{font:700 30px Georgia;margin:-8px 0 7px}.loot-center p{font-size:12px;line-height:1.55;color:#b9c6c7;margin:0 auto 17px;max-width:340px}@keyframes spin{to{transform:translate(-50%,-50%) rotate(360deg)}}@keyframes relicfloat{50%{transform:translateY(-9px);filter:drop-shadow(0 0 30px #8fe8e088) drop-shadow(0 28px 20px #000)}}
+
+/* Procedural renderer layers */
+.world-canvas,.combat-fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.world-canvas{z-index:1;mix-blend-mode:screen;opacity:.82}
+.viewport>.terrain{z-index:0}.viewport>.compass,.viewport>.worldnode,.viewport>.region-state{z-index:4}
+.combat-fx{z-index:2}.encounter>.combat-top,.encounter>.enemyplate,.encounter>.arena,.encounter>.combat-log,.encounter>.combat-actions{z-index:4}
+.encounter.impact{animation:cameraImpact .18s ease-out}
+@keyframes cameraImpact{0%{transform:translate3d(0,0,0)}30%{transform:translate3d(-4px,2px,0)}60%{transform:translate3d(3px,-1px,0)}100%{transform:translate3d(0,0,0)}}
+@media(prefers-reduced-motion:reduce){.mist,.worldnode .sigil,.relic-art,.loot-rays,.enemy-art.telegraph{animation:none!important}.encounter.impact{animation:none}}
