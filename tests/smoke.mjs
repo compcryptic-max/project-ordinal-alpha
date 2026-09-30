@@ -16,6 +16,7 @@ if(!gameSource.includes("function encounterReveal")||!gameSource.includes("funct
 if(!gameSource.includes("function fieldInteraction")||!gameSource.includes("data-field-stabilize")||!gameSource.includes("data-field-choice"))throw new Error("Field resonance microinteractions missing");
 if(!gameSource.includes("function veilLens")||!gameSource.includes("getUserMedia")||!gameSource.includes("data-lens-pulse")||!gameSource.includes("data-lens-node"))throw new Error("live camera Veil Lens missing");
 if(!gameSource.includes("world-stage")||!gameSource.includes("roaming-hostile")||!gameSource.includes("world-player"))throw new Error("living visual Field world missing");
+if(!gameSource.includes("function rankOverlay")||!gameSource.includes("data-rank-open"))throw new Error("global Ordinal ranking UI missing");
 if(!gameSource.includes("data-combat-arena")||!gameSource.includes('combatGesture("dodge")')||!gameSource.includes('combatGesture("guard")'))throw new Error("gesture-first combat missing");
 for(const enemy of ["mirehorn","revenant","choirless","riftweaver"])if(!gameSource.includes("function "+enemy+"()"))throw new Error("new enemy art missing: "+enemy);
 if(!gameSource.includes("enemyDamage=")||!gameSource.includes("playerDamage="))throw new Error("authoritative combat damage feedback missing");
@@ -51,6 +52,9 @@ try{
  if(!peer.sessionId)throw new Error("peer session create failed");
  const peerSid=peer.sessionId;
  if(!Array.isArray(created.state.field)||created.state.field.length<4)throw new Error("timed field nodes missing");
+ if(created.state.field.some(n=>n.distance<90||n.distance>709||n.x<12||n.x>88||n.y<15||n.y>82))throw new Error("Field projection generated invalid unsigned coordinates");
+ const leaderboard=await fetch(base+"/api/session/"+sid+"/leaderboard").then(r=>r.json());
+ if(!leaderboard.rank||!Array.isArray(leaderboard.leaders)||!leaderboard.leaders.some(x=>x.name==="Smoke"))throw new Error("persistent Ordinal ranking failed");
  if(!(created.state.ordinalRating>=100))throw new Error("ordinal rating missing");
  if(created.state.playBalance?.momentum!==0||created.state.playBalance?.restedCharges!==0)throw new Error("casual/grinder balance state missing");
  if(!created.state.region.objective?.title)throw new Error("shared regional directive missing");
