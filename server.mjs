@@ -159,6 +159,16 @@ function shrine(p,choice){
  else {p.region.corruption=Math.min(100,p.region.corruption+7);p.region.threat=Math.min(100,p.region.threat+5);p.gold+=40;p.region.history.unshift(p.name+" bound the Glass Shrine.");addFeed(p,"You bind the shrine and take its power.");}
  p.pendingChoice=null;p.rumor=null;evolveRegion(p);
 }
+function scout(p){
+ if(p.combat||p.pendingChoice)return;
+ p.region.discoveries??=[];
+ if(p.lastScoutDay===p.region.day){addFeed(p,"SCOUTING — You have already charted what you can today.");return;}
+ const sites=[["sunken-road","Sunken Road"],["veil-scar","Veil Scar"],["old-watch","Old Watch"]];
+ const next=sites.find(([id])=>!p.region.discoveries.includes(id));
+ if(!next){addFeed(p,"CARTOGRAPHY — Every known landmark in this region is charted.");return;}
+ p.region.discoveries.push(next[0]);p.lastScoutDay=p.region.day;p.reputation+=1;level(p,12);
+ p.region.history.unshift(p.name+" charted "+next[1]+".");addFeed(p,"DISCOVERY — "+next[1]+" added to your regional map.");
+}
 function advance(p){if(p.combat||p.pendingChoice)return;p.region.day++;p.region.corruption=Math.max(0,Math.min(100,p.region.corruption+(p.region.day%2?1:-1)));p.region.threat=Math.max(5,Math.min(100,p.region.threat+(p.region.day%3===0?3:-1)));if(p.region.threat>55)p.region.prosperity=Math.max(10,p.region.prosperity-2);if(p.region.order>60)p.region.prosperity=Math.min(95,p.region.prosperity+1);evolveRegion(p);newRumor(p);addFeed(p,"Day "+p.region.day+" begins. The world changed while you were away.");}
 async function relocate(p,lat,lon){
  const reg=regionFrom(Number(lat),Number(lon));if(reg.source!=="coarse-location"||reg.key===p.region.key)return;
@@ -200,6 +210,7 @@ const server=http.createServer(async(req,res)=>{
     else if(action==="equip")equipItem(p,String(b.id||""));
     else if(action==="choice")shrine(p,b.choice);
     else if(action==="advance")advance(p);
+    else if(action==="scout")scout(p);
     else if(action==="relocate")await relocate(p,b.lat,b.lon);
     else return json(res,404,{ok:false,error:"route_not_found"});
     await save(p);return json(res,200,{ok:true,state:publicState(p)});
