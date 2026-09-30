@@ -120,8 +120,8 @@ function wire(){
  $$("[data-contract]").forEach(b=>b.onclick=async()=>{try{await act("contract",{id:b.dataset.contract});notice="";draw()}catch(x){notice=x.message;draw()}});
 
  $$("[data-act]").forEach(b=>b.onclick=async()=>{try{sfx(b.dataset.type);await act(b.dataset.act,{type:b.dataset.type});notice="";draw()}catch(x){notice=x.message;draw()}});
- $("[data-engage]").forEach(b=>b.onclick=async()=>{try{sfx(b.dataset.engage==="engage"?"skill":"guard");await act("engage",{choice:b.dataset.engage});notice="";draw()}catch(x){notice=x.message;draw()}});
- $("[data-loot]").forEach(b=>b.onclick=async()=>{try{await act("loot");notice="";draw()}catch(x){notice=x.message;draw()}});
+ $$("[data-engage]").forEach(b=>b.onclick=async()=>{try{sfx(b.dataset.engage==="engage"?"skill":"guard");await act("engage",{choice:b.dataset.engage});notice="";draw()}catch(x){notice=x.message;draw()}});
+ $$("[data-loot]").forEach(b=>b.onclick=async()=>{try{await act("loot");notice="";draw()}catch(x){notice=x.message;draw()}});
  $$("[data-choice]").forEach(b=>b.onclick=async()=>{try{await act("choice",{choice:b.dataset.choice});notice="";draw()}catch(x){notice=x.message;draw()}});
  $$("[data-equip]").forEach(b=>b.onclick=async()=>{try{await act("equip",{id:b.dataset.equip});notice="";draw()}catch(x){notice=x.message;draw()}});
 }
