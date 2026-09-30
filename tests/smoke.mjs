@@ -44,6 +44,7 @@ try{
  const peerSid=peer.sessionId;
  if(!Array.isArray(created.state.field)||created.state.field.length<4)throw new Error("timed field nodes missing");
  if(!(created.state.ordinalRating>=100))throw new Error("ordinal rating missing");
+ if(created.state.playBalance?.momentum!==0||created.state.playBalance?.restedCharges!==0)throw new Error("casual/grinder balance state missing");
  if(!created.state.region.objective?.title)throw new Error("shared regional directive missing");
  if(!created.state.region.lastPulseAt)throw new Error("elapsed-time world simulation state missing");
  if(!created.state.regionRule?.label)throw new Error("regional gameplay modifier missing");
@@ -92,6 +93,7 @@ try{
  if(withdrew.state.combat)throw new Error("combat withdrawal failed");
  const roamed=await fetch(base+"/api/session/"+sid+"/roam",{method:"POST",headers:{"content-type":"application/json"},body:"{}"}).then(r=>r.json());
  if(roamed.state.activity.roams!==1)throw new Error("uncapped Deep Scan loop failed");
+ if(!(roamed.state.playBalance?.momentum>=1))throw new Error("grinder Field Momentum did not advance");
  const equipped=await fetch(base+"/api/session/"+sid+"/equip",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({id:"starter"})}).then(r=>r.json());
  if(equipped.state.equipment.weapon!=="starter")throw new Error("equip route failed");
  console.log("Project Ordinal smoke tests passed");
