@@ -153,7 +153,7 @@ function investigate(p){
  if(!p.rumor)newRumor(p);
  const boss=(p.region.nemesis&&p.region.day%3===0)?p.region.nemesis.name:p.rumor.enemy,first=!p.region.discoveries.includes("glass-shrine");
  if(first){p.region.discoveries.push("glass-shrine");p.region.history.unshift(p.name+" discovered the Glass Shrine.");addFeed(p,"FIRST DISCOVERY — Glass Shrine.");}
- const nem=p.region.nemesis?.name===boss?p.region.nemesis.power:0,hp=72+p.level*12+nem*18;
+ const nem=p.region.nemesis?.name===boss?p.region.nemesis.power:0,hp=Math.round(78+p.level*16+p.region.threat*.3+nem*20);
  p.combat={name:boss,hp,maxHp:hp,nemesisPower:nem,turn:1,intent:"The enemy circles for an opening.",stamina:100,focus:0,lastResult:"Encounter started.",phase:1};
  addFeed(p,boss+" emerged from the distortion.");
 }
@@ -170,49 +170,74 @@ function enemyIntent(c){
  return t%3===0?"HEAVY ATTACK TELEGRAPHED — GUARD OR EVADE.":"The enemy searches for an opening.";
 }
 function weaponPower(p){const w=p.inventory.find(i=>i.id===p.equipment?.weapon);return Number(w?.power||0)}
+function combatProfile(p){
+ const rank=p.mastery?.rank||1,w=Math.max(0,weaponPower(p));
+ return {
+  attack:10+p.level*2+Math.round(w*.65)+rank,
+  skill:22+p.level*3+Math.round(w*.8)+rank*2,
+  guard:p.origin==="Vanguard"?.08:0,
+  evade:p.origin==="Rogue"?.10:0,
+  skillCost:p.origin==="Arcanist"?32:38,
+  crit:p.origin==="Ranger"?.12:0
+ };
+}
 function fight(p,type){
  const c=p.combat;if(!c)return;
- c.stamina??=100;c.focus??=0;c.phase??=1;
- const heavy=/HEAVY/.test(c.intent),base=10+p.level*2+weaponPower(p);
- let dmg=0,mitigation=0,evaded=false;
+ c.stamina??=100;c.focus??=0;c.phase??=1;c.flow??=0;c.lastAction??="";
+ if(type==="retreat"){p.combat=null;p.region.threat=Math.min(100,p.region.threat+1);addFeed(p,"WITHDRAWAL — You escaped the encounter. The threat remains in the region.");return;}
+ const profile=combatProfile(p),heavy=/HEAVY/.test(c.intent),repeat=c.lastAction===type;
+ c.flow=Math.max(0,Math.min(5,repeat?c.flow-1:c.flow+1));c.lastAction=type;
+ const flowMult=1+c.flow*.04;
+ let dmg=0,mitigation=0,evaded=false,acted=true,counter=0;
  if(type==="potion"){
   const pot=p.inventory.find(i=>i.id==="potion"&&(i.qty||0)>0);
-  if(pot){pot.qty--;p.hp=Math.min(p.maxHp,p.hp+42);c.lastResult="Tonic restored vitality.";addFeed(p,"You used a Wayfarer Tonic.");}
-  else c.lastResult="No tonics remain.";
-  c.stamina=Math.min(100,c.stamina+8);
+  if(pot){pot.qty--;const heal=Math.max(28,Math.round(p.maxHp*.32));p.hp=Math.min(p.maxHp,p.hp+heal);c.lastResult="Tonic restored "+heal+" vitality, but using it leaves you exposed.";addFeed(p,"You used a Wayfarer Tonic.");}
+  else {c.lastResult="No tonics remain.";acted=false;}
  } else if(type==="dodge"){
-  if(c.stamina<25){c.lastResult="Not enough stamina to evade.";return;}
-  c.stamina-=25;evaded=heavy||((hash(p.key+c.turn)%100)<58);c.focus=Math.min(100,c.focus+8);if(evaded)addMastery(p,2);
-  c.lastResult=evaded?"Perfect evade — attack avoided.":"You evade early; the enemy adjusts.";
+  if(c.stamina<24){c.lastResult="Not enough stamina to evade.";return;}
+  c.stamina-=24;
+  const chance=Math.min(.96,(heavy?.82:.58)+profile.evade);
+  evaded=(hash(p.key+":"+c.turn+":"+c.name)%100)<Math.round(chance*100);
+  mitigation=evaded?1:.18;c.focus=Math.min(100,c.focus+(heavy?14:8));
+  if(evaded){addMastery(p,heavy?3:2);if(heavy){counter=4+p.level;c.lastResult="PERFECT EVADE — you slip the telegraph and punish the opening.";}}
+  if(!c.lastResult)c.lastResult=evaded?"Evade successful — attack avoided.":"The enemy tracks your evade; the hit is softened, not avoided.";
   addFeed(p,c.lastResult);
  } else if(type==="guard"){
-  mitigation=heavy?0.72:0.5;c.stamina=Math.min(100,c.stamina+12);c.focus=Math.min(100,c.focus+10);if(heavy)addMastery(p,2);
-  c.lastResult=heavy?"Perfect guard — heavy impact broken.":"Guarded the incoming strike.";
+  mitigation=Math.min(.88,(heavy?.74:.52)+profile.guard);c.stamina=Math.min(100,c.stamina+(heavy?15:11));c.focus=Math.min(100,c.focus+(heavy?13:9)+(p.origin==="Vanguard"?3:0));
+  if(heavy){counter=3+Math.ceil(p.level*.7);addMastery(p,3);c.lastResult="PERFECT GUARD — impact broken. Counter window opened.";}else{addMastery(p,1);c.lastResult="Guarded the incoming strike.";}
   addFeed(p,c.lastResult);
  } else if(type==="skill"){
-  if(c.focus<35){c.lastResult="Build Focus with attacks, guards, and evades.";return;}
-  c.focus-=35;dmg=24+p.level*4+(p.mastery?.rank||1)*2+(heavy?8:0);c.stamina=Math.min(100,c.stamina+5);addMastery(p,3);
+  if(c.focus<profile.skillCost){c.lastResult="Build Focus before using "+p.skill+".";return;}
+  if(c.stamina<12){c.lastResult="Not enough stamina to execute your skill.";return;}
+  c.focus-=profile.skillCost;c.stamina-=12;dmg=Math.round(profile.skill*flowMult*(p.origin==="Arcanist"?1.1:1));addMastery(p,3);
   c.lastResult=p.skill+" breaks through for "+dmg+" damage.";addFeed(p,c.lastResult);
  } else {
-  dmg=base+(p.mastery?.rank||1);c.focus=Math.min(100,c.focus+18);c.stamina=Math.min(100,c.stamina+9);addMastery(p,1);
-  c.lastResult="Weapon strike dealt "+dmg+" damage.";addFeed(p,c.lastResult);
+  if(c.stamina<8){c.lastResult="You are exhausted. Guard to recover stamina.";return;}
+  c.stamina-=8;c.focus=Math.min(100,c.focus+16);dmg=Math.round(profile.attack*flowMult);
+  const crit=(hash(p.key+":crit:"+c.turn+":"+c.name)%100)<Math.round(profile.crit*100);
+  if(crit){dmg=Math.round(dmg*1.45);c.lastResult="PRECISION STRIKE — "+dmg+" damage.";}else c.lastResult="Weapon strike dealt "+dmg+" damage.";
+  addMastery(p,1);addFeed(p,c.lastResult);
  }
+ if(!acted)return;
+ if(counter)dmg+=counter;
  if(dmg)c.hp=Math.max(0,c.hp-dmg);
  if(c.hp<=Math.ceil(c.maxHp*.45)&&c.phase===1){c.phase=2;c.lastResult+=" The enemy enters a desperate second phase.";addFeed(p,c.name+" entered PHASE II.");}
  if(c.hp<=0){
   const enemy=c.name,nemesisKill=c.nemesisPower>0;p.combat=null;p.gold+=24+p.level*3+(nemesisKill?c.nemesisPower*18:0);level(p,42+(nemesisKill?20:0));p.reputation+=2+(nemesisKill?2:0);if(nemesisKill){p.region.history.unshift(p.name+" ended the Nemesis "+enemy+" after "+p.region.nemesis.victories+" recorded victory.");p.region.nemesis=null;}
   const rare=(hash(p.key+enemy+p.region.day)%100)<18;
-  p.pendingLoot={id:"loot-"+Date.now(),name:enemy==="Pale Hound"?(rare?"Pale Moon Edge":"Moon-Split Fang"):(rare?"Warden's Glassheart":"Veilbound Fragment"),rarity:rare?"Epic":"Rare",source:enemy,power:4+p.level*2+(rare?5:0),trait:enemy==="Pale Hound"?"Predator's Tempo":enemy==="Glass Warden"?"Prism Guard":enemy==="Veil Stalker"?"Veilstep":enemy==="Hollow Marauder"?"Executioner":"Veil-Touched"};
-  p.pendingChoice=null;p.region.history.unshift(p.name+" defeated "+enemy+".");journeyAction(p,"hunt",2);addFeed(p,enemy+" fell. Something remains in the Veil.");
-  return;
+  p.pendingLoot={id:"loot-"+Date.now(),name:enemy==="Pale Hound"?(rare?"Pale Moon Edge":"Moon-Split Fang"):(rare?"Warden's Glassheart":"Veilbound Fragment"),rarity:rare?"Epic":"Rare",source:enemy,power:4+Math.ceil(p.level*1.35)+(rare?4:0),trait:enemy==="Pale Hound"?"Predator's Tempo":enemy==="Glass Warden"?"Prism Guard":enemy==="Veil Stalker"?"Veilstep":enemy==="Hollow Marauder"?"Executioner":"Veil-Touched"};
+  p.pendingChoice=null;p.region.history.unshift(p.name+" defeated "+enemy+".");journeyAction(p,"hunt",2);addFeed(p,enemy+" fell. Something remains in the Veil.");return;
  }
- if(type!=="potion"){
-  let incoming=(heavy?20:10)+p.region.threat/12+(c.phase===2?4:0);if(/Marauder/i.test(c.name))incoming+=4;if(/Hound/i.test(c.name)&&heavy)incoming+=3;if(/Warden/i.test(c.name)&&type==="guard")incoming=Math.max(2,incoming-3);
-  if(evaded)incoming=0;else incoming*=1-mitigation;
-  p.hp=Math.max(0,Math.round(p.hp-incoming));
- }
- c.turn++;
- c.intent=enemyIntent(c);if(c.phase===2&&!/HEAVY/.test(c.intent))c.intent+=" Phase II pressure is rising.";
+ let incoming=(heavy?18:9)+p.level*1.15+p.region.threat/15+(c.phase===2?3:0)+(c.nemesisPower||0)*2;
+ if(/Marauder/i.test(c.name))incoming+=3;if(/Hound/i.test(c.name)&&heavy)incoming+=2;
+ // Healing consumes a real turn. Skills and attacks are strongest when used outside obvious heavy telegraphs.
+ if(type==="potion")mitigation=.15;
+ if(evaded)incoming=0;else incoming*=1-mitigation;
+ p.hp=Math.max(0,Math.round(p.hp-incoming));
+ // Prevent a single unlucky normal hit from deleting a healthy player; heavy telegraphs remain dangerous.
+ if(!heavy&&p.hp===0&&incoming<p.maxHp*.55)p.hp=1;
+ c.stamina=Math.min(100,c.stamina+6);
+ c.turn++;c.intent=enemyIntent(c);if(c.phase===2&&!/HEAVY/.test(c.intent))c.intent+=" Phase II pressure is rising.";
  if(p.hp<=0){
   const killer=c.name,n=p.region.nemesis;
   p.region.nemesis=n&&n.name===killer?{...n,power:n.power+1,victories:n.victories+1}:{name:killer,power:1,victories:1,lastDefeated:p.name};
