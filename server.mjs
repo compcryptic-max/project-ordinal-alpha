@@ -33,7 +33,29 @@ function regionFrom(lat,lon){
  }
  return {key:"demo-region",name:"Ashen Reach",source:"demo"};
 }
-function freshRegion(region){return {key:region.key,name:region.name,day:1,stage:"Unsettled",faction:"Wayfall Compact",corruption:37,order:48,prosperity:55,threat:31,ecology:{predators:42,prey:61,anomalies:18},nemesis:null,objective:null,history:[],discoveries:[]}}
+function freshRegion(region){return {key:region.key,name:region.name,day:1,stage:"Unsettled",faction:"Wayfall Compact",corruption:37,order:48,prosperity:55,threat:31,ecology:{predators:42,prey:61,anomalies:18},nemesis:null,objective:null,lastPulseAt:Date.now(),history:[],discoveries:[]}}
+function regionStage(r){return r.corruption>=65?"Veil-Touched":r.threat>=60?"Besieged":r.order>=65?"Fortified":r.prosperity>=70?"Flourishing":"Unsettled"}
+function simulateRegion(r){
+ const now=Date.now(),pulse=1800000;r.lastPulseAt??=now;
+ const ticks=Math.min(48,Math.floor((now-r.lastPulseAt)/pulse));if(ticks<=0)return r;
+ const old=r.stage;r.ecology??={predators:42,prey:61,anomalies:18};
+ for(let i=0;i<ticks;i++){
+  const slot=Math.floor((r.lastPulseAt+i*pulse)/pulse),roll=hash(r.key+":pulse:"+slot);
+  const drift=n=>((roll>>n)%3)-1;
+  r.threat=Math.max(5,Math.min(100,r.threat+drift(1)));
+  r.corruption=Math.max(0,Math.min(100,r.corruption+drift(4)+(r.ecology.anomalies>62?.35:0)));
+  r.ecology.predators=Math.max(5,Math.min(95,r.ecology.predators+(r.threat>55?.6:-.25)+drift(7)*.25));
+  r.ecology.prey=Math.max(5,Math.min(95,r.ecology.prey+(r.ecology.predators>62?-.55:.3)+drift(10)*.2));
+  r.ecology.anomalies=Math.max(0,Math.min(100,r.ecology.anomalies+(r.corruption>55?.5:-.2)+drift(13)*.2));
+  if(r.threat>65){r.prosperity=Math.max(10,r.prosperity-.3);r.order=Math.max(5,r.order-.15)}
+  else if(r.threat<35){r.prosperity=Math.min(100,r.prosperity+.2);r.order=Math.min(100,r.order+.15)}
+ }
+ r.lastPulseAt+=ticks*pulse;r.stage=regionStage(r);
+ r.threat=Math.round(r.threat);r.corruption=Math.round(r.corruption);r.order=Math.round(r.order);r.prosperity=Math.round(r.prosperity);
+ for(const k of ["predators","prey","anomalies"])r.ecology[k]=Math.round(r.ecology[k]);
+ if(old!==r.stage){r.history.unshift("WORLD PULSE — "+r.name+" shifted from "+old+" to "+r.stage+" while the region evolved.");r.history=r.history.slice(0,40)}
+ return r;
+}
 function ensureRegionObjective(r){
  if(!r.objective||r.objective.day!==r.day){
   const spec=r.threat>=52?["Suppress the Surge","Hunt threats until the local signal stabilizes.","hunt",12]:r.corruption>=52?["Seal the Fractures","Recover Field anomalies and weaken the Veil.","field",15]:["Hold the Line","Any active Wayfarer can help stabilize this sector.","any",18];
@@ -401,7 +423,7 @@ async function relocate(p,lat,lon){
 async function refreshSharedRegion(p){
  const latest=await loadRegion(p.region.key);
  if(latest)p.region=latest;
- regions.set(p.region.key,p.region);
+ simulateRegion(p.region);regions.set(p.region.key,p.region);
  return p.region;
 }
 function propagateRegion(region){
@@ -425,7 +447,7 @@ const server=http.createServer(async(req,res)=>{
     addFeed(p,"Your character returned from persistent storage.");
     if(reg.source==="coarse-location"&&reg.key!==p.region.key){p.region=(await loadRegion(reg.key))||freshRegion(reg);p.rumor=null;newRumor(p);addFeed(p,"TRAVEL — You crossed into "+p.region.name+".");}
    }
-   const shared=(await loadRegion(p.region.key))||p.region;p.region=shared;regions.set(shared.key,shared);
+   const shared=simulateRegion((await loadRegion(p.region.key))||p.region);p.region=shared;regions.set(shared.key,shared);
    const id=randomUUID();sessions.set(id,p);await save(p);return json(res,201,{sessionId:id,playerKey:key,regionKey:p.region.key,regionSource:reg.source,state:publicState(p)});
   }
   const m=u.pathname.match(/^\/api\/session\/([^/]+)(?:\/(.*))?$/);
