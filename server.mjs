@@ -1,7 +1,7 @@
 import http from "node:http";
 import {readFile} from "node:fs/promises";
 import {Pool} from "pg";
-import {randomUUID,createHash} from "node:crypto";
+import {randomUUID,randomBytes,createHash} from "node:crypto";
 
 const PORT=Number(process.env.PORT||8787);
 const DB=process.env.DATABASE_URL||"";
@@ -13,6 +13,7 @@ if(DB){
   await candidate.query("create table if not exists ordinal_players (player_key text primary key, payload jsonb not null, updated_at timestamptz default now())");
   await candidate.query("create table if not exists ordinal_regions (region_key text primary key, payload jsonb not null, updated_at timestamptz default now())");
   await candidate.query("create table if not exists ordinal_meta (meta_key text primary key, meta_value text not null, updated_at timestamptz default now())");
+  await candidate.query("create table if not exists ordinal_recovery (token_hash text primary key, player_key text not null, created_at timestamptz default now())");
   const marker="db-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,10);
   const probe=await candidate.query("insert into ordinal_meta(meta_key,meta_value) values('persistence_probe',$1) on conflict(meta_key) do update set meta_key=excluded.meta_key returning meta_value", [marker]);
   persistenceProbe=probe.rows[0]?.meta_value||null;pool=candidate;
@@ -493,6 +494,8 @@ function propagateRegion(region){
 }
 function publicState(p){ensureJourney(p);ensureProgress(p);ensurePath(p);ensureKnowledge(p);checkFeats(p);ensureRegionObjective(p.region);const x=clone(p);x.field=fieldState(p);x.contractList=contractState(p);x.callingOptions=callings;x.ordinalRating=ordinalRating(p);x.regionRule=regionRules(p.region);x.playBalance={momentum:ensureActivity(p).momentum||0,restedCharges:ensureActivity(p).restedCharges||0};x.serverNow=Date.now();return x;}
 function json(res,status,data){res.writeHead(status,{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"});res.end(JSON.stringify(data));}
+function recoveryHash(code){return createHash("sha256").update(String(code).replace(/[^a-zA-Z0-9]/g,"").toUpperCase()).digest("hex")}
+function newRecoveryCode(){return randomBytes(16).toString("hex").toUpperCase().match(/.{1,4}/g).join("-")}
 async function body(req){let s="";for await(const c of req){s+=c;if(s.length>100000)throw Error("body_too_large");}return s?JSON.parse(s):{};}
 const sessions=new Map();
 const regionLocks=new Map();
@@ -506,6 +509,19 @@ const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
   if(req.method==="GET"&&u.pathname==="/health")return json(res,200,{ok:true,name:"project-ordinal-alpha",version:"0.8.1",storage:pool?"postgres":"memory",databaseConfigured:!!DB,databaseStatus:pool?"connected":DB?"degraded":"not_configured",databaseError:dbError?"unavailable":null,persistenceProbe:pool?persistenceProbe:null});
+  if(req.method==="POST"&&u.pathname==="/api/recovery/create"){
+   if(!pool)return json(res,503,{ok:false,error:"persistent_storage_required"});
+   const b=await body(req),p=sessions.get(String(b.sessionId||""));if(!p)return json(res,404,{ok:false,error:"session_not_found"});
+   const code=newRecoveryCode(),tokenHash=recoveryHash(code);await pool.query("delete from ordinal_recovery where player_key=$1",[p.key]);await pool.query("insert into ordinal_recovery(token_hash,player_key) values($1,$2)",[tokenHash,p.key]);
+   return json(res,201,{ok:true,code});
+  }
+  if(req.method==="POST"&&u.pathname==="/api/recovery/use"){
+   if(!pool)return json(res,503,{ok:false,error:"persistent_storage_required"});
+   const b=await body(req),tokenHash=recoveryHash(b.code||"");if(!b.code||tokenHash.length!==64)return json(res,400,{ok:false,error:"invalid_recovery_code"});
+   const hit=await pool.query("select player_key from ordinal_recovery where token_hash=$1 limit 1",[tokenHash]);if(!hit.rows[0])return json(res,404,{ok:false,error:"recovery_code_not_found"});
+   const p=await load(hit.rows[0].player_key);if(!p)return json(res,404,{ok:false,error:"player_not_found"});
+   const id=randomUUID();sessions.set(id,p);addFeed(p,"DEVICE RECOVERY — persistent character linked to a new browser.");await save(p);return json(res,200,{ok:true,sessionId:id,playerKey:p.key,state:publicState(p)});
+  }
   if(req.method==="POST"&&u.pathname==="/api/session"){
    const b=await body(req),key=String(b.playerKey||randomUUID()).replace(/[^a-zA-Z0-9_-]/g,"").slice(0,80),reg=regionFrom(b.lat,b.lon);
    let p=await load(key);
