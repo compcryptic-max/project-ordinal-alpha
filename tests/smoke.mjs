@@ -4,6 +4,7 @@ import {readFile} from "node:fs/promises";
 const gameSource=await readFile("public/game.js","utf8");
 const serverSource=await readFile("server.mjs","utf8");
 if(!serverSource.includes("function nemesisIdentity")||!serverSource.includes("nemesis?.mutation||profile.modifier"))throw new Error("persistent Nemesis evolution missing");
+if(!serverSource.includes("ordinal_meta")||!serverSource.includes("persistenceProbe"))throw new Error("database persistence health marker missing");
 const bindingSource=gameSource.replaceAll("$$(","__ALL__("); if(bindingSource.includes('$("[data-')||gameSource.includes("$$$("))throw new Error("regression: broken selector binding");
 if(!gameSource.includes('$=s=>[...document.querySelectorAll(s)]'))throw new Error("multi-selector helper missing");
 if(!gameSource.includes("function nearby()")||!gameSource.includes("field-node"))throw new Error("field network UI missing");
