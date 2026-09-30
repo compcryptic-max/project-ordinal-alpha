@@ -1,4 +1,4 @@
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],SK="ordinal-session",PK="ordinal-player";let sid=localStorage.getItem(SK),pk=localStorage.getItem(PK),state=null,origin="Rogue",tab="map",notice="",presence=[],lastHp=null,lastPlayerHp=null,actionBusy=false,fieldFocus=null,fieldStep=0,recoveryCode="",lensOpen=false,lensStream=null;
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],SK="ordinal-session",PK="ordinal-player";let sid=localStorage.getItem(SK),pk=localStorage.getItem(PK),state=null,origin="Rogue",tab="map",notice="",presence=[],lastHp=null,lastPlayerHp=null,actionBusy=false,fieldFocus=null,fieldStep=0,recoveryCode="",lensOpen=false,lensStream=null,worldRank=null,rankTotal=0,leaders=[],rankOpen=false;
 let audioCtx=null;
 function sfx(kind){
  try{
@@ -13,7 +13,7 @@ function sfx(kind){
 }
 const esc=(v="")=>String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])),pct=(a,b)=>Math.max(0,Math.min(100,Math.round(a/b*100)));
 async function api(path,opt={}){const r=await fetch(path,{method:opt.method||"GET",headers:opt.body?{"content-type":"application/json"}:undefined,body:opt.body?JSON.stringify(opt.body):undefined});const j=await r.json();if(!r.ok)throw Error(j.error||"server_error");return j}
-async function shared(){if(!sid)return;try{presence=(await api("/api/session/"+sid+"/presence")).players||[]}catch{presence=[]}}
+async function shared(){if(!sid)return;try{const [p,l]=await Promise.all([api("/api/session/"+sid+"/presence"),api("/api/session/"+sid+"/leaderboard")]);presence=p.players||[];worldRank=l.rank||null;rankTotal=l.total||0;leaders=l.leaders||[]}catch{presence=[]}}
 async function syncWorld(){if(!sid||actionBusy||document.hidden||state?.combat)return;try{const [fresh,p]=await Promise.all([api("/api/session/"+sid),api("/api/session/"+sid+"/presence")]);state=fresh.state;presence=p.players||[];if(tab==="journal"||tab==="map"||tab==="nearby")draw()}catch{}}
 async function restore(){
  if(sid){try{state=(await api("/api/session/"+sid)).state;await shared();return}catch{localStorage.removeItem(SK);sid=null}}
@@ -85,7 +85,7 @@ function hash32(v){let h=2166136261;for(const c of String(v)){h^=c.charCodeAt(0)
 function worldIntel(){const r=state.region,e=r.ecology||{},rule=state.regionRule||{};return '<div class="world-intel"><div><small>VEIL WEATHER</small><b>'+(e.anomalies>55?'ARC STORM':e.anomalies>30?'DRIFTING MIST':'CLEAR VEIL')+'</b></div><div><small>REGION ACTIVITY</small><b>'+presence.length+' WAYFARER'+(presence.length===1?'':'S')+'</b></div><div><small>WORLD STATE</small><b>'+esc(r.stage).toUpperCase()+'</b></div><div class="region-rule"><small>'+esc(rule.label||"REGION EFFECT")+'</small><b>'+esc(rule.desc||"No dominant regional modifier.")+'</b></div></div>'}
 function veilLens(){
  const nodes=(state.field||[]).filter(n=>!n.collected),r=state.region;
- return '<div class="veil-lens"><video id="lens-video" autoplay muted playsinline></video><div class="lens-shade"></div><div class="lens-grid"></div><div class="lens-scan"></div><header class="lens-hud"><button data-lens-close>×</button><div><small>ORDINAL // VEIL LENS</small><b>'+esc(r.name).toUpperCase()+'</b></div><div class="lens-rating"><small>RATING</small><strong>'+(state.ordinalRating||100)+'</strong></div></header><div class="lens-compass"><span>NW</span><b>N</b><span>NE</span></div><div class="lens-reticle"><i></i><span>LIVE FIELD</span></div>'+
+ return '<div class="veil-lens"><video id="lens-video" autoplay muted playsinline></video><div class="lens-shade"></div><div class="lens-grid"></div><div class="lens-scan"></div><header class="lens-hud"><button data-lens-close>×</button><div><small>ORDINAL // VEIL LENS</small><b>'+esc(r.name).toUpperCase()+'</b></div><div class="lens-rating"><small>'+(worldRank?"WORLD #"+worldRank:"RATING")+'</small><strong>'+(state.ordinalRating||100)+'</strong></div></header><div class="lens-compass"><span>NW</span><b>N</b><span>NE</span></div><div class="lens-reticle"><i></i><span>LIVE FIELD</span></div>'+
  nodes.slice(0,5).map((n,i)=>'<button class="lens-contact '+esc(n.kind)+'" style="left:'+(14+(hash32(n.id)%72))+'%;top:'+(25+(hash32(n.id+"y")%43))+'%" '+(n.action==="investigate"?'data-lens-investigate':'data-lens-node="'+esc(n.id)+'"')+'><i>'+fieldIcon(n.kind)+'</i><b>'+esc(n.label)+'</b><small>'+Math.round(n.distance)+'m</small><span></span></button>').join("")+
  '<div class="lens-threat"><span></span><div><small>FIELD DENSITY</small><b>'+nodes.length+' ACTIVE CONTACTS</b></div></div><div class="lens-footer"><div><small>VEIL STATE</small><b>'+esc(r.stage).toUpperCase()+'</b></div><button data-lens-pulse>'+ico("radar")+' PULSE SCAN</button><div><small>THREAT</small><b>'+r.threat+'%</b></div></div></div>'
 }
@@ -101,7 +101,7 @@ function regionMap(){
  const active=nodes.filter(n=>!n.collected),signal=active.find(n=>n.kind==="signal"),checked=a.lastCheckin===new Date().toISOString().slice(0,10);
  const weather=(r.ecology?.anomalies||0)>55?"ARC STORM":(r.ecology?.anomalies||0)>30?"VEIL HAZE":"CLEAR VEIL";
  return '<main class="world-field">'+
-  '<header class="world-hud"><div class="world-identity"><span class="ordinal-mark">O</span><div><small>ORDINAL // '+esc(r.stage).toUpperCase()+'</small><b>'+esc(r.name)+'</b></div></div><div class="world-rank"><small>RATING</small><strong>'+rating+'</strong></div></header>'+
+  '<header class="world-hud"><div class="world-identity"><span class="ordinal-mark">O</span><div><small>ORDINAL // '+esc(r.stage).toUpperCase()+'</small><b>'+esc(r.name)+'</b></div></div><button class="world-rank" data-rank-open><small>'+(worldRank?"WORLD #"+worldRank:"RATING")+'</small><strong>'+rating+'</strong></button></header>'+
   '<section class="world-stage"><div class="world-sky"><i class="world-moon"></i><i class="world-rift"></i></div><div class="world-horizon"></div><div class="world-ground"><i></i><i></i><i></i><i></i></div><div class="world-weather"><span>'+weather+'</span></div>'+
    (signal?'<button class="roaming-hostile" data-simple="investigate"><span class="hostile-aura"></span>'+stalker()+'<b>UNREGISTERED HOSTILE</b><small>'+Math.round(signal.distance)+'m · THREAT '+r.threat+'</small></button>':'')+
    active.filter(n=>n.kind!=="signal").slice(0,4).map((n,i)=>'<button class="world-contact '+n.kind+'" style="left:'+Math.max(12,Math.min(88,n.x))+'%;top:'+Math.max(28,Math.min(68,n.y))+'%" data-field-id="'+esc(n.id)+'"><span>'+fieldIcon(n.kind)+'</span><b>'+Math.round(n.distance)+'m</b><i></i></button>').join("")+
@@ -111,6 +111,7 @@ function regionMap(){
   '<section class="world-controls"><div class="world-objective"><small>'+(objective?'REGION DIRECTIVE · '+objective.progress+'/'+objective.target:'LIVE WORLD')+'</small><b>'+esc(objective?.title||"The Veil is shifting")+'</b><i><span style="width:'+pct(objective?.progress||0,objective?.target||1)+'%"></span></i></div><div class="world-actions"><button data-simple="roam">'+ico("compass")+'<span><small>EXPLORE</small><b>'+(state.trail?"TRACK TRAIL":"ROAM")+'</b></span></button><button class="lens-main" data-lens-open>'+ico("radar")+'<span><small>CAMERA</small><b>VEIL LENS</b></span></button></div><div class="world-mini"><span>'+ico("signal")+' '+active.length+' SIGNALS</span><span>'+ico("bolt")+' '+(balance.momentum||0)+' MOMENTUM</span><button '+(checked?'disabled':'data-simple="checkin"')+'>'+(checked?"SYNCED":"DAILY SYNC")+'</button></div></section>'+
  '</main>'
 }
+function rankOverlay(){if(!rankOpen)return "";return '<div class="rank-backdrop"><section class="rank-panel"><button class="rank-close" data-rank-close>×</button><small>GLOBAL ORDINAL NETWORK</small><h2>WORLD RANK '+(worldRank?"#"+worldRank:"—")+'</h2><p>'+rankTotal+' registered Wayfarer'+(rankTotal===1?"":"s")+' · rating rewards progression, mastery, reputation, feats and sustained field activity.</p><div class="rank-list">'+leaders.slice(0,10).map(x=>'<div class="rank-row '+(x.rank===worldRank?"you":"")+'"><strong>#'+x.rank+'</strong><div><b>'+esc(x.name)+'</b><small>'+esc(x.origin).toUpperCase()+' · LV '+x.level+(x.title?' · '+esc(x.title):'')+'</small></div><em>'+x.rating+'</em></div>').join("")+'</div></section></div>'}
 function nearby(){
  const nodes=state.field||[],a=state.activity||{},balance=state.playBalance||{};
  return '<div class="screen field-list-screen"><div class="section-kicker">LIVE FIELD</div><div class="screen-title">Nearby activity</div><p class="screen-sub">Play for two minutes or grind for hours. Rested Resonance helps returning players; Momentum rewards continued field activity without a hard daily cap.</p><div class="field-summary"><div><small>TODAY</small><b>'+(a.dailyScore||0)+'</b><span>ACTIONS</span></div><div><small>MOMENTUM</small><b>'+(balance.momentum||0)+'</b><span>FIELD</span></div><div><small>RESTED</small><b>'+(balance.restedCharges||0)+'</b><span>BOOSTS</span></div></div><section class="deep-scan '+(state.trail?"trail-active":"")+'"><div><small>'+(state.trail?"HIDDEN TRAIL · "+state.trail.step+"/3":"NO DAILY CAP")+'</small><b>'+(state.trail?"Pursuit: "+esc(state.trail.enemy):"Deep Scan")+'</b><p>'+(state.trail?"Follow the abnormal signal. Completing the trail forces an elite encounter.":"Keep roaming after timed activity is cleared. Search for roaming hostiles, traces and unusual discoveries as long as you want to play.")+'</p></div><button data-simple="roam">'+(state.trail?"TRACK":"SCAN")+'</button></section><div class="nearby-list">'+nodes.sort((x,y)=>x.distance-y.distance).map(n=>'<div class="nearby-row '+(n.collected?"spent":"")+'"><div class="nearby-kind '+n.kind+'">'+fieldIcon(n.kind)+'</div><div><small>'+n.distance+'m · '+Math.max(1,Math.ceil(n.expiresIn/60))+' MIN</small><b>'+esc(n.label)+'</b><span>'+esc(n.reward)+'</span></div>'+(n.collected?'<em>RECOVERED</em>':'<button '+(n.action==="investigate"?'data-simple="investigate"':'data-field-id="'+esc(n.id)+'"')+'>'+(n.action==="investigate"?"OPEN":"GET")+'</button>')+'</div>').join("")+'</div></div>'
@@ -144,7 +145,7 @@ function journal(){
  '<div class="subhead"><div><small>RECENT</small><b>Your field record</b></div></div><div class="list">'+state.feed.slice(0,8).map(x=>'<div class="row"><b>'+esc(x.text)+'</b></div>').join("")+'</div></div>'
 }
 function nav(){const items=[["map","map","FIELD"],["nearby","radar","NEARBY"],["inventory","gear","GEAR"],["journal","log","LOG"]];return '<div class="bottomnav"><div class="navinner">'+items.map(([t,i,l])=>'<button class="navbtn '+(tab===t?"active":"")+'" data-tab="'+t+'"><i>'+ico(i)+'</i><span>'+l+'</span></button>').join("")+'</div></div>'}
-function game(){if(state.combat)return combat();if(state.pendingEncounter)return encounterReveal();if(state.pendingLoot)return lootReveal();if(state.pendingChoice)return choice();if(lensOpen)return veilLens()+fieldInteraction();const biome=state.region.name.toLowerCase().replace(/[^a-z]+/g,"-");return '<div class="game field-shell biome-'+biome+(state.travel?.mode==="transit"?" travel-paused":"")+'"><div class="world-bg"></div><div class="mist"></div>'+(tab==="map"?regionMap():tab==="nearby"?nearby():tab==="inventory"?inventory():journal())+fieldInteraction()+nav()+'</div>'}
+function game(){if(state.combat)return combat();if(state.pendingEncounter)return encounterReveal();if(state.pendingLoot)return lootReveal();if(state.pendingChoice)return choice();if(lensOpen)return veilLens()+fieldInteraction();const biome=state.region.name.toLowerCase().replace(/[^a-z]+/g,"-");return '<div class="game field-shell biome-'+biome+(state.travel?.mode==="transit"?" travel-paused":"")+'"><div class="world-bg"></div><div class="mist"></div>'+(tab==="map"?regionMap():tab==="nearby"?nearby():tab==="inventory"?inventory():journal())+fieldInteraction()+rankOverlay()+nav()+'</div>'}
 function render(){return !state?startView():game()}
 
 function draw(){ $("#app").innerHTML=(notice?'<div class="notice">'+esc(notice)+'</div>':"")+render();wire();if(lensOpen)attachLensStream()}
@@ -154,12 +155,14 @@ function wire(){
  const recover=$("#recover");if(recover)recover.onclick=async()=>{const code=$("#recovery-input")?.value?.trim();if(!code)return;try{recover.disabled=true;recover.textContent="LINKING…";const j=await api("/api/recovery/use",{method:"POST",body:{code}});sid=j.sessionId;pk=j.playerKey;state=j.state;localStorage.setItem(SK,sid);localStorage.setItem(PK,pk);await shared();tab="map";notice="WAYFARER RECOVERED · this device is now linked.";draw()}catch(x){notice=x.message;draw()}};
 
  $$("[data-tab]").forEach(b=>b.onclick=()=>{tab=b.dataset.tab;draw()});
- $("[data-map-world]").forEach(b=>b.onclick=()=>{tab="map";draw()});
- $("[data-lens-open]").forEach(b=>b.onclick=openLens);
- $("[data-lens-close]").forEach(b=>b.onclick=closeLens);
- $("[data-lens-pulse]").forEach(b=>b.onclick=()=>{sfx("signal");document.querySelector(".veil-lens")?.classList.add("pulse-active");setTimeout(()=>document.querySelector(".veil-lens")?.classList.remove("pulse-active"),900)});
- $("[data-lens-node]").forEach(b=>b.onclick=()=>{fieldFocus=b.dataset.lensNode;fieldStep=0;sfx("signal");draw();attachLensStream()});
- $("[data-lens-investigate]").forEach(b=>b.onclick=async()=>{try{await act("investigate");closeLens()}catch(x){notice=x.message;draw();attachLensStream()}});
+ $$("[data-map-world]").forEach(b=>b.onclick=()=>{tab="map";draw()});
+ $$("[data-rank-open]").forEach(b=>b.onclick=()=>{rankOpen=true;draw()});
+ $$("[data-rank-close]").forEach(b=>b.onclick=()=>{rankOpen=false;draw()});
+ $$("[data-lens-open]").forEach(b=>b.onclick=openLens);
+ $$("[data-lens-close]").forEach(b=>b.onclick=closeLens);
+ $$("[data-lens-pulse]").forEach(b=>b.onclick=()=>{sfx("signal");document.querySelector(".veil-lens")?.classList.add("pulse-active");setTimeout(()=>document.querySelector(".veil-lens")?.classList.remove("pulse-active"),900)});
+ $$("[data-lens-node]").forEach(b=>b.onclick=()=>{fieldFocus=b.dataset.lensNode;fieldStep=0;sfx("signal");draw();attachLensStream()});
+ $$("[data-lens-investigate]").forEach(b=>b.onclick=async()=>{try{await act("investigate");closeLens()}catch(x){notice=x.message;draw();attachLensStream()}});
 
  $$("[data-simple]").forEach(b=>b.onclick=async()=>{try{sfx("signal");await act(b.dataset.simple);notice="";draw()}catch(x){notice=x.message;draw()}});
  $$("[data-field-id]").forEach(b=>b.onclick=()=>{fieldFocus=b.dataset.fieldId;fieldStep=0;sfx("signal");draw()});
@@ -171,7 +174,7 @@ function wire(){
  $$("[data-calling]").forEach(b=>b.onclick=async()=>{try{await act("calling",{id:b.dataset.calling});notice="";draw()}catch(x){notice=x.message;draw()}});
  $$("[data-contract]").forEach(b=>b.onclick=async()=>{try{await act("contract",{id:b.dataset.contract});notice="";draw()}catch(x){notice=x.message;draw()}});
 
- $("[data-act]").forEach(b=>b.onclick=async()=>{try{sfx(b.dataset.type);await act(b.dataset.act,{type:b.dataset.type});notice="";draw()}catch(x){notice=x.message;draw()}});
+ $$("[data-act]").forEach(b=>b.onclick=async()=>{try{sfx(b.dataset.type);await act(b.dataset.act,{type:b.dataset.type});notice="";draw()}catch(x){notice=x.message;draw()}});
  async function combatGesture(type){if(actionBusy||!state?.combat)return;try{sfx(type);await act("combat",{type});notice="";draw()}catch(x){notice=x.message;draw()}}
  const arena=$("#app [data-combat-arena]");if(arena){let gx=0,gy=0,gt=0,hold=null,moved=false;arena.onpointerdown=e=>{gx=e.clientX;gy=e.clientY;gt=performance.now();moved=false;hold=setTimeout(()=>{if(!moved)combatGesture("guard")},480)};arena.onpointermove=e=>{if(Math.hypot(e.clientX-gx,e.clientY-gy)>18)moved=true};arena.onpointerup=e=>{clearTimeout(hold);const dx=e.clientX-gx,dy=e.clientY-gy,dt=performance.now()-gt;if(Math.abs(dx)>55||Math.abs(dy)>70)return combatGesture("dodge");if(dt<430&&!moved)return combatGesture("attack")};arena.onpointercancel=()=>clearTimeout(hold)}
 
