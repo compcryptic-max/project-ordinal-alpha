@@ -106,7 +106,7 @@ function journeyAction(p,type,amount=1){
  j.progress+=amount;
  const c=callings[j.calling];
  if(c&&(c.metric===type||c.metric==="any"||(c.metric==="protect"&&["hunt","field"].includes(type))))j.callingProgress+=amount;
- if(type==="field")p.contracts.field+=amount;if(type==="hunt")p.contracts.hunts+=amount;if(type==="discover")p.contracts.discoveries+=amount;
+ if(type==="field")p.contracts.field+=1;if(type==="hunt")p.contracts.hunts+=1;if(type==="discover")p.contracts.discoveries+=1;
  if(j.progress>=j.next){
   j.progress-=j.next;j.chapter++;j.next=Math.min(30,8+j.chapter*3);
   const beats=["A fragment addressed you by name.","Your signal appeared in a record older than your arrival.","A second presence answered your frequency.","The trail split toward something the region refuses to map.","Someone else has begun following your trail."];
