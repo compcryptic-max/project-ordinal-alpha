@@ -294,7 +294,8 @@ function fight(p,type){
  }
  if(!acted)return;
  if(counter)dmg+=counter;
- if(profile.execute&&c.hp<=c.maxHp*.35&&dmg){dmg=Math.round(dmg*(1+profile.execute));c.lastResult+=" EXECUTIONER +12%.";}\n if(wasExposed&&dmg){dmg=Math.round(dmg*1.32);c.exposed=0;c.lastResult+=" EXPOSED +32%.";}
+ if(profile.execute&&c.hp<=c.maxHp*.35&&dmg){dmg=Math.round(dmg*(1+profile.execute));c.lastResult+=" EXECUTIONER +12%.";}
+ if(wasExposed&&dmg){dmg=Math.round(dmg*1.32);c.exposed=0;c.lastResult+=" EXPOSED +32%.";}
  if(mod.armor&&!wasExposed&&dmg)dmg=Math.max(1,Math.round(dmg*(1-mod.armor)));
  breakGain=Math.round(breakGain*(mod.breakMult||1));c.break=Math.min(c.breakMax||100,(c.break||0)+breakGain);
  let staggered=false;if(c.break>=100){c.break=0;c.exposed=1;staggered=true;c.lastResult+=" STAGGER — defense broken; next damaging action is empowered.";addFeed(p,c.name+" was STAGGERED.");}
