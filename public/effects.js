@@ -11,12 +11,16 @@ function canvasFor(host,cls){
  return {c,ctx:c.getContext("2d"),w,h,d};
 }
 function palette(){
- const g=document.querySelector(".game");if(!g)return {sky:"#10191d",far:"#18262a",near:"#0b1212",accent:"#8fe8e0",weather:"mist"};
- if(g.classList.contains("biome-ember-vale"))return {sky:"#24120d",far:"#382019",near:"#100907",accent:"#ef8b54",weather:"ash"};
- if(g.classList.contains("biome-glassward"))return {sky:"#171225",far:"#28203d",near:"#0d0914",accent:"#b59cff",weather:"shards"};
- if(g.classList.contains("biome-dusk-march"))return {sky:"#0b1d17",far:"#173127",near:"#07100c",accent:"#80d3a1",weather:"fireflies"};
- if(g.classList.contains("biome-hollow-meridian"))return {sky:"#0c1820",far:"#172d36",near:"#071016",accent:"#9bcbd7",weather:"rain"};
- return {sky:"#21150f",far:"#38261a",near:"#100b08",accent:"#e3b36d",weather:"dust"};
+ const g=document.querySelector(".game"),status=document.querySelector(".field-status")?.textContent||document.querySelector(".world-intel")?.textContent||"";
+ let p={sky:"#10191d",far:"#18262a",near:"#0b1212",accent:"#8fe8e0",weather:"mist"};
+ if(g?.classList.contains("biome-ember-vale"))p={sky:"#24120d",far:"#382019",near:"#100907",accent:"#ef8b54",weather:"ash"};
+ else if(g?.classList.contains("biome-glassward"))p={sky:"#171225",far:"#28203d",near:"#0d0914",accent:"#b59cff",weather:"shards"};
+ else if(g?.classList.contains("biome-dusk-march"))p={sky:"#0b1d17",far:"#173127",near:"#07100c",accent:"#80d3a1",weather:"fireflies"};
+ else if(g?.classList.contains("biome-hollow-meridian"))p={sky:"#0c1820",far:"#172d36",near:"#071016",accent:"#9bcbd7",weather:"rain"};
+ else if(g)p={sky:"#21150f",far:"#38261a",near:"#100b08",accent:"#e3b36d",weather:"dust"};
+ if(/ARC (INTERFERENCE|STORM)/i.test(status))p.weather="arc";
+ else if(/VEIL HAZE|DRIFTING MIST/i.test(status))p.weather="haze";
+ return p;
 }
 function ridge(ctx,w,h,y,amp,steps,color,seed){
  const r=rng(seed);ctx.beginPath();ctx.moveTo(0,h);ctx.lineTo(0,y);
@@ -40,6 +44,8 @@ function drawWorld(){
    let x=(q.x*w+(t*.012*q.v*w))%w,y=(q.y*h+Math.sin(t*.001+q.p)*h*.025)%h;
    if(P.weather==="rain"){ctx.strokeStyle="rgba(174,210,220,.16)";ctx.lineWidth=d;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-5*d,y+18*d);ctx.stroke()}
    else if(P.weather==="shards"){ctx.save();ctx.translate(x,y);ctx.rotate(t*.001+q.p);ctx.fillStyle="rgba(181,156,255,.16)";ctx.fillRect(-q.s*d,-5*d,q.s*d,10*d);ctx.restore()}
+   else if(P.weather==="arc"){ctx.strokeStyle=P.accent+"2e";ctx.lineWidth=(q.s*.6+1)*d;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+Math.sin(q.p+t*.004)*12*d,y+10*d);ctx.lineTo(x-6*d,y+24*d);ctx.stroke();if((Math.floor(t/700)+q.p|0)%17===0){ctx.fillStyle=P.accent+"08";ctx.fillRect(0,0,w,h)}}
+   else if(P.weather==="haze"){ctx.save();ctx.globalAlpha=.045;ctx.fillStyle=P.accent;ctx.beginPath();ctx.ellipse(x,y,24*q.s*d,7*q.s*d,0,0,Math.PI*2);ctx.fill();ctx.restore()}
    else {const glow=P.weather==="fireflies"?.55:.18;ctx.beginPath();ctx.arc(x,y,q.s*d,0,Math.PI*2);ctx.fillStyle=P.accent+Math.round(glow*255).toString(16).padStart(2,"0");ctx.fill()}
   }
   // moving veil scan around the active signal
