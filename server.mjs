@@ -90,10 +90,21 @@ function regionContribution(p,type,amount=1){
 function utcDay(){return new Date().toISOString().slice(0,10)}
 function ensureActivity(p){
  const today=utcDay();
- p.activity??={date:today,streak:0,lastCheckin:null,collected:[],dailyScore:0,totalFieldActions:0,lastRoamAt:0,roams:0};
- if(p.activity.date!==today){p.activity.date=today;p.activity.collected=[];p.activity.dailyScore=0;}
+ p.activity??={date:today,streak:0,lastCheckin:null,collected:[],dailyScore:0,totalFieldActions:0,lastRoamAt:0,roams:0,momentum:0,restedCharges:0};
+ p.activity.momentum??=0;p.activity.restedCharges??=0;
+ if(p.activity.date!==today){
+  const gap=Math.max(1,Math.round((Date.parse(today+"T00:00:00Z")-Date.parse(p.activity.date+"T00:00:00Z"))/86400000));
+  p.activity.restedCharges=Math.min(6,p.activity.restedCharges+Math.max(0,gap-1));
+  p.activity.date=today;p.activity.collected=[];p.activity.dailyScore=0;p.activity.momentum=0;p.activity.roams=0;
+ }
  p.activity.lastRoamAt??=0;p.activity.roams??=0;
  return p.activity;
+}
+function fieldMomentum(p,amount=1){const a=ensureActivity(p);a.momentum=Math.min(50,(a.momentum||0)+amount);return a.momentum}
+function fieldXp(p,base){
+ const a=ensureActivity(p);let xp=base;
+ if(a.restedCharges>0){const bonus=Math.ceil(base*.5);xp+=bonus;a.restedCharges--;addFeed(p,"RESTED RESONANCE — +"+bonus+" catch-up XP.");}
+ level(p,xp);return xp;
 }
 function ordinalRating(p){return Math.max(100,Math.round(100+(p.level-1)*85+p.reputation*14+(p.mastery?.rank||1)*28+(p.activity?.totalFieldActions||0)*3))}
 function fieldState(p){
@@ -111,20 +122,20 @@ function fieldState(p){
 function fieldCollect(p,id){
  const a=ensureActivity(p),node=fieldState(p).find(n=>n.id===id);
  if(!node||node.action!=="collect"||node.collected)return;
- a.collected.push(id);a.totalFieldActions++;a.dailyScore++;journeyAction(p,"field",1);regionContribution(p,"field",1);
- if(node.kind==="cache"){p.gold+=Math.round(6*regionRules(p.region).cacheGold);level(p,12);if((hash(p.key+id)%100)<28){let pot=p.inventory.find(i=>i.id==="potion");if(pot)pot.qty=(pot.qty||0)+1;else p.inventory.push({id:"potion",name:"Wayfarer Tonic",rarity:"Uncommon",qty:1});addFeed(p,"CACHE BONUS — Wayfarer Tonic recovered.");}}
- else if(node.kind==="echo"){p.reputation+=1;level(p,8);}
- else if(node.kind==="event"){p.reputation+=2;level(p,10);p.region.threat=Math.max(5,p.region.threat-1);}
- else level(p,10);
+ a.collected.push(id);a.totalFieldActions++;a.dailyScore++;fieldMomentum(p);journeyAction(p,"field",1);regionContribution(p,"field",1);
+ if(node.kind==="cache"){p.gold+=Math.round(6*regionRules(p.region).cacheGold);fieldXp(p,12);if((hash(p.key+id)%100)<28){let pot=p.inventory.find(i=>i.id==="potion");if(pot)pot.qty=(pot.qty||0)+1;else p.inventory.push({id:"potion",name:"Wayfarer Tonic",rarity:"Uncommon",qty:1});addFeed(p,"CACHE BONUS — Wayfarer Tonic recovered.");}}
+ else if(node.kind==="echo"){p.reputation+=1;fieldXp(p,8);}
+ else if(node.kind==="event"){p.reputation+=2;fieldXp(p,10);p.region.threat=Math.max(5,p.region.threat-1);}
+ else fieldXp(p,10);
  addFeed(p,"FIELD RECOVERY — "+node.label+" secured.");
 }
 function roam(p){
  if(p.combat||p.pendingChoice)return;
  ensureJourney(p);const a=ensureActivity(p),now=Date.now(),wait=12000-(now-(a.lastRoamAt||0));
  if(wait>0){addFeed(p,"DEEP SCAN — signal resolving. "+Math.ceil(wait/1000)+"s.");return;}
- a.lastRoamAt=now;a.roams++;a.totalFieldActions++;ensureProgress(p);p.stats.scans++;checkFeats(p);
+ a.lastRoamAt=now;a.roams++;a.totalFieldActions++;fieldMomentum(p);ensureProgress(p);p.stats.scans++;checkFeats(p);
  if(p.trail){
-  p.trail.step++;level(p,5);journeyAction(p,"discover",1);
+  p.trail.step++;fieldXp(p,5);journeyAction(p,"discover",1);
   if(p.trail.step>=3){const boss="Riftbound "+p.trail.enemy;addFeed(p,"TRAIL COMPLETE — "+boss+" has been cornered.");p.trail=null;startEncounter(p,boss,1);}
   else addFeed(p,"HIDDEN TRAIL "+p.trail.step+"/3 — "+p.trail.clues[p.trail.step-1]);
   return;
@@ -134,8 +145,8 @@ function roam(p){
   if(!p.rumor)newRumor(p);startEncounter(p,p.rumor.enemy,0);addFeed(p,"DEEP SCAN — a roaming hostile answered your signal.");
  }else{
   const finds=["Veil residue","Broken waypoint","Forgotten inscription","Aether bloom","Unregistered footprint"];
-  const found=finds[roll%finds.length];level(p,6);journeyAction(p,"field",1);a.dailyScore++;
-  if(roll>=88){
+  const found=finds[roll%finds.length];fieldXp(p,6);journeyAction(p,"field",1);a.dailyScore++;
+  if(roll>=88-Math.min(8,Math.floor((a.momentum||0)/5))){
    const enemy=rumors[hash(p.key+":"+a.roams)%rumors.length][2];
    p.trail={step:0,enemy,clues:["The signal repeats from somewhere it should not exist.","A second trace carries your own field signature.","The trail stops moving. Whatever made it is waiting."]};
    p.reputation+=1;addFeed(p,"HIDDEN TRAIL FOUND — Deep Scan detected a three-stage pursuit.");
@@ -387,7 +398,7 @@ function fight(p,type){
  if(c.hp<=Math.ceil(c.maxHp*.45)&&c.phase===1){c.phase=2;c.lastResult+=" The enemy enters a desperate second phase.";addFeed(p,c.name+" entered PHASE II.");}
  if(c.hp<=0){
   const enemy=c.name,nemesisKill=c.nemesisPower>0;ensureProgress(p);p.stats.kills++;if(c.elite)p.stats.elites++;p.codex.enemies[enemy]=(p.codex.enemies[enemy]||0)+1;checkFeats(p);p.combat=null;p.gold+=24+p.level*3+(nemesisKill?c.nemesisPower*18:0);level(p,42+(nemesisKill?20:0));p.reputation+=2+(nemesisKill?2:0);if(nemesisKill){p.region.history.unshift(p.name+" ended the Nemesis "+enemy+" after "+p.region.nemesis.victories+" recorded victory.");p.region.nemesis=null;}
-  const rare=(hash(p.key+enemy+p.region.day)%100)<18+regionRules(p.region).rare;
+  const rare=(hash(p.key+enemy+p.region.day)%100)<18+regionRules(p.region).rare+Math.min(5,Math.floor((ensureActivity(p).momentum||0)/10));
   p.pendingLoot=enemyLoot(enemy,rare,p.level);
   p.pendingChoice=null;p.region.history.unshift(p.name+" defeated "+enemy+".");journeyAction(p,"hunt",2);regionContribution(p,"hunt",c.elite?2:1);addFeed(p,enemy+" fell. Something remains in the Veil.");return;
  }
@@ -480,7 +491,7 @@ function propagateRegion(region){
  regions.set(region.key,region);
  for(const other of sessions.values())if(other.region?.key===region.key)other.region=region;
 }
-function publicState(p){ensureJourney(p);ensureProgress(p);ensurePath(p);ensureKnowledge(p);checkFeats(p);ensureRegionObjective(p.region);const x=clone(p);x.field=fieldState(p);x.contractList=contractState(p);x.callingOptions=callings;x.ordinalRating=ordinalRating(p);x.regionRule=regionRules(p.region);x.serverNow=Date.now();return x;}
+function publicState(p){ensureJourney(p);ensureProgress(p);ensurePath(p);ensureKnowledge(p);checkFeats(p);ensureRegionObjective(p.region);const x=clone(p);x.field=fieldState(p);x.contractList=contractState(p);x.callingOptions=callings;x.ordinalRating=ordinalRating(p);x.regionRule=regionRules(p.region);x.playBalance={momentum:ensureActivity(p).momentum||0,restedCharges:ensureActivity(p).restedCharges||0};x.serverNow=Date.now();return x;}
 function json(res,status,data){res.writeHead(status,{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"});res.end(JSON.stringify(data));}
 async function body(req){let s="";for await(const c of req){s+=c;if(s.length>100000)throw Error("body_too_large");}return s?JSON.parse(s):{};}
 const sessions=new Map();
