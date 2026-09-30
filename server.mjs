@@ -176,7 +176,7 @@ const server=http.createServer(async(req,res)=>{
   }
   if(req.method==="GET"){
    const path=u.pathname==="/"?"/index.html":u.pathname;
-   if(["/index.html","/manifest.webmanifest","/styles.css","/game.js"].includes(path)){const data=await readFile(new URL("./public"+path,import.meta.url));const type=path.endsWith(".webmanifest")?"application/manifest+json":path.endsWith(".css")?"text/css; charset=utf-8":path.endsWith(".js")?"text/javascript; charset=utf-8":"text/html; charset=utf-8";res.writeHead(200,{"content-type":type,"cache-control":"no-cache"});return res.end(data);}
+   if(["/index.html","/manifest.webmanifest","/styles.css","/game.js","/effects.js"].includes(path)){const data=await readFile(new URL("./public"+path,import.meta.url));const type=path.endsWith(".webmanifest")?"application/manifest+json":path.endsWith(".css")?"text/css; charset=utf-8":path.endsWith(".js")?"text/javascript; charset=utf-8":"text/html; charset=utf-8";res.writeHead(200,{"content-type":type,"cache-control":"no-cache"});return res.end(data);}
   }
   json(res,404,{ok:false,error:"route_not_found"});
  }catch(e){json(res,400,{ok:false,error:e.message||"bad_request"});}
