@@ -109,9 +109,9 @@ function wire(){
  $$("[data-tab]").forEach(b=>b.onclick=()=>{tab=b.dataset.tab;draw()});
  $$("[data-map-world]").forEach(b=>b.onclick=()=>{tab="map";draw()});
  $$("[data-simple]").forEach(b=>b.onclick=async()=>{try{sfx("signal");await act(b.dataset.simple);notice="";draw()}catch(x){notice=x.message;draw()}});
- $("[data-field-id]").forEach(b=>b.onclick=async()=>{try{sfx("loot");await act("collect",{id:b.dataset.fieldId});notice="";draw()}catch(x){notice=x.message;draw()}});
- $("[data-calling]").forEach(b=>b.onclick=async()=>{try{await act("calling",{id:b.dataset.calling});notice="";draw()}catch(x){notice=x.message;draw()}});
- $("[data-contract]").forEach(b=>b.onclick=async()=>{try{await act("contract",{id:b.dataset.contract});notice="";draw()}catch(x){notice=x.message;draw()}});
+ $$("[data-field-id]").forEach(b=>b.onclick=async()=>{try{sfx("loot");await act("collect",{id:b.dataset.fieldId});notice="";draw()}catch(x){notice=x.message;draw()}});
+ $$("[data-calling]").forEach(b=>b.onclick=async()=>{try{await act("calling",{id:b.dataset.calling});notice="";draw()}catch(x){notice=x.message;draw()}});
+ $$("[data-contract]").forEach(b=>b.onclick=async()=>{try{await act("contract",{id:b.dataset.contract});notice="";draw()}catch(x){notice=x.message;draw()}});
 
  $$("[data-act]").forEach(b=>b.onclick=async()=>{try{sfx(b.dataset.type);await act(b.dataset.act,{type:b.dataset.type});notice="";draw()}catch(x){notice=x.message;draw()}});
  $$("[data-loot]").forEach(b=>b.onclick=async()=>{try{await act("loot");notice="";draw()}catch(x){notice=x.message;draw()}});
