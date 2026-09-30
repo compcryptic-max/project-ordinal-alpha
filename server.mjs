@@ -241,14 +241,18 @@ function enemyIntent(c){
 }
 function weaponPower(p){const w=p.inventory.find(i=>i.id===p.equipment?.weapon);return Number(w?.power||0)}
 function combatProfile(p){
- const rank=p.mastery?.rank||1,w=Math.max(0,weaponPower(p));
+ const rank=p.mastery?.rank||1,w=Math.max(0,weaponPower(p)),item=p.inventory.find(i=>i.id===p.equipment?.weapon),trait=item?.trait||"";
  return {
   attack:10+p.level*2+Math.round(w*.65)+rank,
   skill:22+p.level*3+Math.round(w*.8)+rank*2,
-  guard:p.origin==="Vanguard"?.08:0,
-  evade:p.origin==="Rogue"?.10:0,
+  guard:(p.origin==="Vanguard"?.08:0)+(trait==="Prism Guard"?.05:0),
+  evade:(p.origin==="Rogue"?.10:0)+(trait==="Veilstep"?.06:0),
   skillCost:p.origin==="Arcanist"?32:38,
-  crit:p.origin==="Ranger"?.12:0
+  crit:(p.origin==="Ranger"?.12:0)+(trait==="Predator's Tempo"?.05:0),
+  focusGain:trait==="Predator's Tempo"?4:0,
+  skillMult:trait==="Veil-Touched"?1.08:1,
+  execute:trait==="Executioner"?.12:0,
+  trait
  };
 }
 function fight(p,type){
@@ -279,18 +283,18 @@ function fight(p,type){
  } else if(type==="skill"){
   if(c.focus<profile.skillCost){c.lastResult="Build Focus before using "+p.skill+".";return;}
   if(c.stamina<12){c.lastResult="Not enough stamina to execute your skill.";return;}
-  c.focus-=profile.skillCost;c.stamina-=12;dmg=Math.round(profile.skill*flowMult*(p.origin==="Arcanist"?1.1:1));breakGain+=22+(c.weakness==="skill"?12:0);addMastery(p,3);
+  c.focus-=profile.skillCost;c.stamina-=12;dmg=Math.round(profile.skill*flowMult*(p.origin==="Arcanist"?1.1:1)*profile.skillMult);breakGain+=22+(c.weakness==="skill"?12:0);addMastery(p,3);
   c.lastResult=p.skill+" breaks through for "+dmg+" damage.";addFeed(p,c.lastResult);
  } else {
   if(c.stamina<8){c.lastResult="You are exhausted. Guard to recover stamina.";return;}
-  c.stamina-=8;c.focus=Math.min(100,c.focus+16);dmg=Math.round(profile.attack*flowMult);breakGain+=10+(c.weakness==="attack"?10:0);
+  c.stamina-=8;c.focus=Math.min(100,c.focus+16+profile.focusGain);dmg=Math.round(profile.attack*flowMult);breakGain+=10+(c.weakness==="attack"?10:0);
   const crit=(hash(p.key+":crit:"+c.turn+":"+c.name)%100)<Math.round(profile.crit*100);
   if(crit){dmg=Math.round(dmg*1.45);c.lastResult="PRECISION STRIKE — "+dmg+" damage.";}else c.lastResult="Weapon strike dealt "+dmg+" damage.";
   addMastery(p,1);addFeed(p,c.lastResult);
  }
  if(!acted)return;
  if(counter)dmg+=counter;
- if(wasExposed&&dmg){dmg=Math.round(dmg*1.32);c.exposed=0;c.lastResult+=" EXPOSED +32%.";}
+ if(profile.execute&&c.hp<=c.maxHp*.35&&dmg){dmg=Math.round(dmg*(1+profile.execute));c.lastResult+=" EXECUTIONER +12%.";}\n if(wasExposed&&dmg){dmg=Math.round(dmg*1.32);c.exposed=0;c.lastResult+=" EXPOSED +32%.";}
  if(mod.armor&&!wasExposed&&dmg)dmg=Math.max(1,Math.round(dmg*(1-mod.armor)));
  breakGain=Math.round(breakGain*(mod.breakMult||1));c.break=Math.min(c.breakMax||100,(c.break||0)+breakGain);
  let staggered=false;if(c.break>=100){c.break=0;c.exposed=1;staggered=true;c.lastResult+=" STAGGER — defense broken; next damaging action is empowered.";addFeed(p,c.name+" was STAGGERED.");}
