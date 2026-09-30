@@ -53,3 +53,5 @@
 .enemy-hollow-marauder{background:radial-gradient(circle at 50% 25%,#4a352d,#17100d 48%,#040302)}
 .enemy-pale-hound .arena:after,.enemy-veil-stalker .arena:after,.enemy-hollow-marauder .arena:after,.enemy-glass-warden .arena:after{content:"";position:absolute;left:50%;bottom:0;width:78%;height:22%;transform:translateX(-50%);border-radius:50%;background:radial-gradient(ellipse,rgba(164,201,194,.12),transparent 65%);filter:blur(4px)}
 .enemy-glass-warden .arena:after,.enemy-veil-stalker .arena:after{background:radial-gradient(ellipse,rgba(169,145,232,.16),transparent 65%)}.enemy-hollow-marauder .arena:after{background:radial-gradient(ellipse,rgba(205,118,77,.13),transparent 65%)}
+
+.transit-label{color:#f1c878;font-weight:900}.game:has(.transit-label) .worldnode.signal{opacity:.42;filter:grayscale(.6)}.game:has(.transit-label) .worldnode.signal:after{content:"TRAVEL";position:absolute;top:54px;font:800 7px ui-monospace,monospace;color:#f1c878;letter-spacing:.14em}
