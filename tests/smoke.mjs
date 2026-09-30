@@ -4,6 +4,7 @@ import {readFile} from "node:fs/promises";
 const gameSource=await readFile("public/game.js","utf8");
 const bindingSource=gameSource.replaceAll("$$(","__ALL__("); if(bindingSource.includes('$("[data-')||gameSource.includes("$$$("))throw new Error("regression: broken selector binding");
 if(!gameSource.includes('$=s=>[...document.querySelectorAll(s)]'))throw new Error("multi-selector helper missing");
+if(!gameSource.includes("function nearby()")||!gameSource.includes("field-node"))throw new Error("field network UI missing");
 if(!gameSource.includes('function regionMap()'))throw new Error("regional map renderer missing");
 for(const file of ["server.mjs","public/game.js","public/effects.js"]){
  const c=spawnSync(process.execPath,["--check",file],{stdio:"pipe"});
@@ -22,6 +23,13 @@ try{
  const created=await fetch(base+"/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerKey:"smoke-player",playerName:"Smoke",origin:"Rogue"})}).then(r=>r.json());
  if(!created.sessionId||created.state.origin!=="Rogue")throw new Error("session create failed");
  const sid=created.sessionId;
+ if(!Array.isArray(created.state.field)||created.state.field.length<4)throw new Error("timed field nodes missing");
+ if(!(created.state.ordinalRating>=100))throw new Error("ordinal rating missing");
+ const checkin=await fetch(base+"/api/session/"+sid+"/checkin",{method:"POST",headers:{"content-type":"application/json"},body:"{}"}).then(r=>r.json());
+ if(checkin.state.activity.streak<1)throw new Error("daily sync failed");
+ const collectable=checkin.state.field.find(n=>n.action==="collect"&&!n.collected);
+ const collected=await fetch(base+"/api/session/"+sid+"/collect",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({id:collectable.id})}).then(r=>r.json());
+ if(!collected.state.activity.collected.includes(collectable.id))throw new Error("field collection failed");
  const scout=await fetch(base+"/api/session/"+sid+"/scout",{method:"POST",headers:{"content-type":"application/json"},body:"{}"}).then(r=>r.json());
  if(!(scout.state.region.discoveries||[]).includes("sunken-road"))throw new Error("scouting did not reveal first map landmark");
  const inv=await fetch(base+"/api/session/"+sid+"/investigate",{method:"POST",headers:{"content-type":"application/json"},body:"{}"}).then(r=>r.json());
