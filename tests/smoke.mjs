@@ -34,6 +34,7 @@ try{
  if(!(created.state.ordinalRating>=100))throw new Error("ordinal rating missing");
  if(!created.state.region.objective?.title)throw new Error("shared regional directive missing");
  if(!created.state.region.lastPulseAt)throw new Error("elapsed-time world simulation state missing");
+ if(!created.state.regionRule?.label)throw new Error("regional gameplay modifier missing");
  const checkin=await fetch(base+"/api/session/"+sid+"/checkin",{method:"POST",headers:{"content-type":"application/json"},body:"{}"}).then(r=>r.json());
  if(checkin.state.activity.streak<1)throw new Error("daily sync failed");
  const collectable=checkin.state.field.find(n=>n.action==="collect"&&!n.collected);
