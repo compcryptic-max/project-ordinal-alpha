@@ -258,7 +258,16 @@ function combatProfile(p){
 function fight(p,type){
  const c=p.combat;if(!c)return;
  c.stamina??=100;c.focus??=0;c.phase??=1;c.flow??=0;c.lastAction??="";
+ const allowed=new Set(["attack","skill","guard","dodge","potion","retreat"]);
+ if(!allowed.has(type)){c.lastResult="Unknown combat command.";return;}
  if(type==="retreat"){p.combat=null;p.region.threat=Math.min(100,p.region.threat+1);addFeed(p,"WITHDRAWAL — You escaped the encounter. The threat remains in the region.");return;}
+ const profile=combatProfile(p);
+ if(type==="skill"&&c.focus<profile.skillCost){c.lastResult="Build Focus before using "+p.skill+".";return;}
+ if(type==="skill"&&c.stamina<12){c.lastResult="Not enough stamina to execute your skill.";return;}
+ if(type==="dodge"&&c.stamina<24){c.lastResult="Not enough stamina to evade.";return;}
+ if(type==="attack"&&c.stamina<8){c.lastResult="You are exhausted. Guard to recover stamina.";return;}
+ if(type==="potion"&&!p.inventory.some(i=>i.id==="potion"&&(i.qty||0)>0)){c.lastResult="No tonics remain.";return;}
+ c.lastResult="";
  const profile=combatProfile(p),heavy=/HEAVY/.test(c.intent),repeat=c.lastAction===type,mod=c.modifier||{},wasExposed=(c.exposed||0)>0;
  c.flow=Math.max(0,Math.min(5,repeat?c.flow-1:c.flow+1));c.lastAction=type;
  const flowMult=1+c.flow*.04;
