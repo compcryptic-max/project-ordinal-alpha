@@ -239,20 +239,24 @@ function newRumor(p){
  p.rumor={type:r[0],body:r[1],enemy:r[2],title:r[0]==="HUNT"?"Tracks in the Dust":r[0]==="DISCOVERY"?"Signal Under Glass":r[0]==="MYSTERY"?"The Unwritten Shrine":"Missing at Wayfall"};
  addFeed(p,"RUMOR — "+p.rumor.title);
 }
+const enemyMods=[
+ {id:"unstable",name:"UNSTABLE",desc:"Break builds faster.",breakMult:1.25},
+ {id:"armored",name:"ARMORED",desc:"Reduced damage until staggered.",armor:.12},
+ {id:"frenzied",name:"FRENZIED",desc:"Hits harder, but telegraphs remain readable.",damage:1.15},
+ {id:"siphoning",name:"SIPHONING",desc:"Unblocked hits drain Focus.",focusDrain:6}
+];
 function enemyProfile(name,region){
  const lower=name.toLowerCase();
  const archetype=lower.includes("hound")?["Predator","evade"]:lower.includes("warden")?["Sentinel","guard"]:lower.includes("stalker")?["Assassin","skill"]:lower.includes("marauder")?["Brute","guard"]:lower.includes("mirehorn")?["Juggernaut","guard"]:lower.includes("revenant")?["Cinderborn","skill"]:lower.includes("knight")?["Duelist","attack"]:lower.includes("weaver")?["Trickster","evade"]:["Aberration","attack"];
- const mods=[
-  {id:"unstable",name:"UNSTABLE",desc:"Break builds faster.",breakMult:1.25},
-  {id:"armored",name:"ARMORED",desc:"Reduced damage until staggered.",armor:.12},
-  {id:"frenzied",name:"FRENZIED",desc:"Hits harder, but telegraphs remain readable.",damage:1.15},
-  {id:"siphoning",name:"SIPHONING",desc:"Unblocked hits drain Focus.",focusDrain:6}
- ];
- return {archetype:archetype[0],weakness:archetype[1],modifier:mods[hash(name+":"+region.key+":"+region.day)%mods.length]};
+ return {archetype:archetype[0],weakness:archetype[1],modifier:enemyMods[hash(name+":"+region.key+":"+region.day)%enemyMods.length]};
+}
+function nemesisIdentity(name,victories){
+ const titles=["the Remembering","the Unbroken","Wayfarer-Bane","the Region's Grudge"],title=titles[Math.min(titles.length-1,Math.max(0,victories-1))];
+ return {title,mutation:enemyMods[hash(name+":nemesis:"+victories)%enemyMods.length]};
 }
 function startEncounter(p,boss,elite=0){
- const nem=p.region.nemesis?.name===boss?p.region.nemesis.power:0,profile=enemyProfile(boss,p.region),rules=regionRules(p.region),hp=Math.round((78+p.level*16+p.region.threat*.3+nem*20)*(1+elite*.22)*rules.enemyHp);
- p.combat={name:boss,hp,maxHp:hp,nemesisPower:nem,elite,archetype:profile.archetype,weakness:profile.weakness,modifier:profile.modifier,break:0,breakMax:100,exposed:0,turn:1,intent:"The enemy circles for an opening.",stamina:100,focus:0,flow:0,lastAction:"",lastResult:"Encounter started.",phase:1};
+ const nemesis=p.region.nemesis?.name===boss?p.region.nemesis:null,nem=nemesis?.power||0,profile=enemyProfile(boss,p.region),rules=regionRules(p.region),hp=Math.round((78+p.level*16+p.region.threat*.3+nem*20)*(1+elite*.22)*rules.enemyHp);
+ p.combat={name:boss,nemesisTitle:nemesis?.title||null,hp,maxHp:hp,nemesisPower:nem,elite,archetype:profile.archetype,weakness:profile.weakness,modifier:nemesis?.mutation||profile.modifier,break:0,breakMax:100,exposed:0,turn:1,intent:"The enemy circles for an opening.",stamina:100,focus:0,flow:0,lastAction:"",lastResult:"Encounter started.",phase:1};
  addFeed(p,(elite?"ELITE ENCOUNTER — ":"ENCOUNTER — ")+boss+" emerged from the distortion.");
 }
 function recordDiscovery(p,id,label){
@@ -389,8 +393,8 @@ function fight(p,type){
  c.turn++;c.intent=enemyIntent(c);if(c.phase===2&&!/HEAVY/.test(c.intent))c.intent+=" Phase II pressure is rising.";
  if(p.hp<=0){
   const killer=c.name,n=p.region.nemesis;
-  p.region.nemesis=n&&n.name===killer?{...n,power:n.power+1,victories:n.victories+1}:{name:killer,power:1,victories:1,lastDefeated:p.name};
-  p.hp=Math.ceil(p.maxHp*.55);p.combat=null;p.region.threat=Math.min(100,p.region.threat+4);p.region.history.unshift(killer+" became a regional Nemesis after defeating "+p.name+".");addFeed(p,"DEATH ECHO — "+killer+" remembers you. It has grown stronger.");
+  const victories=n&&n.name===killer?n.victories+1:1,identity=nemesisIdentity(killer,victories);p.region.nemesis={name:killer,power:n&&n.name===killer?n.power+1:1,victories,lastDefeated:p.name,title:identity.title,mutation:identity.mutation};
+  p.hp=Math.ceil(p.maxHp*.55);p.combat=null;p.region.threat=Math.min(100,p.region.threat+4);p.region.history.unshift(killer+" "+p.region.nemesis.title+" became a regional Nemesis after defeating "+p.name+" · "+p.region.nemesis.mutation.name+".");addFeed(p,"DEATH ECHO — "+killer+" remembers you. It has grown stronger.");
  }
 }
 function evolveRegion(p){
