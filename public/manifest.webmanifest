@@ -1,1 +1,1 @@
-{"name":"Project Ordinal Alpha","short_name":"Ordinal","start_url":"/","display":"standalone","background_color":"#080b10","theme_color":"#080b10","description":"Location-aware persistent fantasy MMORPG alpha."}
+{"name":"Project Ordinal Alpha","short_name":"Ordinal","start_url":"/","display":"standalone","background_color":"#05080b","theme_color":"#05080b","description":"A location-aware persistent dark-fantasy MMORPG alpha.","icons":[{"src":"/ordinal-icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}
