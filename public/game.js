@@ -96,6 +96,7 @@ async function openLens(){
 }
 function attachLensStream(){const v=$("#lens-video");if(v&&lensStream&&v.srcObject!==lensStream){v.srcObject=lensStream;v.play().catch(()=>{})}}
 function closeLens(){lensOpen=false;if(lensStream){lensStream.getTracks().forEach(t=>t.stop());lensStream=null}draw()}
+function peerAvatar(o){const mark=o==="Ranger"?"⌁":o==="Arcanist"?"◇":o==="Vanguard"?"△":"╱";return '<svg viewBox="0 0 60 105" aria-hidden="true"><circle cx="30" cy="18" r="11" fill="#26332f"/><path fill="#111916" d="M20 31 30 26l11 6 7 39-9 28H21l-9-28Z"/><path stroke="#8fb9b0" stroke-width="2" opacity=".7" d="M30 38v35"/><text x="30" y="62" text-anchor="middle" fill="#b9e6dd" font-size="16">'+mark+'</text></svg>'}
 function regionMap(){
  const r=state.region,nodes=state.field||[],a=state.activity||{},rating=state.ordinalRating||100,objective=r.objective,balance=state.playBalance||{};
  const active=nodes.filter(n=>!n.collected),signal=active.find(n=>n.kind==="signal"),checked=a.lastCheckin===new Date().toISOString().slice(0,10),apex=r.apex;
@@ -106,6 +107,7 @@ function regionMap(){
    (signal?'<button class="roaming-hostile" data-simple="investigate"><span class="hostile-aura"></span>'+stalker()+'<b>UNREGISTERED HOSTILE</b><small>'+Math.round(signal.distance)+'m · THREAT '+r.threat+'</small></button>':'')+
    (apex&&!apex.complete?'<button class="apex-rift" data-simple="apex"><span class="apex-ring"></span>'+enemySvg(apex.name)+'<small>REGIONAL APEX · '+apex.seals+'/'+apex.target+'</small><b>'+esc(apex.name)+'</b></button>':apex?.complete?'<div class="apex-sealed"><small>APEX SEALED</small><b>'+esc(apex.name)+'</b></div>':'')+
    active.filter(n=>n.kind!=="signal").slice(0,4).map((n,i)=>'<button class="world-contact '+n.kind+'" style="left:'+Math.max(12,Math.min(88,n.x))+'%;top:'+Math.max(28,Math.min(68,n.y))+'%" data-field-id="'+esc(n.id)+'"><span>'+fieldIcon(n.kind)+'</span><b>'+Math.round(n.distance)+'m</b><i></i></button>').join("")+
+   presence.slice(0,4).map((p,i)=>'<div class="world-peer" style="left:'+(18+(hash32(p.name)%64))+'%;bottom:'+(18+(hash32(p.name+"y")%13))+'%">'+peerAvatar(p.origin)+'<span></span><b>'+esc(p.name)+'</b><small>LV '+p.level+' · '+(p.rating||"—")+'</small></div>').join("")+
    '<div class="world-player">'+avatar()+'<span></span><b>'+esc(state.name)+'</b><small>LV '+state.level+' · '+esc(state.origin).toUpperCase()+'</small></div>'+
    '<div class="world-scan-arc"></div>'+
   '</section>'+
