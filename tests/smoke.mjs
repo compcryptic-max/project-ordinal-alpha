@@ -2,7 +2,7 @@ import {spawn,spawnSync} from "node:child_process";
 import process from "node:process";
 import {readFile} from "node:fs/promises";
 const gameSource=await readFile("public/game.js","utf8");
-const badBindings=['$("[data-origin]").forEach','$("[data-tab]").forEach','$("[data-simple]").forEach','$("[data-act]").forEach','$("[data-loot]").forEach','$("[data-choice]").forEach','$("[data-equip]").forEach']; if(badBindings.some(x=>gameSource.includes(x)))throw new Error("regression: querySelector used with forEach");
+const bindingSource=gameSource.replaceAll("$$(","__ALL__("); if(bindingSource.includes('$("[data-')||gameSource.includes("$$$("))throw new Error("regression: broken selector binding");
 if(!gameSource.includes('$=s=>[...document.querySelectorAll(s)]'))throw new Error("multi-selector helper missing");
 if(!gameSource.includes('function regionMap()'))throw new Error("regional map renderer missing");
 for(const file of ["server.mjs","public/game.js","public/effects.js"]){
