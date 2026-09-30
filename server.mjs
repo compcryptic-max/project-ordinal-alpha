@@ -37,8 +37,9 @@ function freshRegion(region){return {key:region.key,name:region.name,day:1,stage
 function utcDay(){return new Date().toISOString().slice(0,10)}
 function ensureActivity(p){
  const today=utcDay();
- p.activity??={date:today,streak:0,lastCheckin:null,collected:[],dailyScore:0,totalFieldActions:0};
+ p.activity??={date:today,streak:0,lastCheckin:null,collected:[],dailyScore:0,totalFieldActions:0,lastRoamAt:0,roams:0};
  if(p.activity.date!==today){p.activity.date=today;p.activity.collected=[];p.activity.dailyScore=0;}
+ p.activity.lastRoamAt??=0;p.activity.roams??=0;
  return p.activity;
 }
 function ordinalRating(p){return Math.max(100,Math.round(100+(p.level-1)*85+p.reputation*14+(p.mastery?.rank||1)*28+(p.activity?.totalFieldActions||0)*3))}
@@ -74,7 +75,7 @@ function roam(p){
   if(!p.rumor)newRumor(p);investigate(p);addFeed(p,"DEEP SCAN — a roaming hostile answered your signal.");
  }else{
   const finds=["Veil residue","Broken waypoint","Forgotten inscription","Aether bloom","Unregistered footprint"];
-  const found=finds[roll%finds.length];level(p,6);journeyAction(p,"field",1);p.contracts.field++;a.dailyScore++;
+  const found=finds[roll%finds.length];level(p,6);journeyAction(p,"field",1);a.dailyScore++;
   if(roll>90)p.reputation+=1;
   addFeed(p,"DEEP SCAN — "+found+" recovered. The trail continues.");
  }
