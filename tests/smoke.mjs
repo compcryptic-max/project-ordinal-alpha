@@ -42,6 +42,8 @@ try{
  const hit=await fetch(base+"/api/session/"+sid+"/combat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({type:"attack"})}).then(r=>r.json());
  if(!(hit.state.combat?.hp<inv.state.combat.hp))throw new Error("combat attack did not deal damage");
  if(!(hit.state.mastery?.xp>0))throw new Error("mastery did not progress");
+ if(!(hit.state.combat?.break>0))throw new Error("Break gauge did not build");
+ if(!hit.state.stats||!hit.state.codex?.enemies)throw new Error("feats/Codex progression missing");
  if(hit.state.combat?.flow!==1)throw new Error("combat Flow did not progress");
  if(!(hit.state.combat?.stamina<100))throw new Error("attack stamina cost missing");
  const withdrew=await fetch(base+"/api/session/"+sid+"/combat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({type:"retreat"})}).then(r=>r.json());
