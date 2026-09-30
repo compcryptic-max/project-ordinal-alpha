@@ -80,3 +80,8 @@ box-shadow:inset 0 0 70px #000a,0 20px 50px #0008}
 .map-footer{display:grid;grid-template-columns:90px 90px 1fr;gap:8px;align-items:stretch}.map-footer>div{padding:9px 11px;border:1px solid #ffffff10;background:#07100fbb;border-radius:8px}.map-footer small{display:block;color:#657b78;font:700 6px ui-monospace,monospace;letter-spacing:.1em}.map-footer b{font:700 17px Georgia;color:#dbe6e3}
 @keyframes mapPing{50%{box-shadow:0 0 0 13px #8fe8e00b,0 0 35px #8fe8e04f}}
 @media(max-width:480px){.map-screen{padding:20px 14px 112px}.fantasy-map{min-height:440px}.map-head p{display:none}.map-footer{grid-template-columns:1fr 1fr}.map-footer .action{grid-column:1/-1}.world-intel{margin-left:14px;margin-right:14px}}
+
+.map-actions{display:grid;grid-template-columns:1.4fr .8fr;gap:7px}.map-footer .map-actions{min-width:0}
+.worldnode.discovered .sigil{width:38px;height:38px;border-color:#69827d;background:linear-gradient(145deg,#172522,#07100f);opacity:.86}.worldnode.discovered label{font-size:6px;color:#9eb2ad}.road-node{left:39%;top:45%}.watch-node{left:17%;top:29%}.scar-node{left:79%;top:42%}.scar-node .sigil{border-color:#9c5660!important;color:#e39ba3!important;box-shadow:0 0 18px #a7444d22!important}
+.bottomnav .navinner{gap:2px}.bottomnav .navbtn{min-width:0;font-size:6px;letter-spacing:.08em}.bottomnav .navbtn i{transform:scale(.9)}
+@media(max-width:480px){.map-footer{grid-template-columns:1fr 1fr}.map-footer .map-actions{grid-column:1/-1}.bottomnav{padding-left:6px;padding-right:6px}}
