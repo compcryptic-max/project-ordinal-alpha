@@ -16,10 +16,10 @@ async function api(path,opt={}){const r=await fetch(path,{method:opt.method||"GE
 async function shared(){if(!sid)return;try{presence=(await api("/api/session/"+sid+"/presence")).players||[]}catch{presence=[]}}
 async function syncWorld(){if(!sid||actionBusy||document.hidden||state?.combat)return;try{const [fresh,p]=await Promise.all([api("/api/session/"+sid),api("/api/session/"+sid+"/presence")]);state=fresh.state;presence=p.players||[];if(tab==="journal"||tab==="map"||tab==="nearby")draw()}catch{}}
 async function restore(){if(!sid)return;try{state=(await api("/api/session/"+sid)).state;await shared()}catch{localStorage.removeItem(SK);sid=null}}
-function geo(){return new Promise(resolve=>{if(!window.isSecureContext||!navigator.geolocation)return resolve(null);navigator.geolocation.getCurrentPosition(p=>resolve({lat:p.coords.latitude,lon:p.coords.longitude}),()=>resolve(null),{enableHighAccuracy:false,timeout:6000,maximumAge:300000})})}
+function geo(fresh=false){return new Promise(resolve=>{if(!window.isSecureContext||!navigator.geolocation)return resolve(null);navigator.geolocation.getCurrentPosition(p=>resolve({lat:p.coords.latitude,lon:p.coords.longitude}),()=>resolve(null),{enableHighAccuracy:false,timeout:6000,maximumAge:fresh?15000:300000})})}
 async function syncTravel(){
  if(!sid||document.hidden||state?.combat)return;
- const g=await geo();if(!g)return;
+ const g=await geo(true);if(!g)return;
  try{const before=state?.region?.key;await act("relocate",g);if(before!==state?.region?.key)draw()}catch{}
 }
 async function start(){if(!pk){pk=crypto.randomUUID();localStorage.setItem(PK,pk)}const g=await geo(),name=$("#name")?.value||"Wayfarer",j=await api("/api/session",{method:"POST",body:{playerKey:pk,playerName:name.slice(0,18),origin,...(g||{})}});sid=j.sessionId;pk=j.playerKey;state=j.state;localStorage.setItem(SK,sid);localStorage.setItem(PK,pk);await shared();tab="map"}
