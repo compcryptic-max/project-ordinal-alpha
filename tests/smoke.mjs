@@ -48,11 +48,14 @@ try{
  if(inv.state.combat||!inv.state.pendingEncounter?.modifier?.name||!inv.state.pendingEncounter?.archetype)throw new Error("contact reveal did not stage encounter");
  const engaged=await fetch(base+"/api/session/"+sid+"/engage",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({choice:"engage"})}).then(r=>r.json());
  if(!engaged.state.combat||engaged.state.pendingEncounter)throw new Error("engagement did not start combat");
+ if(!engaged.state.path||engaged.state.path.attack!==0)throw new Error("hidden specialization path missing");
  if(!engaged.state.combat.modifier?.name||!engaged.state.combat.archetype||engaged.state.combat.break!==0)throw new Error("enemy archetype/modifier/Break system missing");
  const failedSkill=await fetch(base+"/api/session/"+sid+"/combat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({type:"skill"})}).then(r=>r.json());
  if(failedSkill.state.combat.turn!==engaged.state.combat.turn||failedSkill.state.combat.flow!==engaged.state.combat.flow||failedSkill.state.combat.lastAction!==engaged.state.combat.lastAction)throw new Error("failed combat action mutated turn state");
+ if(failedSkill.state.path.skill!==0)throw new Error("failed combat action trained hidden specialization");
  const hit=await fetch(base+"/api/session/"+sid+"/combat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({type:"attack"})}).then(r=>r.json());
  if(!(hit.state.combat?.hp<engaged.state.combat.hp))throw new Error("combat attack did not deal damage");
+ if(hit.state.path.attack!==1)throw new Error("successful combat action did not train hidden specialization");
  if(!(hit.state.mastery?.xp>0))throw new Error("mastery did not progress");
  if(!(hit.state.combat?.break>0))throw new Error("Break gauge did not build");
  if(!hit.state.stats||!hit.state.codex?.enemies)throw new Error("feats/Codex progression missing");
