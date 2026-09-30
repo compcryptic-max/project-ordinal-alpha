@@ -5,6 +5,7 @@ const gameSource=await readFile("public/game.js","utf8");
 const bindingSource=gameSource.replaceAll("$$(","__ALL__("); if(bindingSource.includes('$("[data-')||gameSource.includes("$$$("))throw new Error("regression: broken selector binding");
 if(!gameSource.includes('$=s=>[...document.querySelectorAll(s)]'))throw new Error("multi-selector helper missing");
 if(!gameSource.includes("function nearby()")||!gameSource.includes("field-node"))throw new Error("field network UI missing");
+if(!gameSource.includes("function traitEffect")||!gameSource.includes("breakbar"))throw new Error("combat depth UI missing");
 if(!gameSource.includes('function regionMap()'))throw new Error("regional map renderer missing");
 for(const file of ["server.mjs","public/game.js","public/effects.js"]){
  const c=spawnSync(process.execPath,["--check",file],{stdio:"pipe"});
