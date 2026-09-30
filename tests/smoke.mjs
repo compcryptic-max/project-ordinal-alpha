@@ -11,6 +11,7 @@ if(!gameSource.includes("function nearby()")||!gameSource.includes("field-node")
 if(!gameSource.includes("function traitEffect")||!gameSource.includes("breakbar"))throw new Error("combat depth UI missing");
 for(const mapping of ['trait==="Prism Guard"?"shield"','trait==="Veilstep"?"twin"','trait==="Executioner"?"axe"','trait==="Veil-Touched"?"core"'])if(!gameSource.includes(mapping))throw new Error("trait-specific relic art mapping missing: "+mapping);
 if(!gameSource.includes("function encounterReveal")||!gameSource.includes("function combatSignature"))throw new Error("encounter/specialization UI missing");
+if(!gameSource.includes("function fieldInteraction")||!gameSource.includes("data-field-stabilize")||!gameSource.includes("data-field-choice"))throw new Error("Field resonance microinteractions missing");
 for(const enemy of ["mirehorn","revenant","choirless","riftweaver"])if(!gameSource.includes("function "+enemy+"()"))throw new Error("new enemy art missing: "+enemy);
 if(!gameSource.includes("enemyDamage=")||!gameSource.includes("playerDamage="))throw new Error("authoritative combat damage feedback missing");
 if(!gameSource.includes("travel-paused")||!gameSource.includes("geo(true)"))throw new Error("rapid-travel safety UI/location refresh missing");
