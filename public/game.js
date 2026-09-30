@@ -110,7 +110,7 @@ function journal(){
  '<div class="subhead"><div><small>RECENT</small><b>Your field record</b></div></div><div class="list">'+state.feed.slice(0,8).map(x=>'<div class="row"><b>'+esc(x.text)+'</b></div>').join("")+'</div></div>'
 }
 function nav(){const items=[["map","map","FIELD"],["nearby","radar","NEARBY"],["inventory","gear","GEAR"],["journal","log","LOG"]];return '<div class="bottomnav"><div class="navinner">'+items.map(([t,i,l])=>'<button class="navbtn '+(tab===t?"active":"")+'" data-tab="'+t+'"><i>'+ico(i)+'</i><span>'+l+'</span></button>').join("")+'</div></div>'}
-function game(){if(state.combat)return combat();if(state.pendingEncounter)return encounterReveal();if(state.pendingLoot)return lootReveal();if(state.pendingChoice)return choice();const biome=state.region.name.toLowerCase().replace(/[^a-z]+/g,"-");return '<div class="game field-shell biome-'+biome+'"><div class="world-bg"></div><div class="mist"></div>'+(tab==="map"?regionMap():tab==="nearby"?nearby():tab==="inventory"?inventory():journal())+nav()+'</div>'}
+function game(){if(state.combat)return combat();if(state.pendingEncounter)return encounterReveal();if(state.pendingLoot)return lootReveal();if(state.pendingChoice)return choice();const biome=state.region.name.toLowerCase().replace(/[^a-z]+/g,"-");return '<div class="game field-shell biome-'+biome+(state.travel?.mode==="transit"?" travel-paused":"")+'"><div class="world-bg"></div><div class="mist"></div>'+(tab==="map"?regionMap():tab==="nearby"?nearby():tab==="inventory"?inventory():journal())+nav()+'</div>'}
 function render(){return !state?startView():game()}
 
 function draw(){ $("#app").innerHTML=(notice?'<div class="notice">'+esc(notice)+'</div>':"")+render();wire()}
