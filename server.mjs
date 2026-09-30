@@ -77,6 +77,14 @@ function addMastery(p,amount){
  p.mastery??={rank:1,xp:0,next:25,name:"Unproven"};p.mastery.xp+=amount;
  while(p.mastery.xp>=p.mastery.next){p.mastery.xp-=p.mastery.next;p.mastery.rank++;p.mastery.next=Math.round(p.mastery.next*1.45);p.mastery.name=p.mastery.rank>=6?"Weapon Savant":p.mastery.rank>=4?"Adept":p.mastery.rank>=2?"Initiate":"Unproven";addFeed(p,"MASTERY RANK "+p.mastery.rank+" — "+p.mastery.name+".");}
 }
+function enemyIntent(c){
+ const n=c.name,t=c.turn;
+ if(/Pale Hound/i.test(n))return t%3===0?"HEAVY POUNCE — EVADE or time a GUARD.":"The Hound circles, testing your flank.";
+ if(/Glass Warden/i.test(n))return t%4===0?"HEAVY PRISM BREAK — GUARD to shatter its rhythm.":"Glass plates rotate toward you.";
+ if(/Veil Stalker/i.test(n))return t%3===0?"HEAVY VEIL STEP — EVADE before it rematerializes.":"Its outline disappears between shadows.";
+ if(/Hollow Marauder/i.test(n))return t%3===0?"HEAVY EXECUTION CLEAVE — GUARD or EVADE.":"The Marauder drags its weapon into position.";
+ return t%3===0?"HEAVY ATTACK TELEGRAPHED — GUARD OR EVADE.":"The enemy searches for an opening.";
+}
 function fight(p,type){
  const c=p.combat;if(!c)return;
  c.stamina??=100;c.focus??=0;c.phase??=1;
@@ -114,12 +122,12 @@ function fight(p,type){
   return;
  }
  if(type!=="potion"){
-  let incoming=(heavy?20:10)+p.region.threat/12+(c.phase===2?4:0);
+  let incoming=(heavy?20:10)+p.region.threat/12+(c.phase===2?4:0);if(/Marauder/i.test(c.name))incoming+=4;if(/Hound/i.test(c.name)&&heavy)incoming+=3;if(/Warden/i.test(c.name)&&type==="guard")incoming=Math.max(2,incoming-3);
   if(evaded)incoming=0;else incoming*=1-mitigation;
   p.hp=Math.max(0,Math.round(p.hp-incoming));
  }
  c.turn++;
- c.intent=c.turn%3===0?"HEAVY ATTACK TELEGRAPHED — GUARD, EVADE, OR INTERRUPT.":c.phase===2?"The wounded enemy feints, then lunges.":"The enemy searches for an opening.";
+ c.intent=enemyIntent(c);if(c.phase===2&&!/HEAVY/.test(c.intent))c.intent+=" Phase II pressure is rising.";
  if(p.hp<=0){
   const killer=c.name,n=p.region.nemesis;
   p.region.nemesis=n&&n.name===killer?{...n,power:n.power+1,victories:n.victories+1}:{name:killer,power:1,victories:1,lastDefeated:p.name};
