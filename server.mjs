@@ -57,7 +57,7 @@ function fieldState(p){
 function fieldCollect(p,id){
  const a=ensureActivity(p),node=fieldState(p).find(n=>n.id===id);
  if(!node||node.action!=="collect"||node.collected)return;
- a.collected.push(id);a.totalFieldActions++;a.dailyScore++;
+ a.collected.push(id);a.totalFieldActions++;a.dailyScore++;journeyAction(p,"field",1);
  if(node.kind==="cache"){p.gold+=6;level(p,12);}
  else if(node.kind==="echo"){p.reputation+=1;level(p,8);}
  else if(node.kind==="event"){p.reputation+=2;level(p,10);p.region.threat=Math.max(5,p.region.threat-1);}
@@ -68,12 +68,59 @@ function checkin(p){
  const a=ensureActivity(p),today=utcDay();
  if(a.lastCheckin===today){addFeed(p,"DAILY SYNC — already completed today.");return;}
  const yesterday=new Date(Date.now()-86400000).toISOString().slice(0,10);
- a.streak=a.lastCheckin===yesterday?(a.streak||0)+1:1;a.lastCheckin=today;a.dailyScore++;a.totalFieldActions++;
+ a.streak=a.lastCheckin===yesterday?(a.streak||0)+1:1;a.lastCheckin=today;a.dailyScore++;a.totalFieldActions++;journeyAction(p,"any",1);
  p.gold+=5;level(p,10+Math.min(20,a.streak*2));addFeed(p,"DAILY SYNC — streak "+a.streak+". Field bonus received.");
+}
+function ensureJourney(p){
+ if(!p.journey){
+  const h=hash(p.key),omens=["The Signal That Knows Your Name","Ash Beneath the Glass","The Door Between Footsteps","A Voice Beyond the Veil","The Unmarked Frequency"],motives=["Find what is calling to you.","Learn why the Veil reacts to your presence.","Trace a disappearance no one else remembers.","Discover who altered your first memory.","Reach the source before another Wayfarer does."];
+  p.journey={title:omens[h%omens.length],hook:motives[(h>>3)%motives.length],chapter:1,progress:0,next:8,beats:[],calling:null,callingProgress:0,callingTier:1};
+ }
+ p.contracts??={field:0,hunts:0,discoveries:0,completed:0};
+ return p.journey;
+}
+const callings={
+ hunter:{name:"Hunter",desc:"Track dangerous entities and become known for what you can defeat.",metric:"hunt"},
+ seeker:{name:"Seeker",desc:"Chase signals, recoveries and discoveries hidden in the field.",metric:"field"},
+ warden:{name:"Warden",desc:"Stabilize regions and build a reputation for protecting them.",metric:"protect"},
+ wayfarer:{name:"Wayfarer",desc:"Grow through a mixture of combat, exploration and field activity.",metric:"any"}
+};
+function journeyAction(p,type,amount=1){
+ const j=ensureJourney(p);amount=Math.max(1,Number(amount)||1);
+ j.progress+=amount;
+ const c=callings[j.calling];
+ if(c&&(c.metric===type||c.metric==="any"||(c.metric==="protect"&&["hunt","field"].includes(type))))j.callingProgress+=amount;
+ if(type==="field")p.contracts.field+=amount;if(type==="hunt")p.contracts.hunts+=amount;if(type==="discover")p.contracts.discoveries+=amount;
+ if(j.progress>=j.next){
+  j.progress-=j.next;j.chapter++;j.next=Math.min(30,8+j.chapter*3);
+  const beats=["A fragment addressed you by name.","Your signal appeared in a record older than your arrival.","A second presence answered your frequency.","The trail split toward something the region refuses to map.","Someone else has begun following your trail."];
+  const beat=beats[(hash(p.key+":"+j.chapter))%beats.length];j.beats.unshift("CHAPTER "+j.chapter+" — "+beat);j.beats=j.beats.slice(0,8);p.reputation+=2;level(p,20+j.chapter*2);addFeed(p,"STORY THREAD — "+beat);
+ }
+ if(c){
+  const target=8+j.callingTier*7;
+  if(j.callingProgress>=target){j.callingProgress-=target;j.callingTier++;p.reputation+=3;p.gold+=20+j.callingTier*5;level(p,25);addFeed(p,c.name.toUpperCase()+" GOAL — Tier "+j.callingTier+" reached.");}
+ }
+}
+function chooseCalling(p,id){
+ ensureJourney(p);if(!callings[id])return;
+ p.journey.calling=id;p.journey.callingProgress=0;addFeed(p,"CALLING CHOSEN — "+callings[id].name+". This can be changed later without resetting your story.");
+}
+function contractState(p){
+ ensureJourney(p);
+ return [
+  {id:"field",name:"Field Recovery",desc:"Recover activity from the live field.",value:p.contracts.field,target:5,reward:"15 XP · 10G"},
+  {id:"hunts",name:"Threat Sweep",desc:"Defeat entities. Repeatable for long sessions.",value:p.contracts.hunts,target:3,reward:"25 XP · 14G"},
+  {id:"discoveries",name:"Unmapped",desc:"Chart discoveries and strange places.",value:p.contracts.discoveries,target:2,reward:"20 XP · 12G"}
+ ];
+}
+function claimContract(p,id){
+ ensureJourney(p);const cfg={field:[5,15,10],hunts:[3,25,14],discoveries:[2,20,12]}[id];if(!cfg)return;
+ const key=id,value=p.contracts[key]||0;if(value<cfg[0]){addFeed(p,"CONTRACT — requirements not met.");return;}
+ p.contracts[key]-=cfg[0];p.contracts.completed++;level(p,cfg[1]);p.gold+=cfg[2];p.reputation+=1;addFeed(p,"CONTRACT COMPLETE — reward secured. Another cycle is immediately available.");
 }
 function freshPlayer(key,name,origin,region){
  const o=origins[origin]||origins.Rogue;
- return {key,name:String(name||"Wayfarer").slice(0,18),origin:origins[origin]?origin:"Rogue",level:1,xp:0,xpNeeded:100,gold:35,hp:o.hp,maxHp:o.hp,skill:o.skill,inventory:[{id:"starter",name:o.weapon,rarity:"Common",power:2,trait:"Wayfarer Issue"},{id:"potion",name:"Wayfarer Tonic",rarity:"Uncommon",qty:2}],equipment:{weapon:"starter"},mastery:{rank:1,xp:0,next:25,name:"Unproven"},travel:{mode:"explore",lastChangeAt:0,changes:0},titles:[],reputation:0,activity:{date:utcDay(),streak:0,lastCheckin:null,collected:[],dailyScore:0,totalFieldActions:0},region:freshRegion(region),rumor:null,combat:null,pendingLoot:null,pendingChoice:null,feed:[{text:"You entered "+region.name+". The region was already moving before you arrived."}]};
+ return {key,name:String(name||"Wayfarer").slice(0,18),origin:origins[origin]?origin:"Rogue",level:1,xp:0,xpNeeded:100,gold:35,hp:o.hp,maxHp:o.hp,skill:o.skill,inventory:[{id:"starter",name:o.weapon,rarity:"Common",power:2,trait:"Wayfarer Issue"},{id:"potion",name:"Wayfarer Tonic",rarity:"Uncommon",qty:2}],equipment:{weapon:"starter"},mastery:{rank:1,xp:0,next:25,name:"Unproven"},travel:{mode:"explore",lastChangeAt:0,changes:0},titles:[],reputation:0,activity:{date:utcDay(),streak:0,lastCheckin:null,collected:[],dailyScore:0,totalFieldActions:0},journey:null,contracts:{field:0,hunts:0,discoveries:0,completed:0},region:freshRegion(region),rumor:null,combat:null,pendingLoot:null,pendingChoice:null,feed:[{text:"You entered "+region.name+". The region was already moving before you arrived."}]};
 }
 async function load(key){
  if(pool){const {rows}=await pool.query("select payload from ordinal_players where player_key=$1",[key]);return rows[0]?.payload||null;}
@@ -156,7 +203,7 @@ function fight(p,type){
   const enemy=c.name,nemesisKill=c.nemesisPower>0;p.combat=null;p.gold+=24+p.level*3+(nemesisKill?c.nemesisPower*18:0);level(p,42+(nemesisKill?20:0));p.reputation+=2+(nemesisKill?2:0);if(nemesisKill){p.region.history.unshift(p.name+" ended the Nemesis "+enemy+" after "+p.region.nemesis.victories+" recorded victory.");p.region.nemesis=null;}
   const rare=(hash(p.key+enemy+p.region.day)%100)<18;
   p.pendingLoot={id:"loot-"+Date.now(),name:enemy==="Pale Hound"?(rare?"Pale Moon Edge":"Moon-Split Fang"):(rare?"Warden's Glassheart":"Veilbound Fragment"),rarity:rare?"Epic":"Rare",source:enemy,power:4+p.level*2+(rare?5:0),trait:enemy==="Pale Hound"?"Predator's Tempo":enemy==="Glass Warden"?"Prism Guard":enemy==="Veil Stalker"?"Veilstep":enemy==="Hollow Marauder"?"Executioner":"Veil-Touched"};
-  p.pendingChoice=null;p.region.history.unshift(p.name+" defeated "+enemy+".");addFeed(p,enemy+" fell. Something remains in the Veil.");
+  p.pendingChoice=null;p.region.history.unshift(p.name+" defeated "+enemy+".");journeyAction(p,"hunt",2);addFeed(p,enemy+" fell. Something remains in the Veil.");
   return;
  }
  if(type!=="potion"){
@@ -203,7 +250,7 @@ function scout(p){
  const sites=[["sunken-road","Sunken Road"],["veil-scar","Veil Scar"],["old-watch","Old Watch"]];
  const next=sites.find(([id])=>!p.region.discoveries.includes(id));
  if(!next){addFeed(p,"CARTOGRAPHY — Every known landmark in this region is charted.");return;}
- p.region.discoveries.push(next[0]);p.lastScoutDay=p.region.day;p.reputation+=1;level(p,12);
+ p.region.discoveries.push(next[0]);p.lastScoutDay=p.region.day;p.reputation+=1;level(p,12);journeyAction(p,"discover",2);
  p.region.history.unshift(p.name+" charted "+next[1]+".");addFeed(p,"DISCOVERY — "+next[1]+" added to your regional map.");
 }
 function advance(p){if(p.combat||p.pendingChoice)return;p.region.day++;p.region.corruption=Math.max(0,Math.min(100,p.region.corruption+(p.region.day%2?1:-1)));p.region.threat=Math.max(5,Math.min(100,p.region.threat+(p.region.day%3===0?3:-1)));if(p.region.threat>55)p.region.prosperity=Math.max(10,p.region.prosperity-2);if(p.region.order>60)p.region.prosperity=Math.min(95,p.region.prosperity+1);evolveRegion(p);newRumor(p);addFeed(p,"Day "+p.region.day+" begins. The world changed while you were away.");}
@@ -215,7 +262,7 @@ async function relocate(p,lat,lon){
  p.region=(await loadRegion(reg.key))||freshRegion(reg);p.rumor=null;newRumor(p);
  addFeed(p,(rapid?"TRAVEL MODE — rapid movement detected. Combat signals are suppressed.":"REGION CROSSED — ")+p.region.name+".");
 }
-function publicState(p){const x=clone(p);x.field=fieldState(p);x.ordinalRating=ordinalRating(p);x.serverNow=Date.now();return x;}
+function publicState(p){ensureJourney(p);const x=clone(p);x.field=fieldState(p);x.contractList=contractState(p);x.callingOptions=callings;x.ordinalRating=ordinalRating(p);x.serverNow=Date.now();return x;}
 function json(res,status,data){res.writeHead(status,{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"});res.end(JSON.stringify(data));}
 async function body(req){let s="";for await(const c of req){s+=c;if(s.length>100000)throw Error("body_too_large");}return s?JSON.parse(s):{};}
 const sessions=new Map();
@@ -228,6 +275,7 @@ const server=http.createServer(async(req,res)=>{
    let p=await load(key);
    if(!p){p=freshPlayer(key,b.playerName,b.origin,reg);newRumor(p);}
    else {
+    ensureJourney(p);
     addFeed(p,"Your character returned from persistent storage.");
     if(reg.source==="coarse-location"&&reg.key!==p.region.key){p.region=(await loadRegion(reg.key))||freshRegion(reg);p.rumor=null;newRumor(p);addFeed(p,"TRAVEL — You crossed into "+p.region.name+".");}
    }
@@ -250,6 +298,8 @@ const server=http.createServer(async(req,res)=>{
     else if(action==="scout")scout(p);
     else if(action==="collect")fieldCollect(p,String(b.id||""));
     else if(action==="checkin")checkin(p);
+    else if(action==="calling")chooseCalling(p,String(b.id||""));
+    else if(action==="contract")claimContract(p,String(b.id||""));
     else if(action==="relocate")await relocate(p,b.lat,b.lon);
     else return json(res,404,{ok:false,error:"route_not_found"});
     await save(p);return json(res,200,{ok:true,state:publicState(p)});
