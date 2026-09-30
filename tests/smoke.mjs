@@ -5,6 +5,8 @@ const gameSource=await readFile("public/game.js","utf8");
 const serverSource=await readFile("server.mjs","utf8");
 if(!serverSource.includes("function nemesisIdentity")||!serverSource.includes("nemesis?.mutation||profile.modifier"))throw new Error("persistent Nemesis evolution missing");
 if(!serverSource.includes("ordinal_meta")||!serverSource.includes("persistenceProbe"))throw new Error("database persistence health marker missing");
+if(!serverSource.includes("ordinal_recovery")||!serverSource.includes("function recoveryHash"))throw new Error("hashed cross-device recovery backend missing");
+if(!gameSource.includes("data-recovery-create")||!gameSource.includes('id="recovery-input"'))throw new Error("cross-device recovery UI missing");
 const bindingSource=gameSource.replaceAll("$$(","__ALL__("); if(bindingSource.includes('$("[data-')||gameSource.includes("$$$("))throw new Error("regression: broken selector binding");
 if(!gameSource.includes('$=s=>[...document.querySelectorAll(s)]'))throw new Error("multi-selector helper missing");
 if(!gameSource.includes("function nearby()")||!gameSource.includes("field-node"))throw new Error("field network UI missing");
@@ -36,6 +38,8 @@ try{
  const created=await fetch(base+"/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerKey:"smoke-player",playerName:"Smoke",origin:"Rogue"})}).then(r=>r.json());
  if(!created.sessionId||created.state.origin!=="Rogue")throw new Error("session create failed");
  const sid=created.sessionId;
+ const recoveryUnavailable=await fetch(base+"/api/recovery/create",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({sessionId:sid})});
+ if(recoveryUnavailable.status!==503)throw new Error("recovery endpoint should require persistent storage");
  const recovered=await fetch(base+"/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerKey:"smoke-player",recoverOnly:true})}).then(r=>r.json());
  if(!recovered.sessionId||recovered.state.name!=="Smoke")throw new Error("persistent character recovery failed");
  const missingRecovery=await fetch(base+"/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerKey:"missing-recovery-player",recoverOnly:true})});
