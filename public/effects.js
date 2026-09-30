@@ -64,6 +64,12 @@ function drawCombat(){
   ctx.globalAlpha=1;combatRAF=requestAnimationFrame(loop);
  };combatRAF=requestAnimationFrame(loop);
 }
+function applyLayout(){
+ const host=document.querySelector(".viewport"),name=document.querySelector(".region")?.textContent;if(!host||!name)return;
+ const r=rng(hash(name+"layout"));
+ const nodes=[[".worldnode.town",24,58],[".worldnode.signal",58,28],[".worldnode.shrine",66,55]];
+ nodes.forEach(([sel,minX,minY],i)=>{const n=host.querySelector(sel);if(!n)return;n.style.left=(minX+r()*18)+"%";n.style.top=(minY+r()*14)+"%";});
+}
 function applyTime(){
  const g=document.querySelector(".game");if(!g)return;
  g.classList.remove("time-dawn","time-day","time-dusk","time-night");
@@ -71,7 +77,7 @@ function applyTime(){
  g.classList.add("time-"+mode);
  const moon=g.querySelector(".moon");if(moon)moon.setAttribute("data-time",mode.toUpperCase());
 }
-function refresh(){applyTime();if(document.querySelector(".viewport"))drawWorld();else cancelAnimationFrame(worldRAF);if(document.querySelector(".encounter"))drawCombat();else cancelAnimationFrame(combatRAF)}
+function refresh(){applyTime();applyLayout();if(document.querySelector(".viewport"))drawWorld();else cancelAnimationFrame(worldRAF);if(document.querySelector(".encounter"))drawCombat();else cancelAnimationFrame(combatRAF)}
 let scheduled=false;new MutationObserver(()=>{if(scheduled)return;scheduled=true;requestAnimationFrame(()=>{scheduled=false;refresh()})}).observe(document.getElementById("app"),{childList:true,subtree:true});
 addEventListener("resize",refresh,{passive:true});
 document.addEventListener("pointerdown",e=>{
