@@ -222,10 +222,17 @@ function startEncounter(p,boss,elite=0){
  addFeed(p,(elite?"ELITE ENCOUNTER — ":"ENCOUNTER — ")+boss+" emerged from the distortion.");
 }
 function investigate(p){
+ if(p.combat||p.pendingEncounter)return;
  if(!p.rumor)newRumor(p);
- const boss=(p.region.nemesis&&p.region.day%3===0)?p.region.nemesis.name:p.rumor.enemy,first=!p.region.discoveries.includes("glass-shrine");
+ const boss=(p.region.nemesis&&p.region.day%3===0)?p.region.nemesis.name:p.rumor.enemy,first=!p.region.discoveries.includes("glass-shrine"),profile=enemyProfile(boss,p.region);
  if(first){p.region.discoveries.push("glass-shrine");p.region.history.unshift(p.name+" discovered the Glass Shrine.");addFeed(p,"FIRST DISCOVERY — Glass Shrine.");}
- startEncounter(p,boss,0);
+ p.pendingEncounter={name:boss,elite:0,archetype:profile.archetype,weakness:profile.weakness,modifier:profile.modifier,threat:Math.max(1,Math.round(p.region.threat/20)+(p.region.nemesis?.name===boss?p.region.nemesis.power:0)),rumorTitle:p.rumor.title};
+ addFeed(p,"CONTACT — "+boss+" identified. Engagement is your choice.");
+}
+function engageEncounter(p,choice){
+ const e=p.pendingEncounter;if(!e)return;
+ if(choice!=="engage"){p.pendingEncounter=null;addFeed(p,"CONTACT MARKED — You withdrew before combat. The signal remains trackable.");return;}
+ p.pendingEncounter=null;startEncounter(p,e.name,e.elite||0);
 }
 function addMastery(p,amount){
  p.mastery??={rank:1,xp:0,next:25,name:"Unproven"};p.mastery.xp+=amount;
@@ -415,6 +422,7 @@ const server=http.createServer(async(req,res)=>{
    if(req.method==="POST"){
     const b=await body(req);await refreshSharedRegion(p);
     if(action==="investigate"){if(p.travel?.mode==="transit")addFeed(p,"TRAVEL MODE — arrive safely before entering combat.");else investigate(p);}
+    else if(action==="engage")engageEncounter(p,String(b.choice||"leave"));
     else if(action==="combat")fight(p,b.type);
     else if(action==="loot")claimLoot(p);
     else if(action==="equip")equipItem(p,String(b.id||""));
