@@ -33,10 +33,10 @@ function regionFrom(lat,lon){
  }
  return {key:"demo-region",name:"Ashen Reach",source:"demo"};
 }
-function freshRegion(region){return {key:region.key,name:region.name,day:1,stage:"Unsettled",faction:"Wayfall Compact",corruption:37,order:48,prosperity:55,threat:31,ecology:{predators:42,prey:61,anomalies:18},history:[],discoveries:[]}}
+function freshRegion(region){return {key:region.key,name:region.name,day:1,stage:"Unsettled",faction:"Wayfall Compact",corruption:37,order:48,prosperity:55,threat:31,ecology:{predators:42,prey:61,anomalies:18},nemesis:null,history:[],discoveries:[]}}
 function freshPlayer(key,name,origin,region){
  const o=origins[origin]||origins.Rogue;
- return {key,name:String(name||"Wayfarer").slice(0,18),origin:origins[origin]?origin:"Rogue",level:1,xp:0,xpNeeded:100,gold:35,hp:o.hp,maxHp:o.hp,skill:o.skill,inventory:[{id:"starter",name:o.weapon,rarity:"Common"},{id:"potion",name:"Wayfarer Tonic",rarity:"Uncommon",qty:2}],equipment:{weapon:"starter"},titles:[],reputation:0,region:freshRegion(region),rumor:null,combat:null,pendingLoot:null,pendingChoice:null,feed:[{text:"You entered "+region.name+". The region was already moving before you arrived."}]};
+ return {key,name:String(name||"Wayfarer").slice(0,18),origin:origins[origin]?origin:"Rogue",level:1,xp:0,xpNeeded:100,gold:35,hp:o.hp,maxHp:o.hp,skill:o.skill,inventory:[{id:"starter",name:o.weapon,rarity:"Common"},{id:"potion",name:"Wayfarer Tonic",rarity:"Uncommon",qty:2}],equipment:{weapon:"starter"},mastery:{rank:1,xp:0,next:25,name:"Unproven"},titles:[],reputation:0,region:freshRegion(region),rumor:null,combat:null,pendingLoot:null,pendingChoice:null,feed:[{text:"You entered "+region.name+". The region was already moving before you arrived."}]};
 }
 async function load(key){
  if(pool){const {rows}=await pool.query("select payload from ordinal_players where player_key=$1",[key]);return rows[0]?.payload||null;}
@@ -67,11 +67,15 @@ function newRumor(p){
 }
 function investigate(p){
  if(!p.rumor)newRumor(p);
- const boss=p.rumor.enemy,first=!p.region.discoveries.includes("glass-shrine");
+ const boss=(p.region.nemesis&&p.region.day%3===0)?p.region.nemesis.name:p.rumor.enemy,first=!p.region.discoveries.includes("glass-shrine");
  if(first){p.region.discoveries.push("glass-shrine");p.region.history.unshift(p.name+" discovered the Glass Shrine.");addFeed(p,"FIRST DISCOVERY — Glass Shrine.");}
- const hp=72+p.level*12;
- p.combat={name:boss,hp,maxHp:hp,turn:1,intent:"The enemy circles for an opening.",stamina:100,focus:0,lastResult:"Encounter started.",phase:1};
+ const nem=p.region.nemesis?.name===boss?p.region.nemesis.power:0,hp=72+p.level*12+nem*18;
+ p.combat={name:boss,hp,maxHp:hp,nemesisPower:nem,turn:1,intent:"The enemy circles for an opening.",stamina:100,focus:0,lastResult:"Encounter started.",phase:1};
  addFeed(p,boss+" emerged from the distortion.");
+}
+function addMastery(p,amount){
+ p.mastery??={rank:1,xp:0,next:25,name:"Unproven"};p.mastery.xp+=amount;
+ while(p.mastery.xp>=p.mastery.next){p.mastery.xp-=p.mastery.next;p.mastery.rank++;p.mastery.next=Math.round(p.mastery.next*1.45);p.mastery.name=p.mastery.rank>=6?"Weapon Savant":p.mastery.rank>=4?"Adept":p.mastery.rank>=2?"Initiate":"Unproven";addFeed(p,"MASTERY RANK "+p.mastery.rank+" — "+p.mastery.name+".");}
 }
 function fight(p,type){
  const c=p.combat;if(!c)return;
@@ -85,25 +89,25 @@ function fight(p,type){
   c.stamina=Math.min(100,c.stamina+8);
  } else if(type==="dodge"){
   if(c.stamina<25){c.lastResult="Not enough stamina to evade.";return;}
-  c.stamina-=25;evaded=heavy||((hash(p.key+c.turn)%100)<58);c.focus=Math.min(100,c.focus+8);
+  c.stamina-=25;evaded=heavy||((hash(p.key+c.turn)%100)<58);c.focus=Math.min(100,c.focus+8);if(evaded)addMastery(p,2);
   c.lastResult=evaded?"Perfect evade — attack avoided.":"You evade early; the enemy adjusts.";
   addFeed(p,c.lastResult);
  } else if(type==="guard"){
-  mitigation=heavy?0.72:0.5;c.stamina=Math.min(100,c.stamina+12);c.focus=Math.min(100,c.focus+10);
+  mitigation=heavy?0.72:0.5;c.stamina=Math.min(100,c.stamina+12);c.focus=Math.min(100,c.focus+10);if(heavy)addMastery(p,2);
   c.lastResult=heavy?"Perfect guard — heavy impact broken.":"Guarded the incoming strike.";
   addFeed(p,c.lastResult);
  } else if(type==="skill"){
   if(c.focus<35){c.lastResult="Build Focus with attacks, guards, and evades.";return;}
-  c.focus-=35;dmg=24+p.level*4+(heavy?8:0);c.stamina=Math.min(100,c.stamina+5);
+  c.focus-=35;dmg=24+p.level*4+(p.mastery?.rank||1)*2+(heavy?8:0);c.stamina=Math.min(100,c.stamina+5);addMastery(p,3);
   c.lastResult=p.skill+" breaks through for "+dmg+" damage.";addFeed(p,c.lastResult);
  } else {
-  dmg=base;c.focus=Math.min(100,c.focus+18);c.stamina=Math.min(100,c.stamina+9);
+  dmg=base+(p.mastery?.rank||1);c.focus=Math.min(100,c.focus+18);c.stamina=Math.min(100,c.stamina+9);addMastery(p,1);
   c.lastResult="Weapon strike dealt "+dmg+" damage.";addFeed(p,c.lastResult);
  }
  if(dmg)c.hp=Math.max(0,c.hp-dmg);
  if(c.hp<=Math.ceil(c.maxHp*.45)&&c.phase===1){c.phase=2;c.lastResult+=" The enemy enters a desperate second phase.";addFeed(p,c.name+" entered PHASE II.");}
  if(c.hp<=0){
-  const enemy=c.name;p.combat=null;p.gold+=24+p.level*3;level(p,42);p.reputation+=2;
+  const enemy=c.name,nemesisKill=c.nemesisPower>0;p.combat=null;p.gold+=24+p.level*3+(nemesisKill?c.nemesisPower*18:0);level(p,42+(nemesisKill?20:0));p.reputation+=2+(nemesisKill?2:0);if(nemesisKill){p.region.history.unshift(p.name+" ended the Nemesis "+enemy+" after "+p.region.nemesis.victories+" recorded victory.");p.region.nemesis=null;}
   const rare=(hash(p.key+enemy+p.region.day)%100)<18;
   p.pendingLoot={id:"loot-"+Date.now(),name:enemy==="Pale Hound"?(rare?"Pale Moon Edge":"Moon-Split Fang"):(rare?"Warden's Glassheart":"Veilbound Fragment"),rarity:rare?"Epic":"Rare",source:enemy};
   p.pendingChoice=null;p.region.history.unshift(p.name+" defeated "+enemy+".");addFeed(p,enemy+" fell. Something remains in the Veil.");
@@ -116,7 +120,11 @@ function fight(p,type){
  }
  c.turn++;
  c.intent=c.turn%3===0?"HEAVY ATTACK TELEGRAPHED — GUARD, EVADE, OR INTERRUPT.":c.phase===2?"The wounded enemy feints, then lunges.":"The enemy searches for an opening.";
- if(p.hp<=0){p.hp=Math.ceil(p.maxHp*.55);p.combat=null;p.region.threat=Math.min(100,p.region.threat+4);p.region.history.unshift(p.name+" left a Death Echo.");addFeed(p,"DEATH ECHO — You awaken wounded, but permanent gear remains.");}
+ if(p.hp<=0){
+  const killer=c.name,n=p.region.nemesis;
+  p.region.nemesis=n&&n.name===killer?{...n,power:n.power+1,victories:n.victories+1}:{name:killer,power:1,victories:1,lastDefeated:p.name};
+  p.hp=Math.ceil(p.maxHp*.55);p.combat=null;p.region.threat=Math.min(100,p.region.threat+4);p.region.history.unshift(killer+" became a regional Nemesis after defeating "+p.name+".");addFeed(p,"DEATH ECHO — "+killer+" remembers you. It has grown stronger.");
+ }
 }
 function evolveRegion(p){
  const r=p.region,old=r.stage;
