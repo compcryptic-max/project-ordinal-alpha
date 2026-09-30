@@ -150,8 +150,8 @@ function wire(){
  $$("[data-map-world]").forEach(b=>b.onclick=()=>{tab="map";draw()});
  $$("[data-simple]").forEach(b=>b.onclick=async()=>{try{sfx("signal");await act(b.dataset.simple);notice="";draw()}catch(x){notice=x.message;draw()}});
  $$("[data-field-id]").forEach(b=>b.onclick=()=>{fieldFocus=b.dataset.fieldId;fieldStep=0;sfx("signal");draw()});
- $("[data-recovery-create]").forEach(b=>b.onclick=async()=>{try{const j=await api("/api/recovery/create",{method:"POST",body:{sessionId:sid}});recoveryCode=j.code;notice="Recovery code generated. Keep it private.";draw()}catch(x){notice=x.message;draw()}});
- $("[data-field-close]").forEach(b=>b.onclick=()=>{fieldFocus=null;fieldStep=0;draw()});
+ $$("[data-recovery-create]").forEach(b=>b.onclick=async()=>{try{const j=await api("/api/recovery/create",{method:"POST",body:{sessionId:sid}});recoveryCode=j.code;notice="Recovery code generated. Keep it private.";draw()}catch(x){notice=x.message;draw()}});
+ $$("[data-field-close]").forEach(b=>b.onclick=()=>{fieldFocus=null;fieldStep=0;draw()});
  $$("[data-field-choice]").forEach(b=>b.onclick=async()=>{const n=(state.field||[]).find(x=>x.id===fieldFocus);if(!n)return;const correct=fieldHash(n.id)%3;if(Number(b.dataset.fieldChoice)!==correct){fieldStep++;sfx("guard");draw();return}try{sfx("loot");await act("collect",{id:n.id});fieldFocus=null;fieldStep=0;notice="";draw()}catch(x){notice=x.message;draw()}});
  $$("[data-field-stabilize]").forEach(b=>b.onclick=async()=>{fieldStep++;sfx("signal");if(fieldStep<3)return draw();const n=(state.field||[]).find(x=>x.id===fieldFocus);if(!n)return;try{await act("collect",{id:n.id});fieldFocus=null;fieldStep=0;sfx("loot");draw()}catch(x){notice=x.message;draw()}});
  $$("[data-field-complete]").forEach(b=>b.onclick=async()=>{const n=(state.field||[]).find(x=>x.id===fieldFocus);if(!n)return;try{await act("collect",{id:n.id});fieldFocus=null;fieldStep=0;sfx("loot");draw()}catch(x){notice=x.message;draw()}});
