@@ -130,4 +130,4 @@ function wire(){
  $$("[data-choice]").forEach(b=>b.onclick=async()=>{try{await act("choice",{choice:b.dataset.choice});notice="";draw()}catch(x){notice=x.message;draw()}});
  $$("[data-equip]").forEach(b=>b.onclick=async()=>{try{await act("equip",{id:b.dataset.equip});notice="";draw()}catch(x){notice=x.message;draw()}});
 }
-await restore();draw();setInterval(syncWorld,8000);setInterval(syncTravel,60000);
+await restore();draw();setInterval(syncWorld,8000);setInterval(syncTravel,60000);if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(()=>{});
