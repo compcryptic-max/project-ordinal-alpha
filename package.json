@@ -1,9 +1,17 @@
 {
-  "name":"project-ordinal-alpha",
-  "version":"0.7.0",
-  "private":true,
-  "type":"module",
-  "engines":{"node":">=22"},
-  "scripts":{"start":"node server.mjs"},
-  "dependencies":{"pg":"8.16.3"}
+  "name": "project-ordinal-alpha",
+  "version": "0.7.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node tests/smoke.mjs",
+    "postinstall": "npm test"
+  },
+  "dependencies": {
+    "pg": "8.16.3"
+  }
 }
