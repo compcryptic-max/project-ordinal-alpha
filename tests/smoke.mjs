@@ -15,6 +15,8 @@ for(const mapping of ['trait==="Prism Guard"?"shield"','trait==="Veilstep"?"twin
 if(!gameSource.includes("function encounterReveal")||!gameSource.includes("function combatSignature"))throw new Error("encounter/specialization UI missing");
 if(!gameSource.includes("function fieldInteraction")||!gameSource.includes("data-field-stabilize")||!gameSource.includes("data-field-choice"))throw new Error("Field resonance microinteractions missing");
 if(!gameSource.includes("function veilLens")||!gameSource.includes("getUserMedia")||!gameSource.includes("data-lens-pulse")||!gameSource.includes("data-lens-node"))throw new Error("live camera Veil Lens missing");
+if(!gameSource.includes("world-stage")||!gameSource.includes("roaming-hostile")||!gameSource.includes("world-player"))throw new Error("living visual Field world missing");
+if(!gameSource.includes("data-combat-arena")||!gameSource.includes('combatGesture("dodge")')||!gameSource.includes('combatGesture("guard")'))throw new Error("gesture-first combat missing");
 for(const enemy of ["mirehorn","revenant","choirless","riftweaver"])if(!gameSource.includes("function "+enemy+"()"))throw new Error("new enemy art missing: "+enemy);
 if(!gameSource.includes("enemyDamage=")||!gameSource.includes("playerDamage="))throw new Error("authoritative combat damage feedback missing");
 if(!gameSource.includes("travel-paused")||!gameSource.includes("geo(true)"))throw new Error("rapid-travel safety UI/location refresh missing");
