@@ -61,7 +61,7 @@ function fieldIcon(kind){return ico(kind==="signal"?"signal":kind==="cache"?"cac
 function hash32(v){let h=2166136261;for(const c of String(v)){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
 function worldIntel(){const r=state.region,e=r.ecology||{};return '<div class="world-intel"><div><small>VEIL WEATHER</small><b>'+(e.anomalies>55?'ARC STORM':e.anomalies>30?'DRIFTING MIST':'CLEAR VEIL')+'</b></div><div><small>REGION ACTIVITY</small><b>'+presence.length+' WAYFARER'+(presence.length===1?'':'S')+'</b></div><div><small>WORLD STATE</small><b>'+esc(r.stage).toUpperCase()+'</b></div></div>'}
 function regionMap(){
- const r=state.region,nodes=state.field||[],a=state.activity||{},rating=state.ordinalRating||100;
+ const r=state.region,nodes=state.field||[],a=state.activity||{},rating=state.ordinalRating||100,objective=r.objective;
  const active=nodes.filter(n=>!n.collected),nearest=[...active].sort((x,y)=>x.distance-y.distance)[0];
  const weather=(r.ecology?.anomalies||0)>55?"ARC INTERFERENCE":(r.ecology?.anomalies||0)>30?"VEIL HAZE":"CLEAR SIGNAL";
  const checked=a.lastCheckin===new Date().toISOString().slice(0,10);
@@ -76,6 +76,7 @@ function regionMap(){
   '</section>'+
   '<section class="field-dock">'+
    '<div class="daily-card"><div class="daily-icon">'+ico("bolt")+'</div><div><small>DAILY SYNC · '+(a.streak||0)+' DAY STREAK</small><b>'+(checked?'SYNC COMPLETE':'FIELD BONUS READY')+'</b><span>'+(a.dailyScore||0)+' actions today</span></div><button class="mini-action '+(checked?"done":"")+'" '+(checked?'disabled':'data-simple="checkin"')+'>'+(checked?'DONE':'SYNC')+'</button></div>'+
+   (objective?'<div class="region-directive '+(objective.complete?"complete":"")+'"><div><small>SHARED REGION DIRECTIVE · DAY '+objective.day+'</small><b>'+esc(objective.title)+'</b><p>'+esc(objective.desc)+'</p></div><div class="directive-progress"><strong>'+objective.progress+'/'+objective.target+'</strong><i><span style="width:'+pct(objective.progress,objective.target)+'%"></span></i><em>'+(objective.complete?"STABILIZED":"ALL LOCAL WAYFARERS")+'</em></div></div>':'')+
    (nearest?'<div class="nearby-focus"><div class="focus-icon '+nearest.kind+'">'+fieldIcon(nearest.kind)+'</div><div class="focus-copy"><small>NEAREST · '+nearest.distance+'m · REFRESH '+Math.max(1,Math.ceil(nearest.expiresIn/60))+'m</small><b>'+esc(nearest.label)+'</b><p>'+esc(nearest.detail)+'</p></div><button class="focus-action" '+(nearest.action==="investigate"?'data-simple="investigate"':'data-field-id="'+esc(nearest.id)+'"')+'>'+ico(nearest.action==="investigate"?"compass":"bolt")+' '+(nearest.action==="investigate"?"OPEN":"COLLECT")+'</button></div>':'<div class="nearby-focus empty"><div class="focus-copy"><small>LOCAL FIELD</small><b>Area cleared</b><p>New activity will surface when the field refreshes.</p></div></div>')+
   '</section>'+
  '</main>'
