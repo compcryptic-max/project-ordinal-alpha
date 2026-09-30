@@ -45,6 +45,8 @@ try{
  if(!(hit.state.combat?.stamina<100))throw new Error("attack stamina cost missing");
  const withdrew=await fetch(base+"/api/session/"+sid+"/combat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({type:"retreat"})}).then(r=>r.json());
  if(withdrew.state.combat)throw new Error("combat withdrawal failed");
+ const roamed=await fetch(base+"/api/session/"+sid+"/roam",{method:"POST",headers:{"content-type":"application/json"},body:"{}"}).then(r=>r.json());
+ if(roamed.state.activity.roams!==1)throw new Error("uncapped Deep Scan loop failed");
  const equipped=await fetch(base+"/api/session/"+sid+"/equip",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({id:"starter"})}).then(r=>r.json());
  if(equipped.state.equipment.weapon!=="starter")throw new Error("equip route failed");
  console.log("Project Ordinal smoke tests passed");
