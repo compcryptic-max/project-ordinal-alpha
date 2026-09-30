@@ -5,14 +5,17 @@ import {randomUUID,createHash} from "node:crypto";
 
 const PORT=Number(process.env.PORT||8787);
 const DB=process.env.DATABASE_URL||"";
-let pool=null,dbError=null;
+let pool=null,dbError=null,persistenceProbe=null;
 const memory=new Map(),regions=new Map();
 if(DB){
  const candidate=new Pool({connectionString:DB,ssl:{rejectUnauthorized:false},max:5,connectionTimeoutMillis:6000});
  try{
   await candidate.query("create table if not exists ordinal_players (player_key text primary key, payload jsonb not null, updated_at timestamptz default now())");
   await candidate.query("create table if not exists ordinal_regions (region_key text primary key, payload jsonb not null, updated_at timestamptz default now())");
-  pool=candidate;
+  await candidate.query("create table if not exists ordinal_meta (meta_key text primary key, meta_value text not null, updated_at timestamptz default now())");
+  const marker="db-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,10);
+  const probe=await candidate.query("insert into ordinal_meta(meta_key,meta_value) values('persistence_probe',$1) on conflict(meta_key) do update set meta_key=excluded.meta_key returning meta_value", [marker]);
+  persistenceProbe=probe.rows[0]?.meta_value||null;pool=candidate;
  }catch(e){dbError=String(e?.message||"database_unavailable").slice(0,160);await candidate.end().catch(()=>{});console.error("Postgres unavailable; continuing with volatile memory storage.");}
 }
 const origins={
@@ -491,7 +494,7 @@ async function acquireRegionLock(key){
 const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
-  if(req.method==="GET"&&u.pathname==="/health")return json(res,200,{ok:true,name:"project-ordinal-alpha",version:"0.8.1",storage:pool?"postgres":"memory",databaseConfigured:!!DB,databaseStatus:pool?"connected":DB?"degraded":"not_configured",databaseError:dbError?"unavailable":null});
+  if(req.method==="GET"&&u.pathname==="/health")return json(res,200,{ok:true,name:"project-ordinal-alpha",version:"0.8.1",storage:pool?"postgres":"memory",databaseConfigured:!!DB,databaseStatus:pool?"connected":DB?"degraded":"not_configured",databaseError:dbError?"unavailable":null,persistenceProbe:pool?persistenceProbe:null});
   if(req.method==="POST"&&u.pathname==="/api/session"){
    const b=await body(req),key=String(b.playerKey||randomUUID()).replace(/[^a-zA-Z0-9_-]/g,"").slice(0,80),reg=regionFrom(b.lat,b.lon);
    let p=await load(key);
