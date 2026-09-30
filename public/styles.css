@@ -34,3 +34,8 @@
 .encounter.impact{animation:cameraImpact .18s ease-out}
 @keyframes cameraImpact{0%{transform:translate3d(0,0,0)}30%{transform:translate3d(-4px,2px,0)}60%{transform:translate3d(3px,-1px,0)}100%{transform:translate3d(0,0,0)}}
 @media(prefers-reduced-motion:reduce){.mist,.worldnode .sigil,.relic-art,.loot-rays,.enemy-art.telegraph{animation:none!important}.encounter.impact{animation:none}}
+
+.nemesis-warning{margin:-12px -13px 10px;padding:8px 12px;background:linear-gradient(90deg,rgba(92,22,31,.92),rgba(43,12,18,.7));border-bottom:1px solid #b6505e;color:#ffdce0;font:900 8px ui-monospace,monospace;letter-spacing:.12em;border-radius:4px 14px 0 0;animation:nemesisPulse 2.3s ease-in-out infinite}
+@keyframes nemesisPulse{50%{text-shadow:0 0 12px #ff6b78}}
+.mastery-card{padding:14px;border:1px solid #d6bd7c33;background:radial-gradient(circle at 100% 0,#d6bd7c18,transparent 40%),rgba(10,15,19,.78);border-radius:12px;backdrop-filter:blur(10px)}
+.mastery-card>div:first-child{display:flex;justify-content:space-between;align-items:baseline}.mastery-card span{font:800 8px ui-monospace,monospace;letter-spacing:.14em;color:var(--gold)}.mastery-card b{font:700 18px Georgia}.mastery-track{height:5px;background:#080a0b;border-radius:9px;overflow:hidden;margin:12px 0 7px}.mastery-track i{display:block;height:100%;background:linear-gradient(90deg,#96733f,#f1ce83);box-shadow:0 0 10px #e2bd7155}.mastery-card small{color:var(--muted);font-size:9px}
