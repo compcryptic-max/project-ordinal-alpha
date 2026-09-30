@@ -6,6 +6,7 @@ const serverSource=await readFile("server.mjs","utf8");
 if(!serverSource.includes("function nemesisIdentity")||!serverSource.includes("nemesis?.mutation||profile.modifier"))throw new Error("persistent Nemesis evolution missing");
 if(!serverSource.includes("ordinal_meta")||!serverSource.includes("persistenceProbe"))throw new Error("database persistence health marker missing");
 if(!serverSource.includes("ordinal_recovery")||!serverSource.includes("function recoveryHash"))throw new Error("hashed cross-device recovery backend missing");
+if(!serverSource.includes("function ensureApex")||!serverSource.includes("function apexVictory"))throw new Error("shared Apex Incursion backend missing");
 if(!gameSource.includes("data-recovery-create")||!gameSource.includes('id="recovery-input"'))throw new Error("cross-device recovery UI missing");
 const bindingSource=gameSource.replaceAll("$$(","__ALL__("); if(bindingSource.includes('$("[data-')||gameSource.includes("$$$("))throw new Error("regression: broken selector binding");
 if(!gameSource.includes('$=s=>[...document.querySelectorAll(s)]'))throw new Error("multi-selector helper missing");
@@ -17,6 +18,7 @@ if(!gameSource.includes("function fieldInteraction")||!gameSource.includes("data
 if(!gameSource.includes("function veilLens")||!gameSource.includes("getUserMedia")||!gameSource.includes("data-lens-pulse")||!gameSource.includes("data-lens-node"))throw new Error("live camera Veil Lens missing");
 if(!gameSource.includes("world-stage")||!gameSource.includes("roaming-hostile")||!gameSource.includes("world-player"))throw new Error("living visual Field world missing");
 if(!gameSource.includes("function rankOverlay")||!gameSource.includes("data-rank-open"))throw new Error("global Ordinal ranking UI missing");
+if(!gameSource.includes("apex-rift")||!gameSource.includes('data-simple="apex"'))throw new Error("Apex world projection missing");
 if(!gameSource.includes("data-combat-arena")||!gameSource.includes('combatGesture("dodge")')||!gameSource.includes('combatGesture("guard")'))throw new Error("gesture-first combat missing");
 for(const enemy of ["mirehorn","revenant","choirless","riftweaver"])if(!gameSource.includes("function "+enemy+"()"))throw new Error("new enemy art missing: "+enemy);
 if(!gameSource.includes("enemyDamage=")||!gameSource.includes("playerDamage="))throw new Error("authoritative combat damage feedback missing");
@@ -51,6 +53,9 @@ try{
  const peer=await fetch(base+"/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerKey:"smoke-peer",playerName:"Peer",origin:"Vanguard"})}).then(r=>r.json());
  if(!peer.sessionId)throw new Error("peer session create failed");
  const peerSid=peer.sessionId;
+ const apexPlayer=await fetch(base+"/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerKey:"apex-player",playerName:"ApexTester",origin:"Vanguard"})}).then(r=>r.json());
+ const apexFight=await fetch(base+"/api/session/"+apexPlayer.sessionId+"/apex",{method:"POST",headers:{"content-type":"application/json"},body:"{}"}).then(r=>r.json());
+ if(!apexFight.state.combat?.apex||apexFight.state.combat.elite!==2||!apexFight.state.region.apex?.name)throw new Error("shared Apex Incursion failed to start");
  if(!Array.isArray(created.state.field)||created.state.field.length<4)throw new Error("timed field nodes missing");
  if(created.state.field.some(n=>n.distance<90||n.distance>709||n.x<12||n.x>88||n.y<15||n.y>82))throw new Error("Field projection generated invalid unsigned coordinates");
  const leaderboard=await fetch(base+"/api/session/"+sid+"/leaderboard").then(r=>r.json());
