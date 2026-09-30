@@ -6,6 +6,7 @@ const bindingSource=gameSource.replaceAll("$$(","__ALL__("); if(bindingSource.in
 if(!gameSource.includes('$=s=>[...document.querySelectorAll(s)]'))throw new Error("multi-selector helper missing");
 if(!gameSource.includes("function nearby()")||!gameSource.includes("field-node"))throw new Error("field network UI missing");
 if(!gameSource.includes("function traitEffect")||!gameSource.includes("breakbar"))throw new Error("combat depth UI missing");
+if(!gameSource.includes("function encounterReveal")||!gameSource.includes("function combatSignature"))throw new Error("encounter/specialization UI missing");
 if(!gameSource.includes('function regionMap()'))throw new Error("regional map renderer missing");
 for(const file of ["server.mjs","public/game.js","public/effects.js"]){
  const c=spawnSync(process.execPath,["--check",file],{stdio:"pipe"});
@@ -30,6 +31,7 @@ try{
  if(!Array.isArray(created.state.field)||created.state.field.length<4)throw new Error("timed field nodes missing");
  if(!(created.state.ordinalRating>=100))throw new Error("ordinal rating missing");
  if(!created.state.region.objective?.title)throw new Error("shared regional directive missing");
+ if(!created.state.region.lastPulseAt)throw new Error("elapsed-time world simulation state missing");
  const checkin=await fetch(base+"/api/session/"+sid+"/checkin",{method:"POST",headers:{"content-type":"application/json"},body:"{}"}).then(r=>r.json());
  if(checkin.state.activity.streak<1)throw new Error("daily sync failed");
  const collectable=checkin.state.field.find(n=>n.action==="collect"&&!n.collected);
