@@ -8,6 +8,7 @@ if(!gameSource.includes("function nearby()")||!gameSource.includes("field-node")
 if(!gameSource.includes("function traitEffect")||!gameSource.includes("breakbar"))throw new Error("combat depth UI missing");
 if(!gameSource.includes("function encounterReveal")||!gameSource.includes("function combatSignature"))throw new Error("encounter/specialization UI missing");
 for(const enemy of ["mirehorn","revenant","choirless","riftweaver"])if(!gameSource.includes("function "+enemy+"()"))throw new Error("new enemy art missing: "+enemy);
+if(!gameSource.includes("enemyDamage=")||!gameSource.includes("playerDamage="))throw new Error("authoritative combat damage feedback missing");
 if(!gameSource.includes('function regionMap()'))throw new Error("regional map renderer missing");
 for(const file of ["server.mjs","public/game.js","public/effects.js"]){
  const c=spawnSync(process.execPath,["--check",file],{stdio:"pipe"});
