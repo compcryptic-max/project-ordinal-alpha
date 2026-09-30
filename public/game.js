@@ -151,7 +151,7 @@ function nav(){const items=[["map","map","FIELD"],["nearby","radar","NEARBY"],["
 function game(){if(state.combat)return combat(cameraCombat);if(state.pendingEncounter)return encounterReveal();if(state.pendingLoot)return lootReveal();if(state.pendingChoice)return choice();if(lensOpen)return veilLens()+fieldInteraction();const biome=state.region.name.toLowerCase().replace(/[^a-z]+/g,"-");return '<div class="game field-shell biome-'+biome+(state.travel?.mode==="transit"?" travel-paused":"")+'"><div class="world-bg"></div><div class="mist"></div>'+(tab==="map"?regionMap():tab==="nearby"?nearby():tab==="inventory"?inventory():journal())+fieldInteraction()+rankOverlay()+nav()+'</div>'}
 function render(){return !state?startView():game()}
 
-function draw(){ $("#app").innerHTML=(notice?'<div class="notice">'+esc(notice)+'</div>':"")+render();wire();if(lensOpen)attachLensStream()}
+function draw(){ $("#app").innerHTML=(notice?'<div class="notice">'+esc(notice)+'</div>':"")+render();wire();if(lensOpen||cameraCombat)attachLensStream()}
 function wire(){
  $$("[data-origin]").forEach(b=>b.onclick=()=>{origin=b.dataset.origin;draw()});
  const e=$("#enter");if(e)e.onclick=async()=>{try{e.disabled=true;e.textContent="CONNECTING…";await start();notice="";draw()}catch(x){notice=x.message;draw()}};
