@@ -37,7 +37,7 @@ function regionFrom(lat,lon){
  }
  return {key:"demo-region",name:"Ashen Reach",source:"demo"};
 }
-function freshRegion(region){return {key:region.key,name:region.name,day:1,stage:"Unsettled",faction:"Wayfall Compact",corruption:37,order:48,prosperity:55,threat:31,ecology:{predators:42,prey:61,anomalies:18},nemesis:null,objective:null,lastPulseAt:Date.now(),history:[],discoveries:[]}}
+function freshRegion(region){return {key:region.key,name:region.name,day:1,stage:"Unsettled",faction:"Wayfall Compact",corruption:37,order:48,prosperity:55,threat:31,ecology:{predators:42,prey:61,anomalies:18},nemesis:null,objective:null,lastPulseAt:Date.now(),history:[],discoveries:[],discoveryRecords:{}}}
 function regionStage(r){return r.corruption>=65?"Veil-Touched":r.threat>=60?"Besieged":r.order>=65?"Fortified":r.prosperity>=70?"Flourishing":"Unsettled"}
 function simulateRegion(r){
  const now=Date.now(),pulse=1800000;r.lastPulseAt??=now;
@@ -247,11 +247,17 @@ function startEncounter(p,boss,elite=0){
  p.combat={name:boss,hp,maxHp:hp,nemesisPower:nem,elite,archetype:profile.archetype,weakness:profile.weakness,modifier:profile.modifier,break:0,breakMax:100,exposed:0,turn:1,intent:"The enemy circles for an opening.",stamina:100,focus:0,flow:0,lastAction:"",lastResult:"Encounter started.",phase:1};
  addFeed(p,(elite?"ELITE ENCOUNTER — ":"ENCOUNTER — ")+boss+" emerged from the distortion.");
 }
+function recordDiscovery(p,id,label){
+ p.region.discoveryRecords??={};
+ if(p.region.discoveryRecords[id])return false;
+ p.region.discoveryRecords[id]={label,firstDiscoverer:p.name,ordinalRating:ordinalRating(p),day:p.region.day};
+ p.region.history.unshift("FIRST DISCOVERER — "+p.name+" charted "+label+".");addFeed(p,"FIRST DISCOVERER — "+label+" is now tied to your name.");return true;
+}
 function investigate(p){
  if(p.combat||p.pendingEncounter)return;
  if(!p.rumor)newRumor(p);
  const boss=(p.region.nemesis&&p.region.day%3===0)?p.region.nemesis.name:p.rumor.enemy,first=!p.region.discoveries.includes("glass-shrine"),profile=enemyProfile(boss,p.region);
- if(first){p.region.discoveries.push("glass-shrine");p.region.history.unshift(p.name+" discovered the Glass Shrine.");addFeed(p,"FIRST DISCOVERY — Glass Shrine.");}
+ if(first){p.region.discoveries.push("glass-shrine");recordDiscovery(p,"glass-shrine","Glass Shrine");}
  p.pendingEncounter={name:boss,elite:0,archetype:profile.archetype,weakness:profile.weakness,modifier:profile.modifier,threat:Math.max(1,Math.round(p.region.threat/20)+(p.region.nemesis?.name===boss?p.region.nemesis.power:0)),rumorTitle:p.rumor.title};
  addFeed(p,"CONTACT — "+boss+" identified. Engagement is your choice.");
 }
@@ -424,7 +430,7 @@ function scout(p){
  const next=sites.find(([id])=>!p.region.discoveries.includes(id));
  if(!next){addFeed(p,"CARTOGRAPHY — Every known landmark in this region is charted.");return;}
  p.region.discoveries.push(next[0]);p.lastScoutDay=p.region.day;p.reputation+=1;level(p,12);journeyAction(p,"discover",2);
- p.region.history.unshift(p.name+" charted "+next[1]+".");addFeed(p,"DISCOVERY — "+next[1]+" added to your regional map.");
+ recordDiscovery(p,next[0],next[1]);addFeed(p,"DISCOVERY — "+next[1]+" added to your regional map.");
 }
 function advance(p){if(p.combat||p.pendingChoice)return;p.region.day++;p.region.corruption=Math.max(0,Math.min(100,p.region.corruption+(p.region.day%2?1:-1)));p.region.threat=Math.max(5,Math.min(100,p.region.threat+(p.region.day%3===0?3:-1)));if(p.region.threat>55)p.region.prosperity=Math.max(10,p.region.prosperity-2);if(p.region.order>60)p.region.prosperity=Math.min(95,p.region.prosperity+1);evolveRegion(p);newRumor(p);addFeed(p,"Day "+p.region.day+" begins. The world changed while you were away.");}
 async function relocate(p,lat,lon){
