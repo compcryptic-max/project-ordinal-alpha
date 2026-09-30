@@ -64,7 +64,14 @@ function drawCombat(){
   ctx.globalAlpha=1;combatRAF=requestAnimationFrame(loop);
  };combatRAF=requestAnimationFrame(loop);
 }
-function refresh(){if(document.querySelector(".viewport"))drawWorld();else cancelAnimationFrame(worldRAF);if(document.querySelector(".encounter"))drawCombat();else cancelAnimationFrame(combatRAF)}
+function applyTime(){
+ const g=document.querySelector(".game");if(!g)return;
+ g.classList.remove("time-dawn","time-day","time-dusk","time-night");
+ const h=new Date().getHours(),mode=h<6||h>=21?"night":h<9?"dawn":h<18?"day":"dusk";
+ g.classList.add("time-"+mode);
+ const moon=g.querySelector(".moon");if(moon)moon.setAttribute("data-time",mode.toUpperCase());
+}
+function refresh(){applyTime();if(document.querySelector(".viewport"))drawWorld();else cancelAnimationFrame(worldRAF);if(document.querySelector(".encounter"))drawCombat();else cancelAnimationFrame(combatRAF)}
 let scheduled=false;new MutationObserver(()=>{if(scheduled)return;scheduled=true;requestAnimationFrame(()=>{scheduled=false;refresh()})}).observe(document.getElementById("app"),{childList:true,subtree:true});
 addEventListener("resize",refresh,{passive:true});
 document.addEventListener("pointerdown",e=>{
