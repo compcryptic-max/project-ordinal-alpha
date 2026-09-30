@@ -222,7 +222,7 @@ const sessions=new Map();
 const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
-  if(req.method==="GET"&&u.pathname==="/health")return json(res,200,{ok:true,name:"project-ordinal-alpha",version:"0.7.0",storage:pool?"postgres":"memory"});
+  if(req.method==="GET"&&u.pathname==="/health")return json(res,200,{ok:true,name:"project-ordinal-alpha",version:"0.8.0",storage:pool?"postgres":"memory"});
   if(req.method==="POST"&&u.pathname==="/api/session"){
    const b=await body(req),key=String(b.playerKey||randomUUID()).replace(/[^a-zA-Z0-9_-]/g,"").slice(0,80),reg=regionFrom(b.lat,b.lon);
    let p=await load(key);
@@ -262,4 +262,4 @@ const server=http.createServer(async(req,res)=>{
   json(res,404,{ok:false,error:"route_not_found"});
  }catch(e){json(res,400,{ok:false,error:e.message||"bad_request"});}
 });
-server.listen(PORT,"0.0.0.0",()=>console.log("Project Ordinal v0.7 listening on "+PORT));
+server.listen(PORT,"0.0.0.0",()=>console.log("Project Ordinal v0.8 listening on "+PORT));
