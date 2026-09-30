@@ -210,7 +210,7 @@ function claimContract(p,id){
 }
 function freshPlayer(key,name,origin,region){
  const o=origins[origin]||origins.Rogue;
- return {key,name:String(name||"Wayfarer").slice(0,18),origin:origins[origin]?origin:"Rogue",level:1,xp:0,xpNeeded:100,gold:35,hp:o.hp,maxHp:o.hp,skill:o.skill,inventory:[{id:"starter",name:o.weapon,rarity:"Common",power:2,trait:"Wayfarer Issue"},{id:"potion",name:"Wayfarer Tonic",rarity:"Uncommon",qty:2}],equipment:{weapon:"starter"},mastery:{rank:1,xp:0,next:25,name:"Unproven"},path:{attack:0,guard:0,evade:0,skill:0,specialization:null,revealedAt:0},travel:{mode:"explore",lastChangeAt:0,changes:0},titles:[],activeTitle:null,stats:{kills:0,perfectGuards:0,perfectEvades:0,elites:0,scans:0,relics:0},codex:{enemies:{}},reputation:0,activity:{date:utcDay(),streak:0,lastCheckin:null,collected:[],dailyScore:0,totalFieldActions:0},journey:null,contracts:{field:0,hunts:0,discoveries:0,completed:0},region:freshRegion(region),rumor:null,combat:null,pendingEncounter:null,pendingLoot:null,pendingChoice:null,feed:[{text:"You entered "+region.name+". The region was already moving before you arrived."}]};
+ return {key,name:String(name||"Wayfarer").slice(0,18),origin:origins[origin]?origin:"Rogue",level:1,xp:0,xpNeeded:100,gold:35,hp:o.hp,maxHp:o.hp,skill:o.skill,inventory:[{id:"starter",name:o.weapon,rarity:"Common",power:2,trait:"Wayfarer Issue"},{id:"potion",name:"Wayfarer Tonic",rarity:"Uncommon",qty:2}],equipment:{weapon:"starter"},mastery:{rank:1,xp:0,next:25,name:"Unproven"},path:{attack:0,guard:0,evade:0,skill:0,specialization:null,revealedAt:0},travel:{mode:"explore",lastChangeAt:0,changes:0},titles:[],activeTitle:null,stats:{kills:0,perfectGuards:0,perfectEvades:0,elites:0,scans:0,relics:0},codex:{enemies:{}},knownDiscoveries:[],reputation:0,activity:{date:utcDay(),streak:0,lastCheckin:null,collected:[],dailyScore:0,totalFieldActions:0},journey:null,contracts:{field:0,hunts:0,discoveries:0,completed:0},region:freshRegion(region),rumor:null,combat:null,pendingEncounter:null,pendingLoot:null,pendingChoice:null,feed:[{text:"You entered "+region.name+". The region was already moving before you arrived."}]};
 }
 async function load(key){
  if(pool){const {rows}=await pool.query("select payload from ordinal_players where player_key=$1",[key]);return rows[0]?.payload||null;}
@@ -259,6 +259,10 @@ function startEncounter(p,boss,elite=0){
  p.combat={name:boss,nemesisTitle:nemesis?.title||null,hp,maxHp:hp,nemesisPower:nem,elite,archetype:profile.archetype,weakness:profile.weakness,modifier:nemesis?.mutation||profile.modifier,break:0,breakMax:100,exposed:0,turn:1,intent:"The enemy circles for an opening.",stamina:100,focus:0,flow:0,lastAction:"",lastResult:"Encounter started.",phase:1};
  addFeed(p,(elite?"ELITE ENCOUNTER — ":"ENCOUNTER — ")+boss+" emerged from the distortion.");
 }
+function ensureKnowledge(p){
+ if(!Array.isArray(p.knownDiscoveries))p.knownDiscoveries=Array.isArray(p.region?.discoveries)?[...p.region.discoveries]:[];
+ return p.knownDiscoveries;
+}
 function recordDiscovery(p,id,label){
  p.region.discoveryRecords??={};
  if(p.region.discoveryRecords[id])return false;
@@ -268,8 +272,8 @@ function recordDiscovery(p,id,label){
 function investigate(p){
  if(p.combat||p.pendingEncounter)return;
  if(!p.rumor)newRumor(p);
- const boss=(p.region.nemesis&&p.region.day%3===0)?p.region.nemesis.name:p.rumor.enemy,first=!p.region.discoveries.includes("glass-shrine"),profile=enemyProfile(boss,p.region);
- if(first){p.region.discoveries.push("glass-shrine");recordDiscovery(p,"glass-shrine","Glass Shrine");}
+ const boss=(p.region.nemesis&&p.region.day%3===0)?p.region.nemesis.name:p.rumor.enemy,known=ensureKnowledge(p),first=!known.includes("glass-shrine"),profile=enemyProfile(boss,p.region);
+ if(first){known.push("glass-shrine");if(!p.region.discoveries.includes("glass-shrine"))p.region.discoveries.push("glass-shrine");recordDiscovery(p,"glass-shrine","Glass Shrine");}
  p.pendingEncounter={name:boss,elite:0,archetype:profile.archetype,weakness:profile.weakness,modifier:profile.modifier,threat:Math.max(1,Math.round(p.region.threat/20)+(p.region.nemesis?.name===boss?p.region.nemesis.power:0)),rumorTitle:p.rumor.title};
  addFeed(p,"CONTACT — "+boss+" identified. Engagement is your choice.");
 }
@@ -436,12 +440,12 @@ function shrine(p,choice){
 }
 function scout(p){
  if(p.combat||p.pendingChoice)return;
- p.region.discoveries??=[];
+ p.region.discoveries??=[];const known=ensureKnowledge(p);
  if(p.lastScoutDay===p.region.day){addFeed(p,"SCOUTING — You have already charted what you can today.");return;}
  const sites=[["sunken-road","Sunken Road"],["veil-scar","Veil Scar"],["old-watch","Old Watch"]];
- const next=sites.find(([id])=>!p.region.discoveries.includes(id));
+ const next=sites.find(([id])=>!known.includes(id));
  if(!next){addFeed(p,"CARTOGRAPHY — Every known landmark in this region is charted.");return;}
- p.region.discoveries.push(next[0]);p.lastScoutDay=p.region.day;p.reputation+=1;level(p,12);journeyAction(p,"discover",2);
+ known.push(next[0]);if(!p.region.discoveries.includes(next[0]))p.region.discoveries.push(next[0]);p.lastScoutDay=p.region.day;p.reputation+=1;level(p,12);journeyAction(p,"discover",2);
  recordDiscovery(p,next[0],next[1]);addFeed(p,"DISCOVERY — "+next[1]+" added to your regional map.");
 }
 function advance(p){if(p.combat||p.pendingChoice)return;p.region.day++;p.region.corruption=Math.max(0,Math.min(100,p.region.corruption+(p.region.day%2?1:-1)));p.region.threat=Math.max(5,Math.min(100,p.region.threat+(p.region.day%3===0?3:-1)));if(p.region.threat>55)p.region.prosperity=Math.max(10,p.region.prosperity-2);if(p.region.order>60)p.region.prosperity=Math.min(95,p.region.prosperity+1);evolveRegion(p);newRumor(p);addFeed(p,"Day "+p.region.day+" begins. The world changed while you were away.");}
@@ -469,7 +473,7 @@ function propagateRegion(region){
  regions.set(region.key,region);
  for(const other of sessions.values())if(other.region?.key===region.key)other.region=region;
 }
-function publicState(p){ensureJourney(p);ensureProgress(p);ensurePath(p);checkFeats(p);ensureRegionObjective(p.region);const x=clone(p);x.field=fieldState(p);x.contractList=contractState(p);x.callingOptions=callings;x.ordinalRating=ordinalRating(p);x.regionRule=regionRules(p.region);x.serverNow=Date.now();return x;}
+function publicState(p){ensureJourney(p);ensureProgress(p);ensurePath(p);ensureKnowledge(p);checkFeats(p);ensureRegionObjective(p.region);const x=clone(p);x.field=fieldState(p);x.contractList=contractState(p);x.callingOptions=callings;x.ordinalRating=ordinalRating(p);x.regionRule=regionRules(p.region);x.serverNow=Date.now();return x;}
 function json(res,status,data){res.writeHead(status,{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"});res.end(JSON.stringify(data));}
 async function body(req){let s="";for await(const c of req){s+=c;if(s.length>100000)throw Error("body_too_large");}return s?JSON.parse(s):{};}
 const sessions=new Map();
