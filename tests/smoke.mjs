@@ -19,6 +19,7 @@ if(!gameSource.includes("function veilLens")||!gameSource.includes("getUserMedia
 if(!gameSource.includes("world-stage")||!gameSource.includes("roaming-hostile")||!gameSource.includes("world-player"))throw new Error("living visual Field world missing");
 if(!gameSource.includes("function peerAvatar")||!gameSource.includes("world-peer"))throw new Error("live regional Wayfarer projection missing");
 if(!gameSource.includes("function rankOverlay")||!gameSource.includes("data-rank-open"))throw new Error("global Ordinal ranking UI missing");
+if(!gameSource.includes("FIELD RANGE · F-")||gameSource.includes("distance)+'m")||gameSource.includes("distance+'m"))throw new Error("projected Field range labeling regressed");
 if(!gameSource.includes("apex-rift")||!gameSource.includes('data-simple="apex"'))throw new Error("Apex world projection missing");
 if(!gameSource.includes("data-combat-arena")||!gameSource.includes('combatGesture("dodge")')||!gameSource.includes('combatGesture("guard")'))throw new Error("gesture-first combat missing");
 if(!gameSource.includes("gesture-abilities")||!gameSource.includes('await act("roam")'))throw new Error("gesture-primary combat or playable Veil Pulse missing");
