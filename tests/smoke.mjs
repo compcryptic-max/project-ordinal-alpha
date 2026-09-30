@@ -35,6 +35,10 @@ try{
  const created=await fetch(base+"/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerKey:"smoke-player",playerName:"Smoke",origin:"Rogue"})}).then(r=>r.json());
  if(!created.sessionId||created.state.origin!=="Rogue")throw new Error("session create failed");
  const sid=created.sessionId;
+ const recovered=await fetch(base+"/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerKey:"smoke-player",recoverOnly:true})}).then(r=>r.json());
+ if(!recovered.sessionId||recovered.state.name!=="Smoke")throw new Error("persistent character recovery failed");
+ const missingRecovery=await fetch(base+"/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerKey:"missing-recovery-player",recoverOnly:true})});
+ if(missingRecovery.status!==404)throw new Error("recover-only unexpectedly created a missing character");
  const peer=await fetch(base+"/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerKey:"smoke-peer",playerName:"Peer",origin:"Vanguard"})}).then(r=>r.json());
  if(!peer.sessionId)throw new Error("peer session create failed");
  const peerSid=peer.sessionId;
