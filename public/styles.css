@@ -39,3 +39,10 @@
 @keyframes nemesisPulse{50%{text-shadow:0 0 12px #ff6b78}}
 .mastery-card{padding:14px;border:1px solid #d6bd7c33;background:radial-gradient(circle at 100% 0,#d6bd7c18,transparent 40%),rgba(10,15,19,.78);border-radius:12px;backdrop-filter:blur(10px)}
 .mastery-card>div:first-child{display:flex;justify-content:space-between;align-items:baseline}.mastery-card span{font:800 8px ui-monospace,monospace;letter-spacing:.14em;color:var(--gold)}.mastery-card b{font:700 18px Georgia}.mastery-track{height:5px;background:#080a0b;border-radius:9px;overflow:hidden;margin:12px 0 7px}.mastery-track i{display:block;height:100%;background:linear-gradient(90deg,#96733f,#f1ce83);box-shadow:0 0 10px #e2bd7155}.mastery-card small{color:var(--muted);font-size:9px}
+
+/* Local time affects presentation without exposing or storing additional location data. */
+.time-day .world-bg{filter:brightness(1.24) saturate(.92)}.time-day .moon{opacity:.14;box-shadow:none}.time-day .mist{opacity:.55}
+.time-dawn .world-bg{filter:sepia(.12) brightness(1.08)}.time-dawn .moon{background:radial-gradient(circle at 38% 35%,#ffe1b1,#c28d63 60%,#735444)}
+.time-dusk .world-bg{filter:sepia(.18) brightness(.82) saturate(1.15)}.time-dusk .moon{opacity:.48}
+.time-night .world-bg{filter:brightness(.62) saturate(.85)}.time-night .moon{opacity:.95;box-shadow:0 0 55px rgba(200,222,216,.28)}.time-night .worldnode .sigil{box-shadow:0 0 0 8px rgba(143,232,224,.04),0 0 38px rgba(143,232,224,.28)}
+.viewport:after{content:"";position:absolute;z-index:2;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 48%,transparent 25%,rgba(2,4,5,.16) 72%,rgba(2,4,5,.55) 110%);box-shadow:inset 0 -70px 80px rgba(0,0,0,.28)}
