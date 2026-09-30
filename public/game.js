@@ -65,7 +65,7 @@ function ico(n,cls=""){
 }
 function fieldIcon(kind){return ico(kind==="signal"?"signal":kind==="cache"?"cache":kind==="echo"?"echo":kind==="resource"?"trace":"event")}
 function hash32(v){let h=2166136261;for(const c of String(v)){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
-function worldIntel(){const r=state.region,e=r.ecology||{};return '<div class="world-intel"><div><small>VEIL WEATHER</small><b>'+(e.anomalies>55?'ARC STORM':e.anomalies>30?'DRIFTING MIST':'CLEAR VEIL')+'</b></div><div><small>REGION ACTIVITY</small><b>'+presence.length+' WAYFARER'+(presence.length===1?'':'S')+'</b></div><div><small>WORLD STATE</small><b>'+esc(r.stage).toUpperCase()+'</b></div></div>'}
+function worldIntel(){const r=state.region,e=r.ecology||{},rule=state.regionRule||{};return '<div class="world-intel"><div><small>VEIL WEATHER</small><b>'+(e.anomalies>55?'ARC STORM':e.anomalies>30?'DRIFTING MIST':'CLEAR VEIL')+'</b></div><div><small>REGION ACTIVITY</small><b>'+presence.length+' WAYFARER'+(presence.length===1?'':'S')+'</b></div><div><small>WORLD STATE</small><b>'+esc(r.stage).toUpperCase()+'</b></div><div class="region-rule"><small>'+esc(rule.label||"REGION EFFECT")+'</small><b>'+esc(rule.desc||"No dominant regional modifier.")+'</b></div></div>'}
 function regionMap(){
  const r=state.region,nodes=state.field||[],a=state.activity||{},rating=state.ordinalRating||100,objective=r.objective;
  const active=nodes.filter(n=>!n.collected),nearest=[...active].sort((x,y)=>x.distance-y.distance)[0];
