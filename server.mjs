@@ -38,6 +38,14 @@ function regionFrom(lat,lon){
  return {key:"demo-region",name:"Ashen Reach",source:"demo"};
 }
 function freshRegion(region){return {key:region.key,name:region.name,day:1,stage:"Unsettled",faction:"Wayfall Compact",corruption:37,order:48,prosperity:55,threat:31,ecology:{predators:42,prey:61,anomalies:18},nemesis:null,objective:null,lastPulseAt:Date.now(),history:[],discoveries:[],discoveryRecords:{}}}
+function regionRules(r){
+ const stage=r.stage||regionStage(r);
+ if(stage==="Besieged")return {enemyHp:1.12,incoming:1.08,rare:2,cacheGold:1,label:"HOSTILE PRESSURE",desc:"Enemies are tougher and hit harder."};
+ if(stage==="Fortified")return {enemyHp:1,incoming:.94,rare:0,cacheGold:1,label:"WAYFALL WARDS",desc:"Regional defenses soften incoming damage."};
+ if(stage==="Flourishing")return {enemyHp:1,incoming:1,rare:1,cacheGold:1.5,label:"OPEN TRADE",desc:"Field caches carry additional gold."};
+ if(stage==="Veil-Touched")return {enemyHp:1.08,incoming:1.04,rare:8,cacheGold:1,label:"VEIL SATURATION",desc:"Danger rises, but rare relics surface more often."};
+ return {enemyHp:1,incoming:1,rare:0,cacheGold:1,label:"UNSETTLED",desc:"No regional combat modifier is dominant."};
+}
 function regionStage(r){return r.corruption>=65?"Veil-Touched":r.threat>=60?"Besieged":r.order>=65?"Fortified":r.prosperity>=70?"Flourishing":"Unsettled"}
 function simulateRegion(r){
  const now=Date.now(),pulse=1800000;r.lastPulseAt??=now;
@@ -97,7 +105,7 @@ function fieldCollect(p,id){
  const a=ensureActivity(p),node=fieldState(p).find(n=>n.id===id);
  if(!node||node.action!=="collect"||node.collected)return;
  a.collected.push(id);a.totalFieldActions++;a.dailyScore++;journeyAction(p,"field",1);regionContribution(p,"field",1);
- if(node.kind==="cache"){p.gold+=6;level(p,12);if((hash(p.key+id)%100)<28){let pot=p.inventory.find(i=>i.id==="potion");if(pot)pot.qty=(pot.qty||0)+1;else p.inventory.push({id:"potion",name:"Wayfarer Tonic",rarity:"Uncommon",qty:1});addFeed(p,"CACHE BONUS — Wayfarer Tonic recovered.");}}
+ if(node.kind==="cache"){p.gold+=Math.round(6*regionRules(p.region).cacheGold);level(p,12);if((hash(p.key+id)%100)<28){let pot=p.inventory.find(i=>i.id==="potion");if(pot)pot.qty=(pot.qty||0)+1;else p.inventory.push({id:"potion",name:"Wayfarer Tonic",rarity:"Uncommon",qty:1});addFeed(p,"CACHE BONUS — Wayfarer Tonic recovered.");}}
  else if(node.kind==="echo"){p.reputation+=1;level(p,8);}
  else if(node.kind==="event"){p.reputation+=2;level(p,10);p.region.threat=Math.max(5,p.region.threat-1);}
  else level(p,10);
@@ -243,7 +251,7 @@ function enemyProfile(name,region){
  return {archetype:archetype[0],weakness:archetype[1],modifier:mods[hash(name+":"+region.key+":"+region.day)%mods.length]};
 }
 function startEncounter(p,boss,elite=0){
- const nem=p.region.nemesis?.name===boss?p.region.nemesis.power:0,profile=enemyProfile(boss,p.region),hp=Math.round((78+p.level*16+p.region.threat*.3+nem*20)*(1+elite*.22));
+ const nem=p.region.nemesis?.name===boss?p.region.nemesis.power:0,profile=enemyProfile(boss,p.region),rules=regionRules(p.region),hp=Math.round((78+p.level*16+p.region.threat*.3+nem*20)*(1+elite*.22)*rules.enemyHp);
  p.combat={name:boss,hp,maxHp:hp,nemesisPower:nem,elite,archetype:profile.archetype,weakness:profile.weakness,modifier:profile.modifier,break:0,breakMax:100,exposed:0,turn:1,intent:"The enemy circles for an opening.",stamina:100,focus:0,flow:0,lastAction:"",lastResult:"Encounter started.",phase:1};
  addFeed(p,(elite?"ELITE ENCOUNTER — ":"ENCOUNTER — ")+boss+" emerged from the distortion.");
 }
@@ -364,11 +372,11 @@ function fight(p,type){
  if(c.hp<=Math.ceil(c.maxHp*.45)&&c.phase===1){c.phase=2;c.lastResult+=" The enemy enters a desperate second phase.";addFeed(p,c.name+" entered PHASE II.");}
  if(c.hp<=0){
   const enemy=c.name,nemesisKill=c.nemesisPower>0;ensureProgress(p);p.stats.kills++;if(c.elite)p.stats.elites++;p.codex.enemies[enemy]=(p.codex.enemies[enemy]||0)+1;checkFeats(p);p.combat=null;p.gold+=24+p.level*3+(nemesisKill?c.nemesisPower*18:0);level(p,42+(nemesisKill?20:0));p.reputation+=2+(nemesisKill?2:0);if(nemesisKill){p.region.history.unshift(p.name+" ended the Nemesis "+enemy+" after "+p.region.nemesis.victories+" recorded victory.");p.region.nemesis=null;}
-  const rare=(hash(p.key+enemy+p.region.day)%100)<18;
+  const rare=(hash(p.key+enemy+p.region.day)%100)<18+regionRules(p.region).rare;
   p.pendingLoot=enemyLoot(enemy,rare,p.level);
   p.pendingChoice=null;p.region.history.unshift(p.name+" defeated "+enemy+".");journeyAction(p,"hunt",2);regionContribution(p,"hunt",c.elite?2:1);addFeed(p,enemy+" fell. Something remains in the Veil.");return;
  }
- let incoming=((heavy?18:9)+p.level*1.15+p.region.threat/15+(c.phase===2?3:0)+(c.nemesisPower||0)*2)*(mod.damage||1);
+ let incoming=((heavy?18:9)+p.level*1.15+p.region.threat/15+(c.phase===2?3:0)+(c.nemesisPower||0)*2)*(mod.damage||1)*regionRules(p.region).incoming;
  if(/Marauder/i.test(c.name))incoming+=3;if(/Hound/i.test(c.name)&&heavy)incoming+=2;
  // Healing consumes a real turn. Skills and attacks are strongest when used outside obvious heavy telegraphs.
  if(type==="potion")mitigation=.15;
@@ -457,7 +465,7 @@ function propagateRegion(region){
  regions.set(region.key,region);
  for(const other of sessions.values())if(other.region?.key===region.key)other.region=region;
 }
-function publicState(p){ensureJourney(p);ensureProgress(p);ensurePath(p);checkFeats(p);ensureRegionObjective(p.region);const x=clone(p);x.field=fieldState(p);x.contractList=contractState(p);x.callingOptions=callings;x.ordinalRating=ordinalRating(p);x.serverNow=Date.now();return x;}
+function publicState(p){ensureJourney(p);ensureProgress(p);ensurePath(p);checkFeats(p);ensureRegionObjective(p.region);const x=clone(p);x.field=fieldState(p);x.contractList=contractState(p);x.callingOptions=callings;x.ordinalRating=ordinalRating(p);x.regionRule=regionRules(p.region);x.serverNow=Date.now();return x;}
 function json(res,status,data){res.writeHead(status,{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"});res.end(JSON.stringify(data));}
 async function body(req){let s="";for await(const c of req){s+=c;if(s.length>100000)throw Error("body_too_large");}return s?JSON.parse(s):{};}
 const sessions=new Map();
