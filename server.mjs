@@ -218,7 +218,7 @@ function enemyProfile(name,region){
 }
 function startEncounter(p,boss,elite=0){
  const nem=p.region.nemesis?.name===boss?p.region.nemesis.power:0,profile=enemyProfile(boss,p.region),hp=Math.round((78+p.level*16+p.region.threat*.3+nem*20)*(1+elite*.22));
- p.combat={name:boss,hp,maxHp:hp,nemesisPower:nem,elite,archetype:profile.archetype,weakness:profile.weakness,modifier:profile.modifier,break:0,breakMax:100,exposed:0,turn:1,intent:"The enemy circles for an opening.",stamina:100,focus:0,flow:0,lastResult:"Encounter started.",phase:1};
+ p.combat={name:boss,hp,maxHp:hp,nemesisPower:nem,elite,archetype:profile.archetype,weakness:profile.weakness,modifier:profile.modifier,break:0,breakMax:100,exposed:0,turn:1,intent:"The enemy circles for an opening.",stamina:100,focus:0,flow:0,lastAction:"",lastResult:"Encounter started.",phase:1};
  addFeed(p,(elite?"ELITE ENCOUNTER — ":"ENCOUNTER — ")+boss+" emerged from the distortion.");
 }
 function investigate(p){
