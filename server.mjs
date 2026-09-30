@@ -69,7 +69,7 @@ function roam(p){
  if(p.combat||p.pendingChoice)return;
  ensureJourney(p);const a=ensureActivity(p),now=Date.now(),wait=12000-(now-(a.lastRoamAt||0));
  if(wait>0){addFeed(p,"DEEP SCAN — signal resolving. "+Math.ceil(wait/1000)+"s.");return;}
- a.lastRoamAt=now;a.roams++;a.totalFieldActions++;
+ a.lastRoamAt=now;a.roams++;a.totalFieldActions++;ensureProgress(p);p.stats.scans++;checkFeats(p);
  if(p.trail){
   p.trail.step++;level(p,5);journeyAction(p,"discover",1);
   if(p.trail.step>=3){const boss="Riftbound "+p.trail.enemy;addFeed(p,"TRAIL COMPLETE — "+boss+" has been cornered.");p.trail=null;startEncounter(p,boss,1);}
@@ -96,12 +96,31 @@ function checkin(p){
  a.streak=a.lastCheckin===yesterday?(a.streak||0)+1:1;a.lastCheckin=today;a.dailyScore++;a.totalFieldActions++;journeyAction(p,"any",1);
  p.gold+=5;level(p,10+Math.min(20,a.streak*2));addFeed(p,"DAILY SYNC — streak "+a.streak+". Field bonus received.");
 }
+function ensureProgress(p){
+ p.stats??={kills:0,perfectGuards:0,perfectEvades:0,elites:0,scans:0,relics:0};
+ p.codex??={enemies:{}};
+ p.titles??=[];p.activeTitle??=p.titles[0]||null;
+ return p.stats;
+}
+function awardTitle(p,title,reason){
+ ensureProgress(p);if(p.titles.includes(title))return false;
+ p.titles.push(title);p.activeTitle=title;addFeed(p,"TITLE UNLOCKED — "+title+" · "+reason);return true;
+}
+function checkFeats(p){
+ const s=ensureProgress(p);
+ if(s.kills>=1)awardTitle(p,"Veilbreaker","Defeat your first hostile.");
+ if(s.kills>=25)awardTitle(p,"Field Reaper","Defeat 25 hostiles.");
+ if(s.perfectGuards+s.perfectEvades>=15)awardTitle(p,"Untouchable","Perform 15 perfect reactions.");
+ if(s.elites>=3)awardTitle(p,"Rift Hunter","Defeat three elite Riftbound threats.");
+ if(s.scans>=50)awardTitle(p,"Signal Ghost","Complete 50 Deep Scans.");
+ if((p.mastery?.rank||1)>=5)awardTitle(p,"Weapon Adept","Reach weapon mastery rank 5.");
+}
 function ensureJourney(p){
  if(!p.journey){
   const h=hash(p.key),omens=["The Signal That Knows Your Name","Ash Beneath the Glass","The Door Between Footsteps","A Voice Beyond the Veil","The Unmarked Frequency"],motives=["Find what is calling to you.","Learn why the Veil reacts to your presence.","Trace a disappearance no one else remembers.","Discover who altered your first memory.","Reach the source before another Wayfarer does."];
   p.journey={title:omens[h%omens.length],hook:motives[(h>>3)%motives.length],chapter:1,progress:0,next:8,beats:[],calling:null,callingProgress:0,callingTier:1};
  }
- p.contracts??={field:0,hunts:0,discoveries:0,completed:0};p.trail??=null;
+ p.contracts??={field:0,hunts:0,discoveries:0,completed:0};p.trail??=null;ensureProgress(p);
  return p.journey;
 }
 const callings={
@@ -145,7 +164,7 @@ function claimContract(p,id){
 }
 function freshPlayer(key,name,origin,region){
  const o=origins[origin]||origins.Rogue;
- return {key,name:String(name||"Wayfarer").slice(0,18),origin:origins[origin]?origin:"Rogue",level:1,xp:0,xpNeeded:100,gold:35,hp:o.hp,maxHp:o.hp,skill:o.skill,inventory:[{id:"starter",name:o.weapon,rarity:"Common",power:2,trait:"Wayfarer Issue"},{id:"potion",name:"Wayfarer Tonic",rarity:"Uncommon",qty:2}],equipment:{weapon:"starter"},mastery:{rank:1,xp:0,next:25,name:"Unproven"},travel:{mode:"explore",lastChangeAt:0,changes:0},titles:[],reputation:0,activity:{date:utcDay(),streak:0,lastCheckin:null,collected:[],dailyScore:0,totalFieldActions:0},journey:null,contracts:{field:0,hunts:0,discoveries:0,completed:0},region:freshRegion(region),rumor:null,combat:null,pendingLoot:null,pendingChoice:null,feed:[{text:"You entered "+region.name+". The region was already moving before you arrived."}]};
+ return {key,name:String(name||"Wayfarer").slice(0,18),origin:origins[origin]?origin:"Rogue",level:1,xp:0,xpNeeded:100,gold:35,hp:o.hp,maxHp:o.hp,skill:o.skill,inventory:[{id:"starter",name:o.weapon,rarity:"Common",power:2,trait:"Wayfarer Issue"},{id:"potion",name:"Wayfarer Tonic",rarity:"Uncommon",qty:2}],equipment:{weapon:"starter"},mastery:{rank:1,xp:0,next:25,name:"Unproven"},travel:{mode:"explore",lastChangeAt:0,changes:0},titles:[],activeTitle:null,stats:{kills:0,perfectGuards:0,perfectEvades:0,elites:0,scans:0,relics:0},codex:{enemies:{}},reputation:0,activity:{date:utcDay(),streak:0,lastCheckin:null,collected:[],dailyScore:0,totalFieldActions:0},journey:null,contracts:{field:0,hunts:0,discoveries:0,completed:0},region:freshRegion(region),rumor:null,combat:null,pendingLoot:null,pendingChoice:null,feed:[{text:"You entered "+region.name+". The region was already moving before you arrived."}]};
 }
 async function load(key){
  if(pool){const {rows}=await pool.query("select payload from ordinal_players where player_key=$1",[key]);return rows[0]?.payload||null;}
@@ -198,7 +217,7 @@ function investigate(p){
 }
 function addMastery(p,amount){
  p.mastery??={rank:1,xp:0,next:25,name:"Unproven"};p.mastery.xp+=amount;
- while(p.mastery.xp>=p.mastery.next){p.mastery.xp-=p.mastery.next;p.mastery.rank++;p.mastery.next=Math.round(p.mastery.next*1.45);p.mastery.name=p.mastery.rank>=6?"Weapon Savant":p.mastery.rank>=4?"Adept":p.mastery.rank>=2?"Initiate":"Unproven";addFeed(p,"MASTERY RANK "+p.mastery.rank+" — "+p.mastery.name+".");}
+ while(p.mastery.xp>=p.mastery.next){p.mastery.xp-=p.mastery.next;p.mastery.rank++;p.mastery.next=Math.round(p.mastery.next*1.45);p.mastery.name=p.mastery.rank>=6?"Weapon Savant":p.mastery.rank>=4?"Adept":p.mastery.rank>=2?"Initiate":"Unproven";addFeed(p,"MASTERY RANK "+p.mastery.rank+" — "+p.mastery.name+".");checkFeats(p);}
 }
 function enemyIntent(c){
  const n=c.name,t=c.turn;
@@ -238,12 +257,12 @@ function fight(p,type){
   const chance=Math.min(.96,(heavy?.82:.58)+profile.evade);
   evaded=(hash(p.key+":"+c.turn+":"+c.name)%100)<Math.round(chance*100);
   mitigation=evaded?1:.18;c.focus=Math.min(100,c.focus+(heavy?14:8));
-  if(evaded){addMastery(p,heavy?3:2);breakGain+=heavy?34:10;if(c.weakness==="evade")breakGain+=12;if(heavy){counter=4+p.level;c.lastResult="PERFECT EVADE — you slip the telegraph and punish the opening.";}}
+  if(evaded){ensureProgress(p);if(heavy)p.stats.perfectEvades++;addMastery(p,heavy?3:2);breakGain+=heavy?34:10;if(c.weakness==="evade")breakGain+=12;if(heavy){counter=4+p.level;c.lastResult="PERFECT EVADE — you slip the telegraph and punish the opening.";}}
   if(!c.lastResult)c.lastResult=evaded?"Evade successful — attack avoided.":"The enemy tracks your evade; the hit is softened, not avoided.";
   addFeed(p,c.lastResult);
  } else if(type==="guard"){
   mitigation=Math.min(.88,(heavy?.74:.52)+profile.guard);c.stamina=Math.min(100,c.stamina+(heavy?15:11));c.focus=Math.min(100,c.focus+(heavy?13:9)+(p.origin==="Vanguard"?3:0));
-  if(heavy){counter=3+Math.ceil(p.level*.7);breakGain+=30+(c.weakness==="guard"?12:0);addMastery(p,3);c.lastResult="PERFECT GUARD — impact broken. Counter window opened.";}else{breakGain+=8;addMastery(p,1);c.lastResult="Guarded the incoming strike.";}
+  if(heavy){ensureProgress(p);p.stats.perfectGuards++;counter=3+Math.ceil(p.level*.7);breakGain+=30+(c.weakness==="guard"?12:0);addMastery(p,3);c.lastResult="PERFECT GUARD — impact broken. Counter window opened.";}else{breakGain+=8;addMastery(p,1);c.lastResult="Guarded the incoming strike.";}
   addFeed(p,c.lastResult);
  } else if(type==="skill"){
   if(c.focus<profile.skillCost){c.lastResult="Build Focus before using "+p.skill+".";return;}
@@ -266,7 +285,7 @@ function fight(p,type){
  if(dmg)c.hp=Math.max(0,c.hp-dmg);
  if(c.hp<=Math.ceil(c.maxHp*.45)&&c.phase===1){c.phase=2;c.lastResult+=" The enemy enters a desperate second phase.";addFeed(p,c.name+" entered PHASE II.");}
  if(c.hp<=0){
-  const enemy=c.name,nemesisKill=c.nemesisPower>0;p.combat=null;p.gold+=24+p.level*3+(nemesisKill?c.nemesisPower*18:0);level(p,42+(nemesisKill?20:0));p.reputation+=2+(nemesisKill?2:0);if(nemesisKill){p.region.history.unshift(p.name+" ended the Nemesis "+enemy+" after "+p.region.nemesis.victories+" recorded victory.");p.region.nemesis=null;}
+  const enemy=c.name,nemesisKill=c.nemesisPower>0;ensureProgress(p);p.stats.kills++;if(c.elite)p.stats.elites++;p.codex.enemies[enemy]=(p.codex.enemies[enemy]||0)+1;checkFeats(p);p.combat=null;p.gold+=24+p.level*3+(nemesisKill?c.nemesisPower*18:0);level(p,42+(nemesisKill?20:0));p.reputation+=2+(nemesisKill?2:0);if(nemesisKill){p.region.history.unshift(p.name+" ended the Nemesis "+enemy+" after "+p.region.nemesis.victories+" recorded victory.");p.region.nemesis=null;}
   const rare=(hash(p.key+enemy+p.region.day)%100)<18;
   p.pendingLoot={id:"loot-"+Date.now(),name:enemy==="Pale Hound"?(rare?"Pale Moon Edge":"Moon-Split Fang"):(rare?"Warden's Glassheart":"Veilbound Fragment"),rarity:rare?"Epic":"Rare",source:enemy,power:4+Math.ceil(p.level*1.35)+(rare?4:0),trait:enemy==="Pale Hound"?"Predator's Tempo":enemy==="Glass Warden"?"Prism Guard":enemy==="Veil Stalker"?"Veilstep":enemy==="Hollow Marauder"?"Executioner":"Veil-Touched"};
   p.pendingChoice=null;p.region.history.unshift(p.name+" defeated "+enemy+".");journeyAction(p,"hunt",2);addFeed(p,enemy+" fell. Something remains in the Veil.");return;
@@ -304,7 +323,7 @@ function equipItem(p,id){
 }
 function claimLoot(p){
  if(!p.pendingLoot)return;
- p.inventory.push(p.pendingLoot);addFeed(p,"RELIC ACQUIRED — "+p.pendingLoot.name+".");p.pendingLoot=null;p.pendingChoice="glass-shrine";
+ p.inventory.push(p.pendingLoot);ensureProgress(p);p.stats.relics++;addFeed(p,"RELIC ACQUIRED — "+p.pendingLoot.name+".");p.pendingLoot=null;p.pendingChoice="glass-shrine";
 }
 function shrine(p,choice){
  if(p.pendingChoice!=="glass-shrine")return;
@@ -331,7 +350,7 @@ async function relocate(p,lat,lon){
  p.region=(await loadRegion(reg.key))||freshRegion(reg);p.rumor=null;newRumor(p);
  addFeed(p,(rapid?"TRAVEL MODE — rapid movement detected. Combat signals are suppressed.":"REGION CROSSED — ")+p.region.name+".");
 }
-function publicState(p){ensureJourney(p);const x=clone(p);x.field=fieldState(p);x.contractList=contractState(p);x.callingOptions=callings;x.ordinalRating=ordinalRating(p);x.serverNow=Date.now();return x;}
+function publicState(p){ensureJourney(p);ensureProgress(p);checkFeats(p);const x=clone(p);x.field=fieldState(p);x.contractList=contractState(p);x.callingOptions=callings;x.ordinalRating=ordinalRating(p);x.serverNow=Date.now();return x;}
 function json(res,status,data){res.writeHead(status,{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"});res.end(JSON.stringify(data));}
 async function body(req){let s="";for await(const c of req){s+=c;if(s.length>100000)throw Error("body_too_large");}return s?JSON.parse(s):{};}
 const sessions=new Map();
