@@ -22,7 +22,11 @@ const rumors=[
  ["HUNT","Something has been following travelers after sunset.","Pale Hound"],
  ["DISCOVERY","A buried signal repeats beneath the old roads.","Glass Warden"],
  ["MYSTERY","Black glass has appeared where no structure stood yesterday.","Veil Stalker"],
- ["RESCUE","A Wayfall scout vanished while tracing a corrupted trail.","Hollow Marauder"]
+ ["RESCUE","A Wayfall scout vanished while tracing a corrupted trail.","Hollow Marauder"],
+ ["HUNT","A horned silhouette has been breaking wardstones along the ridge.","Mirehorn"],
+ ["MYSTERY","Ash is falling upward around a figure that never casts a shadow.","Ash Revenant"],
+ ["DISCOVERY","A knight with no crest is repeating a duel that ended centuries ago.","Choirless Knight"],
+ ["MYSTERY","Threads of violet light are stitching two ruined paths together.","Rift Weaver"]
 ];
 const clone=x=>structuredClone(x);
 const hash=s=>parseInt(createHash("sha256").update(String(s)).digest("hex").slice(0,8),16);
@@ -229,7 +233,7 @@ function newRumor(p){
 }
 function enemyProfile(name,region){
  const lower=name.toLowerCase();
- const archetype=lower.includes("hound")?["Predator","evade"]:lower.includes("warden")?["Sentinel","guard"]:lower.includes("stalker")?["Assassin","skill"]:lower.includes("marauder")?["Brute","guard"]:["Aberration","attack"];
+ const archetype=lower.includes("hound")?["Predator","evade"]:lower.includes("warden")?["Sentinel","guard"]:lower.includes("stalker")?["Assassin","skill"]:lower.includes("marauder")?["Brute","guard"]:lower.includes("mirehorn")?["Juggernaut","guard"]:lower.includes("revenant")?["Cinderborn","skill"]:lower.includes("knight")?["Duelist","attack"]:lower.includes("weaver")?["Trickster","evade"]:["Aberration","attack"];
  const mods=[
   {id:"unstable",name:"UNSTABLE",desc:"Break builds faster.",breakMult:1.25},
   {id:"armored",name:"ARMORED",desc:"Reduced damage until staggered.",armor:.12},
@@ -266,6 +270,10 @@ function enemyIntent(c){
  if(/Glass Warden/i.test(n))return t%4===0?"HEAVY PRISM BREAK — GUARD to shatter its rhythm.":"Glass plates rotate toward you.";
  if(/Veil Stalker/i.test(n))return t%3===0?"HEAVY VEIL STEP — EVADE before it rematerializes.":"Its outline disappears between shadows.";
  if(/Hollow Marauder/i.test(n))return t%3===0?"HEAVY EXECUTION CLEAVE — GUARD or EVADE.":"The Marauder drags its weapon into position.";
+ if(/Mirehorn/i.test(n))return t%4===0?"HEAVY RIDGEBREAK CHARGE — GUARD the impact.":"The Mirehorn lowers its plated crown.";
+ if(/Ash Revenant/i.test(n))return t%3===0?"HEAVY CINDER NOVA — EVADE the expanding ring.":"Embers reverse direction around the Revenant.";
+ if(/Choirless Knight/i.test(n))return t%4===0?"HEAVY OATHBREAKER LUNGE — read the blade, then react.":"The Knight mirrors your stance.";
+ if(/Rift Weaver/i.test(n))return t%3===0?"HEAVY THREADFALL — EVADE before the seam closes.":"Violet threads knot around your escape route.";
  return t%3===0?"HEAVY ATTACK TELEGRAPHED — GUARD OR EVADE.":"The enemy searches for an opening.";
 }
 function weaponPower(p){const w=p.inventory.find(i=>i.id===p.equipment?.weapon);return Number(w?.power||0)}
@@ -351,7 +359,7 @@ function fight(p,type){
  if(c.hp<=0){
   const enemy=c.name,nemesisKill=c.nemesisPower>0;ensureProgress(p);p.stats.kills++;if(c.elite)p.stats.elites++;p.codex.enemies[enemy]=(p.codex.enemies[enemy]||0)+1;checkFeats(p);p.combat=null;p.gold+=24+p.level*3+(nemesisKill?c.nemesisPower*18:0);level(p,42+(nemesisKill?20:0));p.reputation+=2+(nemesisKill?2:0);if(nemesisKill){p.region.history.unshift(p.name+" ended the Nemesis "+enemy+" after "+p.region.nemesis.victories+" recorded victory.");p.region.nemesis=null;}
   const rare=(hash(p.key+enemy+p.region.day)%100)<18;
-  p.pendingLoot={id:"loot-"+Date.now(),name:enemy==="Pale Hound"?(rare?"Pale Moon Edge":"Moon-Split Fang"):(rare?"Warden's Glassheart":"Veilbound Fragment"),rarity:rare?"Epic":"Rare",source:enemy,power:4+Math.ceil(p.level*1.35)+(rare?4:0),trait:enemy==="Pale Hound"?"Predator's Tempo":enemy==="Glass Warden"?"Prism Guard":enemy==="Veil Stalker"?"Veilstep":enemy==="Hollow Marauder"?"Executioner":"Veil-Touched"};
+  p.pendingLoot=enemyLoot(enemy,rare,p.level);
   p.pendingChoice=null;p.region.history.unshift(p.name+" defeated "+enemy+".");journeyAction(p,"hunt",2);regionContribution(p,"hunt",c.elite?2:1);addFeed(p,enemy+" fell. Something remains in the Veil.");return;
  }
  let incoming=((heavy?18:9)+p.level*1.15+p.region.threat/15+(c.phase===2?3:0)+(c.nemesisPower||0)*2)*(mod.damage||1);
@@ -384,6 +392,19 @@ function evolveRegion(p){
 function equipItem(p,id){
  const item=p.inventory.find(i=>i.id===id&&Number.isFinite(Number(i.power)));if(!item)return;
  p.equipment.weapon=item.id;addFeed(p,"EQUIPPED — "+item.name+" · Power "+item.power+".");
+}
+function enemyLoot(enemy,rare,level){
+ const table={
+  "Pale Hound":["Pale Moon Edge","Moon-Split Fang","Predator's Tempo"],
+  "Glass Warden":["Prismatic Heart","Glassbound Shard","Prism Guard"],
+  "Veil Stalker":["Veilknife Zero","Shadowglass Fang","Veilstep"],
+  "Hollow Marauder":["Headsman's Oath","Hollow Iron","Executioner"],
+  "Mirehorn":["Crown of the Mire","Hornplate Splinter","Prism Guard"],
+  "Ash Revenant":["Cinderwake Sigil","Ashen Core","Veil-Touched"],
+  "Choirless Knight":["Nameless Vow","Broken Canticle","Executioner"],
+  "Rift Weaver":["Seamcutter","Violet Thread","Veilstep"]
+ },x=table[enemy]||["Veil-Touched Relic","Veilbound Fragment","Veil-Touched"];
+ return {id:"loot-"+Date.now(),name:rare?x[0]:x[1],rarity:rare?"Epic":"Rare",source:enemy,power:4+Math.ceil(level*1.35)+(rare?4:0),trait:x[2]};
 }
 function claimLoot(p){
  if(!p.pendingLoot)return;
