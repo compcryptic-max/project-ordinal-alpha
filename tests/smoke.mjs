@@ -8,6 +8,7 @@ const bindingSource=gameSource.replaceAll("$$(","__ALL__("); if(bindingSource.in
 if(!gameSource.includes('$=s=>[...document.querySelectorAll(s)]'))throw new Error("multi-selector helper missing");
 if(!gameSource.includes("function nearby()")||!gameSource.includes("field-node"))throw new Error("field network UI missing");
 if(!gameSource.includes("function traitEffect")||!gameSource.includes("breakbar"))throw new Error("combat depth UI missing");
+for(const relicKind of ["shield","twin","axe","core"])if(!gameSource.includes("relic-"+relicKind))throw new Error("relic art family missing: "+relicKind);
 if(!gameSource.includes("function encounterReveal")||!gameSource.includes("function combatSignature"))throw new Error("encounter/specialization UI missing");
 for(const enemy of ["mirehorn","revenant","choirless","riftweaver"])if(!gameSource.includes("function "+enemy+"()"))throw new Error("new enemy art missing: "+enemy);
 if(!gameSource.includes("enemyDamage=")||!gameSource.includes("playerDamage="))throw new Error("authoritative combat damage feedback missing");
