@@ -48,6 +48,7 @@ try{
 
  const scout=await fetch(base+"/api/session/"+sid+"/scout",{method:"POST",headers:{"content-type":"application/json"},body:"{}"}).then(r=>r.json());
  if(!(scout.state.region.discoveries||[]).includes("sunken-road"))throw new Error("scouting did not reveal first map landmark");
+ if(scout.state.region.discoveryRecords?.["sunken-road"]?.firstDiscoverer!=="Smoke")throw new Error("first-discoverer legacy was not recorded");
  const inv=await fetch(base+"/api/session/"+sid+"/investigate",{method:"POST",headers:{"content-type":"application/json"},body:"{}"}).then(r=>r.json());
  if(inv.state.combat||!inv.state.pendingEncounter?.modifier?.name||!inv.state.pendingEncounter?.archetype)throw new Error("contact reveal did not stage encounter");
  const engaged=await fetch(base+"/api/session/"+sid+"/engage",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({choice:"engage"})}).then(r=>r.json());
