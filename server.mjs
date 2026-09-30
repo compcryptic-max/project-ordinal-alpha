@@ -268,16 +268,14 @@ function fight(p,type){
  if(type==="attack"&&c.stamina<8){c.lastResult="You are exhausted. Guard to recover stamina.";return;}
  if(type==="potion"&&!p.inventory.some(i=>i.id==="potion"&&(i.qty||0)>0)){c.lastResult="No tonics remain.";return;}
  c.lastResult="";
- const profile=combatProfile(p),heavy=/HEAVY/.test(c.intent),repeat=c.lastAction===type,mod=c.modifier||{},wasExposed=(c.exposed||0)>0;
+ const heavy=/HEAVY/.test(c.intent),repeat=c.lastAction===type,mod=c.modifier||{},wasExposed=(c.exposed||0)>0;
  c.flow=Math.max(0,Math.min(5,repeat?c.flow-1:c.flow+1));c.lastAction=type;
  const flowMult=1+c.flow*.04;
  let dmg=0,mitigation=0,evaded=false,acted=true,counter=0,breakGain=0;
  if(type==="potion"){
   const pot=p.inventory.find(i=>i.id==="potion"&&(i.qty||0)>0);
-  if(pot){pot.qty--;const heal=Math.max(28,Math.round(p.maxHp*.32));p.hp=Math.min(p.maxHp,p.hp+heal);c.lastResult="Tonic restored "+heal+" vitality, but using it leaves you exposed.";addFeed(p,"You used a Wayfarer Tonic.");}
-  else {c.lastResult="No tonics remain.";acted=false;}
+  pot.qty--;const heal=Math.max(28,Math.round(p.maxHp*.32));p.hp=Math.min(p.maxHp,p.hp+heal);c.lastResult="Tonic restored "+heal+" vitality, but using it leaves you exposed.";addFeed(p,"You used a Wayfarer Tonic.");
  } else if(type==="dodge"){
-  if(c.stamina<24){c.lastResult="Not enough stamina to evade.";return;}
   c.stamina-=24;
   const chance=Math.min(.96,(heavy?.82:.58)+profile.evade);
   evaded=(hash(p.key+":"+c.turn+":"+c.name)%100)<Math.round(chance*100);
@@ -290,12 +288,9 @@ function fight(p,type){
   if(heavy){ensureProgress(p);p.stats.perfectGuards++;counter=3+Math.ceil(p.level*.7);breakGain+=30+(c.weakness==="guard"?12:0);addMastery(p,3);c.lastResult="PERFECT GUARD — impact broken. Counter window opened.";}else{breakGain+=8;addMastery(p,1);c.lastResult="Guarded the incoming strike.";}
   addFeed(p,c.lastResult);
  } else if(type==="skill"){
-  if(c.focus<profile.skillCost){c.lastResult="Build Focus before using "+p.skill+".";return;}
-  if(c.stamina<12){c.lastResult="Not enough stamina to execute your skill.";return;}
   c.focus-=profile.skillCost;c.stamina-=12;dmg=Math.round(profile.skill*flowMult*(p.origin==="Arcanist"?1.1:1)*profile.skillMult);breakGain+=22+(c.weakness==="skill"?12:0);addMastery(p,3);
   c.lastResult=p.skill+" breaks through for "+dmg+" damage.";addFeed(p,c.lastResult);
  } else {
-  if(c.stamina<8){c.lastResult="You are exhausted. Guard to recover stamina.";return;}
   c.stamina-=8;c.focus=Math.min(100,c.focus+16+profile.focusGain);dmg=Math.round(profile.attack*flowMult);breakGain+=10+(c.weakness==="attack"?10:0);
   const crit=(hash(p.key+":crit:"+c.turn+":"+c.name)%100)<Math.round(profile.crit*100);
   if(crit){dmg=Math.round(dmg*1.45);c.lastResult="PRECISION STRIKE — "+dmg+" damage.";}else c.lastResult="Weapon strike dealt "+dmg+" damage.";
