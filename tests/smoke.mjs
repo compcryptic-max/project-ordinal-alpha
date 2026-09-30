@@ -17,6 +17,7 @@ if(!gameSource.includes("function encounterReveal")||!gameSource.includes("funct
 if(!gameSource.includes("function fieldInteraction")||!gameSource.includes("data-field-stabilize")||!gameSource.includes("data-field-choice"))throw new Error("Field resonance microinteractions missing");
 if(!gameSource.includes("function veilLens")||!gameSource.includes("getUserMedia")||!gameSource.includes("data-lens-pulse")||!gameSource.includes("data-lens-node"))throw new Error("live camera Veil Lens missing");
 if(!gameSource.includes("world-stage")||!gameSource.includes("roaming-hostile")||!gameSource.includes("world-player"))throw new Error("living visual Field world missing");
+if(!gameSource.includes("function peerAvatar")||!gameSource.includes("world-peer"))throw new Error("live regional Wayfarer projection missing");
 if(!gameSource.includes("function rankOverlay")||!gameSource.includes("data-rank-open"))throw new Error("global Ordinal ranking UI missing");
 if(!gameSource.includes("apex-rift")||!gameSource.includes('data-simple="apex"'))throw new Error("Apex world projection missing");
 if(!gameSource.includes("data-combat-arena")||!gameSource.includes('combatGesture("dodge")')||!gameSource.includes('combatGesture("guard")'))throw new Error("gesture-first combat missing");
@@ -54,6 +55,8 @@ try{
  const peer=await fetch(base+"/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerKey:"smoke-peer",playerName:"Peer",origin:"Vanguard"})}).then(r=>r.json());
  if(!peer.sessionId)throw new Error("peer session create failed");
  const peerSid=peer.sessionId;
+ const presenceCheck=await fetch(base+"/api/session/"+sid+"/presence").then(r=>r.json());
+ if(!presenceCheck.players.some(x=>x.name==="Peer"&&x.rating>=100))throw new Error("live Wayfarer presence rating missing");
  const apexPlayer=await fetch(base+"/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerKey:"apex-player",playerName:"ApexTester",origin:"Vanguard"})}).then(r=>r.json());
  const apexFight=await fetch(base+"/api/session/"+apexPlayer.sessionId+"/apex",{method:"POST",headers:{"content-type":"application/json"},body:"{}"}).then(r=>r.json());
  if(!apexFight.state.combat?.apex||apexFight.state.combat.elite!==2||!apexFight.state.region.apex?.name)throw new Error("shared Apex Incursion failed to start");
