@@ -1,7 +1,7 @@
 // Project Ordinal procedural presentation layer.
 // Canvas is decorative only: gameplay remains server-authoritative.
 const DPR=()=>Math.min(2,window.devicePixelRatio||1);
-let worldRAF=0,combatRAF=0,worldSeed=1337;
+let worldRAF=0,fieldRAF=0,combatRAF=0,worldSeed=1337;
 const hash=s=>{let h=2166136261;for(const c of s){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0};
 const rng=seed=>()=>((seed=Math.imul(seed^seed>>>15,1|seed),seed^=seed+Math.imul(seed^seed>>>7,61|seed),((seed^seed>>>14)>>>0)/4294967296));
 function canvasFor(host,cls){
@@ -53,6 +53,15 @@ function drawWorld(){
   worldRAF=requestAnimationFrame(loop);
  };worldRAF=requestAnimationFrame(loop);
 }
+function drawFieldStage(){
+ cancelAnimationFrame(fieldRAF);const host=document.querySelector(".world-stage");if(!host)return;
+ const P=palette(),seed=hash(document.querySelector(".world-identity b")?.textContent||"Ordinal"),r=rng(seed),pts=Array.from({length:55},(_,i)=>({x:r(),y:r(),s:.5+r()*1.8,p:r()*6.28,v:.3+r()}));
+ const loop=t=>{if(!host.isConnected)return;const {ctx,w,h,d}=canvasFor(host,"field-canvas");ctx.clearRect(0,0,w,h);
+  for(let i=0;i<pts.length;i++){const q=pts[i],x=(q.x*w+Math.sin(t*.0003*q.v+q.p)*18*d),y=(q.y*h+t*.015*q.v)%(h*1.08);ctx.beginPath();ctx.arc(x,y,q.s*d,0,Math.PI*2);ctx.fillStyle=P.accent+(i%7===0?"65":"28");ctx.fill()}
+  const sweep=(t*.06)%(w*1.5)-w*.25;ctx.save();ctx.globalAlpha=.08;const g=ctx.createLinearGradient(sweep-70*d,0,sweep+70*d,0);g.addColorStop(0,"transparent");g.addColorStop(.5,P.accent);g.addColorStop(1,"transparent");ctx.fillStyle=g;ctx.fillRect(0,h*.42,w,h*.58);ctx.restore();
+  fieldRAF=requestAnimationFrame(loop);
+ };fieldRAF=requestAnimationFrame(loop);
+}
 let bursts=[];
 function burst(kind,x,y){
  const n=kind==="skill"?34:kind==="attack"?20:kind==="guard"?16:12;
@@ -83,7 +92,7 @@ function applyTime(){
  g.classList.add("time-"+mode);
  const moon=g.querySelector(".moon");if(moon)moon.setAttribute("data-time",mode.toUpperCase());
 }
-function refresh(){applyTime();applyLayout();if(document.querySelector(".viewport"))drawWorld();else cancelAnimationFrame(worldRAF);if(document.querySelector(".encounter"))drawCombat();else cancelAnimationFrame(combatRAF)}
+function refresh(){applyTime();applyLayout();if(document.querySelector(".viewport"))drawWorld();else cancelAnimationFrame(worldRAF);if(document.querySelector(".world-stage"))drawFieldStage();else cancelAnimationFrame(fieldRAF);if(document.querySelector(".encounter"))drawCombat();else cancelAnimationFrame(combatRAF)}
 let scheduled=false;new MutationObserver(()=>{if(scheduled)return;scheduled=true;requestAnimationFrame(()=>{scheduled=false;refresh()})}).observe(document.getElementById("app"),{childList:true,subtree:true});
 addEventListener("resize",refresh,{passive:true});
 document.addEventListener("pointerdown",e=>{
