@@ -67,17 +67,26 @@ function fieldCollect(p,id){
 }
 function roam(p){
  if(p.combat||p.pendingChoice)return;
- const a=ensureActivity(p),now=Date.now(),wait=12000-(now-(a.lastRoamAt||0));
+ ensureJourney(p);const a=ensureActivity(p),now=Date.now(),wait=12000-(now-(a.lastRoamAt||0));
  if(wait>0){addFeed(p,"DEEP SCAN — signal resolving. "+Math.ceil(wait/1000)+"s.");return;}
  a.lastRoamAt=now;a.roams++;a.totalFieldActions++;
+ if(p.trail){
+  p.trail.step++;level(p,5);journeyAction(p,"discover",1);
+  if(p.trail.step>=3){const boss="Riftbound "+p.trail.enemy;addFeed(p,"TRAIL COMPLETE — "+boss+" has been cornered.");p.trail=null;startEncounter(p,boss,1);}
+  else addFeed(p,"HIDDEN TRAIL "+p.trail.step+"/3 — "+p.trail.clues[p.trail.step-1]);
+  return;
+ }
  const roll=hash(p.key+":"+a.roams+":"+Math.floor(now/12000))%100;
- if(roll<58){
-  if(!p.rumor)newRumor(p);investigate(p);addFeed(p,"DEEP SCAN — a roaming hostile answered your signal.");
+ if(roll<55){
+  if(!p.rumor)newRumor(p);startEncounter(p,p.rumor.enemy,0);addFeed(p,"DEEP SCAN — a roaming hostile answered your signal.");
  }else{
   const finds=["Veil residue","Broken waypoint","Forgotten inscription","Aether bloom","Unregistered footprint"];
   const found=finds[roll%finds.length];level(p,6);journeyAction(p,"field",1);a.dailyScore++;
-  if(roll>90)p.reputation+=1;
-  addFeed(p,"DEEP SCAN — "+found+" recovered. The trail continues.");
+  if(roll>=88){
+   const enemy=rumors[hash(p.key+":"+a.roams)%rumors.length][2];
+   p.trail={step:0,enemy,clues:["The signal repeats from somewhere it should not exist.","A second trace carries your own field signature.","The trail stops moving. Whatever made it is waiting."]};
+   p.reputation+=1;addFeed(p,"HIDDEN TRAIL FOUND — Deep Scan detected a three-stage pursuit.");
+  }else addFeed(p,"DEEP SCAN — "+found+" recovered. The trail continues.");
  }
 }
 function checkin(p){
@@ -92,7 +101,7 @@ function ensureJourney(p){
   const h=hash(p.key),omens=["The Signal That Knows Your Name","Ash Beneath the Glass","The Door Between Footsteps","A Voice Beyond the Veil","The Unmarked Frequency"],motives=["Find what is calling to you.","Learn why the Veil reacts to your presence.","Trace a disappearance no one else remembers.","Discover who altered your first memory.","Reach the source before another Wayfarer does."];
   p.journey={title:omens[h%omens.length],hook:motives[(h>>3)%motives.length],chapter:1,progress:0,next:8,beats:[],calling:null,callingProgress:0,callingTier:1};
  }
- p.contracts??={field:0,hunts:0,discoveries:0,completed:0};
+ p.contracts??={field:0,hunts:0,discoveries:0,completed:0};p.trail??=null;
  return p.journey;
 }
 const callings={
@@ -165,13 +174,27 @@ function newRumor(p){
  p.rumor={type:r[0],body:r[1],enemy:r[2],title:r[0]==="HUNT"?"Tracks in the Dust":r[0]==="DISCOVERY"?"Signal Under Glass":r[0]==="MYSTERY"?"The Unwritten Shrine":"Missing at Wayfall"};
  addFeed(p,"RUMOR — "+p.rumor.title);
 }
+function enemyProfile(name,region){
+ const lower=name.toLowerCase();
+ const archetype=lower.includes("hound")?["Predator","evade"]:lower.includes("warden")?["Sentinel","guard"]:lower.includes("stalker")?["Assassin","skill"]:lower.includes("marauder")?["Brute","guard"]:["Aberration","attack"];
+ const mods=[
+  {id:"unstable",name:"UNSTABLE",desc:"Break builds faster.",breakMult:1.25},
+  {id:"armored",name:"ARMORED",desc:"Reduced damage until staggered.",armor:.12},
+  {id:"frenzied",name:"FRENZIED",desc:"Hits harder, but telegraphs remain readable.",damage:1.15},
+  {id:"siphoning",name:"SIPHONING",desc:"Unblocked hits drain Focus.",focusDrain:6}
+ ];
+ return {archetype:archetype[0],weakness:archetype[1],modifier:mods[hash(name+":"+region.key+":"+region.day)%mods.length]};
+}
+function startEncounter(p,boss,elite=0){
+ const nem=p.region.nemesis?.name===boss?p.region.nemesis.power:0,profile=enemyProfile(boss,p.region),hp=Math.round((78+p.level*16+p.region.threat*.3+nem*20)*(1+elite*.22));
+ p.combat={name:boss,hp,maxHp:hp,nemesisPower:nem,elite,archetype:profile.archetype,weakness:profile.weakness,modifier:profile.modifier,break:0,breakMax:100,exposed:0,turn:1,intent:"The enemy circles for an opening.",stamina:100,focus:0,flow:0,lastResult:"Encounter started.",phase:1};
+ addFeed(p,(elite?"ELITE ENCOUNTER — ":"ENCOUNTER — ")+boss+" emerged from the distortion.");
+}
 function investigate(p){
  if(!p.rumor)newRumor(p);
  const boss=(p.region.nemesis&&p.region.day%3===0)?p.region.nemesis.name:p.rumor.enemy,first=!p.region.discoveries.includes("glass-shrine");
  if(first){p.region.discoveries.push("glass-shrine");p.region.history.unshift(p.name+" discovered the Glass Shrine.");addFeed(p,"FIRST DISCOVERY — Glass Shrine.");}
- const nem=p.region.nemesis?.name===boss?p.region.nemesis.power:0,hp=Math.round(78+p.level*16+p.region.threat*.3+nem*20);
- p.combat={name:boss,hp,maxHp:hp,nemesisPower:nem,turn:1,intent:"The enemy circles for an opening.",stamina:100,focus:0,lastResult:"Encounter started.",phase:1};
- addFeed(p,boss+" emerged from the distortion.");
+ startEncounter(p,boss,0);
 }
 function addMastery(p,amount){
  p.mastery??={rank:1,xp:0,next:25,name:"Unproven"};p.mastery.xp+=amount;
@@ -201,10 +224,10 @@ function fight(p,type){
  const c=p.combat;if(!c)return;
  c.stamina??=100;c.focus??=0;c.phase??=1;c.flow??=0;c.lastAction??="";
  if(type==="retreat"){p.combat=null;p.region.threat=Math.min(100,p.region.threat+1);addFeed(p,"WITHDRAWAL — You escaped the encounter. The threat remains in the region.");return;}
- const profile=combatProfile(p),heavy=/HEAVY/.test(c.intent),repeat=c.lastAction===type;
+ const profile=combatProfile(p),heavy=/HEAVY/.test(c.intent),repeat=c.lastAction===type,mod=c.modifier||{},wasExposed=(c.exposed||0)>0;
  c.flow=Math.max(0,Math.min(5,repeat?c.flow-1:c.flow+1));c.lastAction=type;
  const flowMult=1+c.flow*.04;
- let dmg=0,mitigation=0,evaded=false,acted=true,counter=0;
+ let dmg=0,mitigation=0,evaded=false,acted=true,counter=0,breakGain=0;
  if(type==="potion"){
   const pot=p.inventory.find(i=>i.id==="potion"&&(i.qty||0)>0);
   if(pot){pot.qty--;const heal=Math.max(28,Math.round(p.maxHp*.32));p.hp=Math.min(p.maxHp,p.hp+heal);c.lastResult="Tonic restored "+heal+" vitality, but using it leaves you exposed.";addFeed(p,"You used a Wayfarer Tonic.");}
@@ -215,27 +238,31 @@ function fight(p,type){
   const chance=Math.min(.96,(heavy?.82:.58)+profile.evade);
   evaded=(hash(p.key+":"+c.turn+":"+c.name)%100)<Math.round(chance*100);
   mitigation=evaded?1:.18;c.focus=Math.min(100,c.focus+(heavy?14:8));
-  if(evaded){addMastery(p,heavy?3:2);if(heavy){counter=4+p.level;c.lastResult="PERFECT EVADE — you slip the telegraph and punish the opening.";}}
+  if(evaded){addMastery(p,heavy?3:2);breakGain+=heavy?34:10;if(c.weakness==="evade")breakGain+=12;if(heavy){counter=4+p.level;c.lastResult="PERFECT EVADE — you slip the telegraph and punish the opening.";}}
   if(!c.lastResult)c.lastResult=evaded?"Evade successful — attack avoided.":"The enemy tracks your evade; the hit is softened, not avoided.";
   addFeed(p,c.lastResult);
  } else if(type==="guard"){
   mitigation=Math.min(.88,(heavy?.74:.52)+profile.guard);c.stamina=Math.min(100,c.stamina+(heavy?15:11));c.focus=Math.min(100,c.focus+(heavy?13:9)+(p.origin==="Vanguard"?3:0));
-  if(heavy){counter=3+Math.ceil(p.level*.7);addMastery(p,3);c.lastResult="PERFECT GUARD — impact broken. Counter window opened.";}else{addMastery(p,1);c.lastResult="Guarded the incoming strike.";}
+  if(heavy){counter=3+Math.ceil(p.level*.7);breakGain+=30+(c.weakness==="guard"?12:0);addMastery(p,3);c.lastResult="PERFECT GUARD — impact broken. Counter window opened.";}else{breakGain+=8;addMastery(p,1);c.lastResult="Guarded the incoming strike.";}
   addFeed(p,c.lastResult);
  } else if(type==="skill"){
   if(c.focus<profile.skillCost){c.lastResult="Build Focus before using "+p.skill+".";return;}
   if(c.stamina<12){c.lastResult="Not enough stamina to execute your skill.";return;}
-  c.focus-=profile.skillCost;c.stamina-=12;dmg=Math.round(profile.skill*flowMult*(p.origin==="Arcanist"?1.1:1));addMastery(p,3);
+  c.focus-=profile.skillCost;c.stamina-=12;dmg=Math.round(profile.skill*flowMult*(p.origin==="Arcanist"?1.1:1));breakGain+=22+(c.weakness==="skill"?12:0);addMastery(p,3);
   c.lastResult=p.skill+" breaks through for "+dmg+" damage.";addFeed(p,c.lastResult);
  } else {
   if(c.stamina<8){c.lastResult="You are exhausted. Guard to recover stamina.";return;}
-  c.stamina-=8;c.focus=Math.min(100,c.focus+16);dmg=Math.round(profile.attack*flowMult);
+  c.stamina-=8;c.focus=Math.min(100,c.focus+16);dmg=Math.round(profile.attack*flowMult);breakGain+=10+(c.weakness==="attack"?10:0);
   const crit=(hash(p.key+":crit:"+c.turn+":"+c.name)%100)<Math.round(profile.crit*100);
   if(crit){dmg=Math.round(dmg*1.45);c.lastResult="PRECISION STRIKE — "+dmg+" damage.";}else c.lastResult="Weapon strike dealt "+dmg+" damage.";
   addMastery(p,1);addFeed(p,c.lastResult);
  }
  if(!acted)return;
  if(counter)dmg+=counter;
+ if(wasExposed&&dmg){dmg=Math.round(dmg*1.32);c.exposed=0;c.lastResult+=" EXPOSED +32%.";}
+ if(mod.armor&&!wasExposed&&dmg)dmg=Math.max(1,Math.round(dmg*(1-mod.armor)));
+ breakGain=Math.round(breakGain*(mod.breakMult||1));c.break=Math.min(c.breakMax||100,(c.break||0)+breakGain);
+ let staggered=false;if(c.break>=100){c.break=0;c.exposed=1;staggered=true;c.lastResult+=" STAGGER — defense broken; next damaging action is empowered.";addFeed(p,c.name+" was STAGGERED.");}
  if(dmg)c.hp=Math.max(0,c.hp-dmg);
  if(c.hp<=Math.ceil(c.maxHp*.45)&&c.phase===1){c.phase=2;c.lastResult+=" The enemy enters a desperate second phase.";addFeed(p,c.name+" entered PHASE II.");}
  if(c.hp<=0){
@@ -244,11 +271,12 @@ function fight(p,type){
   p.pendingLoot={id:"loot-"+Date.now(),name:enemy==="Pale Hound"?(rare?"Pale Moon Edge":"Moon-Split Fang"):(rare?"Warden's Glassheart":"Veilbound Fragment"),rarity:rare?"Epic":"Rare",source:enemy,power:4+Math.ceil(p.level*1.35)+(rare?4:0),trait:enemy==="Pale Hound"?"Predator's Tempo":enemy==="Glass Warden"?"Prism Guard":enemy==="Veil Stalker"?"Veilstep":enemy==="Hollow Marauder"?"Executioner":"Veil-Touched"};
   p.pendingChoice=null;p.region.history.unshift(p.name+" defeated "+enemy+".");journeyAction(p,"hunt",2);addFeed(p,enemy+" fell. Something remains in the Veil.");return;
  }
- let incoming=(heavy?18:9)+p.level*1.15+p.region.threat/15+(c.phase===2?3:0)+(c.nemesisPower||0)*2;
+ let incoming=((heavy?18:9)+p.level*1.15+p.region.threat/15+(c.phase===2?3:0)+(c.nemesisPower||0)*2)*(mod.damage||1);
  if(/Marauder/i.test(c.name))incoming+=3;if(/Hound/i.test(c.name)&&heavy)incoming+=2;
  // Healing consumes a real turn. Skills and attacks are strongest when used outside obvious heavy telegraphs.
  if(type==="potion")mitigation=.15;
- if(evaded)incoming=0;else incoming*=1-mitigation;
+ if(staggered||evaded)incoming=0;else incoming*=1-mitigation;
+ if(incoming>0&&mod.focusDrain)c.focus=Math.max(0,c.focus-mod.focusDrain);
  p.hp=Math.max(0,Math.round(p.hp-incoming));
  // Prevent a single unlucky normal hit from deleting a healthy player; heavy telegraphs remain dangerous.
  if(!heavy&&p.hp===0&&incoming<p.maxHp*.55)p.hp=1;
