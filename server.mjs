@@ -554,7 +554,7 @@ const server=http.createServer(async(req,res)=>{
   if(m){
    const p=sessions.get(m[1]),action=m[2]||"";if(!p)return json(res,404,{ok:false,error:"session_not_found"});
    if(req.method==="GET"&&!action){await refreshSharedRegion(p);return json(res,200,{ok:true,state:publicState(p)});}
-   if(req.method==="GET"&&action==="presence")return json(res,200,{ok:true,players:[...sessions.values()].filter(x=>x!==p&&x.region.key===p.region.key).slice(0,25).map(x=>({name:x.name,origin:x.origin,level:x.level,title:x.titles[0]||null}))});
+   if(req.method==="GET"&&action==="presence")return json(res,200,{ok:true,players:[...sessions.values()].filter(x=>x!==p&&x.region.key===p.region.key).slice(0,25).map(x=>({name:x.name,origin:x.origin,level:x.level,rating:ordinalRating(x),title:x.titles[0]||null}))});
    if(req.method==="GET"&&action==="leaderboard"){
     let roster;
     if(pool){const q=await pool.query("select payload from ordinal_players order by updated_at desc limit 2000");roster=q.rows.map(x=>x.payload);}
