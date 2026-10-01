@@ -1,6 +1,7 @@
 import SwiftUI
 import RealityKit
 import ARKit
+import UIKit
 
 struct OrdinalARView: UIViewRepresentable {
     final class Coordinator: NSObject, ARSessionDelegate {
@@ -51,9 +52,9 @@ struct OrdinalARView: UIViewRepresentable {
     }
 
     static func installPrototypeAnchor(in view: ARView) {
-        let anchor = AnchorEntity(.plane(.horizontal, classification: .any, minimumBounds: [0.25, 0.25]))
+        let anchor = AnchorEntity(.plane(.horizontal, classification: .any, minimumBounds: SIMD2<Float>(0.25, 0.25)))
         let mesh = MeshResource.generateSphere(radius: 0.08)
-        let material = SimpleMaterial(color: .cyan.withAlphaComponent(0.72), isMetallic: true)
+        let material = SimpleMaterial(color: UIColor.cyan.withAlphaComponent(0.72), isMetallic: true)
         let signal = ModelEntity(mesh: mesh, materials: [material])
         signal.position = [0, 0.12, 0]
         signal.generateCollisionShapes(recursive: true)
