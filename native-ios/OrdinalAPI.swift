@@ -28,6 +28,10 @@ actor OrdinalAPI {
         let state: PlayerState
     }
 
+    struct RecoveryRequest: Encodable {
+        let code: String
+    }
+
     struct StateEnvelope: Decodable {
         let state: PlayerState
     }
@@ -114,11 +118,21 @@ actor OrdinalAPI {
         return try decoder.decode(Health.self, from: data)
     }
 
-    func createSession(playerKey: String, playerName: String, origin: String, lat: Double? = nil, lon: Double? = nil) async throws -> SessionEnvelope {
+    func createSession(playerKey: String, playerName: String, origin: String, lat: Double? = nil, lon: Double? = nil, recoverOnly: Bool = false) async throws -> SessionEnvelope {
         var request = URLRequest(url: baseURL.appending(path: "api/session"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try encoder.encode(CreateSession(playerKey: playerKey, playerName: playerName, origin: origin, lat: lat, lon: lon))
+        request.httpBody = try encoder.encode(CreateSession(playerKey: playerKey, playerName: playerName, origin: origin, lat: lat, lon: lon, recoverOnly: recoverOnly))
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try validate(response)
+        return try decoder.decode(SessionEnvelope.self, from: data)
+    }
+
+    func recover(code: String) async throws -> SessionEnvelope {
+        var request = URLRequest(url: baseURL.appending(path: "api/recovery/use"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try encoder.encode(RecoveryRequest(code: code))
         let (data, response) = try await URLSession.shared.data(for: request)
         try validate(response)
         return try decoder.decode(SessionEnvelope.self, from: data)
