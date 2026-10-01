@@ -198,10 +198,49 @@ function checkFeats(p){
 function ensureJourney(p){
  if(!p.journey){
   const h=hash(p.key),omens=["The Signal That Knows Your Name","Ash Beneath the Glass","The Door Between Footsteps","A Voice Beyond the Veil","The Unmarked Frequency"],motives=["Find what is calling to you.","Learn why the Veil reacts to your presence.","Trace a disappearance no one else remembers.","Discover who altered your first memory.","Reach the source before another Wayfarer does."];
-  p.journey={title:omens[h%omens.length],hook:motives[(h>>3)%motives.length],chapter:1,progress:0,next:8,beats:[],calling:null,callingProgress:0,callingTier:1};
+  p.journey={title:omens[h%omens.length],hook:motives[(h>>3)%motives.length],chapter:1,progress:0,next:8,beats:[],calling:null,callingProgress:0,callingTier:1,choices:[],affinity:{mercy:0,defiance:0,curiosity:0,secrecy:0}};
  }
+ p.journey.choices??=[];p.journey.affinity??={mercy:0,defiance:0,curiosity:0,secrecy:0};p.storyDecision??=null;
  p.contracts??={field:0,hunts:0,discoveries:0,completed:0};p.trail??=null;ensureProgress(p);
  return p.journey;
+}
+const storyDecisions=[
+ {kind:"voice",title:"THE VOICE KNOWS YOUR NAME",prompt:"A buried frequency addresses you with a name no other Wayfarer should know.",options:[{id:"answer",label:"ANSWER THE VOICE",affinity:"curiosity"},{id:"silence",label:"CUT THE SIGNAL",affinity:"secrecy"}]},
+ {kind:"scout",title:"THE WOUNDED SCOUT",prompt:"A Wayfall scout asks you to surrender a recovered fragment before the Veil takes them.",options:[{id:"give",label:"GIVE THE FRAGMENT",affinity:"mercy"},{id:"keep",label:"KEEP IT",affinity:"defiance"}]},
+ {kind:"gate",title:"THE UNMAPPED GATE",prompt:"A sealed threshold reacts only to your Ordinal signature. No regional record says what is behind it.",options:[{id:"open",label:"OPEN THE GATE",affinity:"curiosity"},{id:"mark",label:"MARK & LEAVE",affinity:"secrecy"}]},
+ {kind:"oath",title:"THE BROKEN OATH",prompt:"A hostile lowers its weapon and offers a regional secret in exchange for being spared.",options:[{id:"spare",label:"SPARE IT",affinity:"mercy"},{id:"finish",label:"END IT",affinity:"defiance"}]}
+];
+function makeStoryDecision(p){
+ const j=ensureJourney(p);if(p.storyDecision)return p.storyDecision;
+ const last=j.choices.at(-1)?.choice||"",seed=hash(p.key+":"+j.chapter+":"+last),template=storyDecisions[seed%storyDecisions.length];
+ p.storyDecision={id:"story:"+j.chapter+":"+template.kind,chapter:j.chapter,kind:template.kind,title:template.title,prompt:template.prompt,options:template.options.map(({id,label})=>({id,label}))};
+ addFeed(p,"STORY FRACTURE — a decision is waiting inside "+j.title+".");return p.storyDecision;
+}
+function chooseStoryDecision(p,choice){
+ const j=ensureJourney(p),d=p.storyDecision;if(!d)return;
+ const template=storyDecisions.find(x=>x.kind===d.kind),option=template?.options.find(x=>x.id===choice);if(!option){addFeed(p,"STORY THREAD — that decision is no longer available.");return;}
+ j.affinity[option.affinity]=(j.affinity[option.affinity]||0)+1;j.choices.push({chapter:d.chapter,kind:d.kind,choice:option.id,affinity:option.affinity});j.choices=j.choices.slice(-12);
+ const effects={
+  answer:()=>{p.reputation+=1;p.region.corruption=Math.min(100,p.region.corruption+2)},
+  silence:()=>{p.region.order=Math.min(100,p.region.order+2)},
+  give:()=>{p.reputation+=3;p.gold=Math.max(0,p.gold-8);p.region.order=Math.min(100,p.region.order+1)},
+  keep:()=>{p.gold+=18;p.region.corruption=Math.min(100,p.region.corruption+1)},
+  open:()=>{p.reputation+=1;p.region.threat=Math.min(100,p.region.threat+3);level(p,18)},
+  mark:()=>{p.region.order=Math.min(100,p.region.order+2);p.reputation+=1},
+  spare:()=>{p.reputation+=2;p.region.threat=Math.max(5,p.region.threat-2)},
+  finish:()=>{p.gold+=14;p.region.threat=Math.min(100,p.region.threat+1)}
+ };effects[option.id]?.();
+ const echoes={
+  answer:"You answered. The voice now knows you answered willingly.",
+  silence:"You severed the frequency. Something noticed the silence.",
+  give:"The scout survived with your fragment. Wayfall remembers the debt.",
+  keep:"You kept the fragment. Its signal has begun changing around you.",
+  open:"You opened the unmapped gate. The region registered a new disturbance.",
+  mark:"You left the gate sealed and marked its existence for later.",
+  spare:"You accepted the secret and let the hostile disappear into the region.",
+  finish:"You ended the offer before the secret could leave the hostile."
+ };
+ j.beats.unshift("CHOICE — "+echoes[option.id]);j.beats=j.beats.slice(0,8);p.region.history.unshift(p.name+" altered a hidden Story Thread: "+echoes[option.id]);p.storyDecision=null;addFeed(p,"STORY CHOICE — "+echoes[option.id]);
 }
 const callings={
  hunter:{name:"Hunter",desc:"Track dangerous entities and become known for what you can defeat.",metric:"hunt"},
@@ -218,7 +257,7 @@ function journeyAction(p,type,amount=1){
  if(j.progress>=j.next){
   j.progress-=j.next;j.chapter++;j.next=Math.min(30,8+j.chapter*3);
   const beats=["A fragment addressed you by name.","Your signal appeared in a record older than your arrival.","A second presence answered your frequency.","The trail split toward something the region refuses to map.","Someone else has begun following your trail."];
-  const beat=beats[(hash(p.key+":"+j.chapter))%beats.length];j.beats.unshift("CHAPTER "+j.chapter+" — "+beat);j.beats=j.beats.slice(0,8);p.reputation+=2;level(p,20+j.chapter*2);addFeed(p,"STORY THREAD — "+beat);
+  const beat=beats[(hash(p.key+":"+j.chapter))%beats.length];j.beats.unshift("CHAPTER "+j.chapter+" — "+beat);j.beats=j.beats.slice(0,8);p.reputation+=2;level(p,20+j.chapter*2);addFeed(p,"STORY THREAD — "+beat);if(j.chapter%2===0)makeStoryDecision(p);
  }
  if(c){
   const target=8+j.callingTier*7;
@@ -522,7 +561,7 @@ function propagateRegion(region){
  regions.set(region.key,region);
  for(const other of sessions.values())if(other.region?.key===region.key)other.region=region;
 }
-function publicState(p){ensureJourney(p);ensureProgress(p);ensurePath(p);ensureKnowledge(p);checkFeats(p);ensureRegionObjective(p.region);ensureApex(p.region);const x=clone(p);x.field=fieldState(p);x.contractList=contractState(p);x.callingOptions=callings;x.ordinalRating=ordinalRating(p);x.regionRule=regionRules(p.region);x.playBalance={momentum:ensureActivity(p).momentum||0,restedCharges:ensureActivity(p).restedCharges||0};x.serverNow=Date.now();return x;}
+function publicState(p){ensureJourney(p);ensureProgress(p);ensurePath(p);ensureKnowledge(p);checkFeats(p);ensureRegionObjective(p.region);ensureApex(p.region);const x=clone(p);x.field=fieldState(p);x.contractList=contractState(p);x.callingOptions=callings;x.ordinalRating=ordinalRating(p);x.regionRule=regionRules(p.region);x.playBalance={momentum:ensureActivity(p).momentum||0,restedCharges:ensureActivity(p).restedCharges||0};x.storyDecision=p.storyDecision||null;x.serverNow=Date.now();return x;}
 function json(res,status,data){res.writeHead(status,{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"});res.end(JSON.stringify(data));}
 function recoveryHash(code){return createHash("sha256").update(String(code).replace(/[^a-zA-Z0-9]/g,"").toUpperCase()).digest("hex")}
 function newRecoveryCode(){return randomBytes(16).toString("hex").toUpperCase().match(/.{1,4}/g).join("-")}
@@ -595,6 +634,7 @@ const server=http.createServer(async(req,res)=>{
     else if(action==="checkin")checkin(p);
     else if(action==="calling")chooseCalling(p,String(b.id||""));
     else if(action==="contract")claimContract(p,String(b.id||""));
+    else if(action==="story")chooseStoryDecision(p,String(b.choice||""));
     else if(action==="relocate")await relocate(p,b.lat,b.lon);
     else return json(res,404,{ok:false,error:"route_not_found"});
     await save(p);propagateRegion(p.region);return json(res,200,{ok:true,state:publicState(p)});}finally{unlock();}
