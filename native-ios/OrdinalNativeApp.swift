@@ -3,21 +3,22 @@ import ARKit
 
 @main
 struct OrdinalNativeApp: App {
+    @StateObject private var world = WorldStore()
+
     var body: some Scene {
         WindowGroup {
             NativeBridgeView()
+                .environmentObject(world)
         }
     }
 }
 
 struct NativeBridgeView: View {
+    @EnvironmentObject private var world: WorldStore
     @State private var arOpen = false
-    @State private var serverStatus = "CHECKING WORLD LINK"
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
-
             if arOpen && ARWorldTrackingConfiguration.isSupported {
                 OrdinalARView().ignoresSafeArea()
                 VStack {
@@ -32,26 +33,30 @@ struct NativeBridgeView: View {
                     Spacer()
                 }
                 .foregroundStyle(.white)
+            } else if world.state != nil {
+                NativeFieldView(world: world, arOpen: $arOpen)
             } else {
-                VStack(spacing: 18) {
+                Color.black.ignoresSafeArea()
+                VStack(spacing: 14) {
+                    ProgressView()
                     Text("PROJECT ORDINAL")
                         .font(.title.bold())
-                    Text(serverStatus)
+                    Text(world.status)
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
-                    Button("OPEN NATIVE VEIL") { arOpen = true }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(!ARWorldTrackingConfiguration.isSupported)
+                    if world.lastError != nil {
+                        Button("RETRY WORLD LINK") {
+                            Task { await world.connect() }
+                        }
+                        .buttonStyle(.bordered)
+                    }
                 }
                 .foregroundStyle(.white)
             }
         }
         .task {
-            do {
-                let health = try await OrdinalAPI.shared.health()
-                serverStatus = health.ok ? "WORLD LINK // \(health.version) // \(health.storage.uppercased())" : "WORLD LINK DEGRADED"
-            } catch {
-                serverStatus = "WORLD LINK OFFLINE"
+            if world.state == nil {
+                await world.connect()
             }
         }
     }
