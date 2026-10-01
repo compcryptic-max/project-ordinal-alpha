@@ -3,7 +3,7 @@ import CoreLocation
 import Combine
 
 @MainActor
-final class CoarseLocationService: NSObject, ObservableObject, CLLocationManagerDelegate {
+final class CoarseLocationService: NSObject, ObservableObject, @preconcurrency CLLocationManagerDelegate {
     @Published private(set) var coordinate: CLLocationCoordinate2D?
     private let manager = CLLocationManager()
     private var waiter: CheckedContinuation<CLLocationCoordinate2D?, Never>?
