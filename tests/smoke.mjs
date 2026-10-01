@@ -8,6 +8,7 @@ if(!serverSource.includes("ordinal_meta")||!serverSource.includes("persistencePr
 if(!serverSource.includes("ordinal_recovery")||!serverSource.includes("function recoveryHash"))throw new Error("hashed cross-device recovery backend missing");
 if(!serverSource.includes("function ensureApex")||!serverSource.includes("function apexVictory"))throw new Error("shared Apex Incursion backend missing");
 if(!serverSource.includes("function startRift")||!serverSource.includes("function nextRiftWave"))throw new Error("Rift Run backend missing");
+if(!serverSource.includes("function makeStoryDecision")||!serverSource.includes("function chooseStoryDecision")||!serverSource.includes('action==="story"'))throw new Error("persistent branching Story Thread backend missing");
 if(!gameSource.includes("data-recovery-create")||!gameSource.includes('id="recovery-input"'))throw new Error("cross-device recovery UI missing");
 if(/(^|[^$])\$\("\[data-[^"]+\]"\)\.forEach/m.test(gameSource)||gameSource.includes("$"+"$$("))throw new Error("regression: broken collection selector binding");
 if(!gameSource.includes('$=s=>[...document.querySelectorAll(s)]'))throw new Error("multi-selector helper missing");
@@ -15,6 +16,7 @@ if(!gameSource.includes("function nearby()")||!gameSource.includes("world-contac
 if(!gameSource.includes("function traitEffect")||!gameSource.includes("breakbar"))throw new Error("combat depth UI missing");
 for(const mapping of ['trait==="Prism Guard"?"shield"','trait==="Veilstep"?"twin"','trait==="Executioner"?"axe"','trait==="Veil-Touched"?"core"'])if(!gameSource.includes(mapping))throw new Error("trait-specific relic art mapping missing: "+mapping);
 if(!gameSource.includes("function encounterReveal")||!gameSource.includes("function combatSignature"))throw new Error("encounter/specialization UI missing");
+if(!gameSource.includes("story-fracture")||!gameSource.includes("data-story-choice")||!gameSource.includes('act("story"'))throw new Error("browser Story Thread branch UI missing");
 if(!gameSource.includes("function fieldInteraction")||!gameSource.includes("data-field-stabilize")||!gameSource.includes("data-field-choice"))throw new Error("Field resonance microinteractions missing");
 if(!gameSource.includes("function veilLens")||!gameSource.includes("getUserMedia")||!gameSource.includes("data-lens-pulse")||!gameSource.includes("data-lens-node"))throw new Error("live camera Veil Lens missing");
 if(!gameSource.includes("world-stage")||!gameSource.includes("roaming-hostile")||!gameSource.includes("world-player"))throw new Error("living visual Field world missing");
