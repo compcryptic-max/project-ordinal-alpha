@@ -200,7 +200,10 @@ actor OrdinalAPI {
     struct FieldNode: Decodable, Identifiable {
         let id: String
         let kind: String
-        let name: String?
+        let label: String
+        let detail: String
+        let reward: String
+        let action: String?
         let distance: Int
         let x: Double
         let y: Double
