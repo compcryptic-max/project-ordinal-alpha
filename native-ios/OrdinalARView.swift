@@ -93,8 +93,21 @@ struct OrdinalARView: UIViewRepresentable {
         for (index, node) in live.enumerated() {
             let angle = Float(index) / Float(max(1, live.count)) * .pi * 2
             let radius: Float = node.kind == "signal" ? 1.65 : 2.2
-            let position = SIMD3<Float>(sin(angle) * radius, -0.35, -abs(cos(angle) * radius) - 0.8)
-            let anchor = AnchorEntity(world: position)
+            let fallback = SIMD3<Float>(sin(angle) * radius, -0.35, -abs(cos(angle) * radius) - 0.8)
+
+            let nx = 0.22 + (Double(index % 3) * 0.28)
+            let ny = 0.38 + (Double((index / 3) % 2) * 0.24)
+            let screenPoint = CGPoint(
+                x: max(1, view.bounds.width) * nx,
+                y: max(1, view.bounds.height) * ny
+            )
+            let surface = view.raycast(
+                from: screenPoint,
+                allowing: .estimatedPlane,
+                alignment: .any
+            ).first
+
+            let anchor = surface.map { AnchorEntity(world: $0.worldTransform) } ?? AnchorEntity(world: fallback)
             anchor.name = "ordinal-field-\(node.id)"
 
             let size: Float = node.kind == "signal" ? 0.14 : 0.085
