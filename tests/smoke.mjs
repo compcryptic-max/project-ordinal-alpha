@@ -24,6 +24,8 @@ if(!gameSource.includes("apex-rift")||!gameSource.includes('data-simple="apex"')
 if(!gameSource.includes("data-combat-arena")||!gameSource.includes('combatGesture("dodge")')||!gameSource.includes('combatGesture("guard")'))throw new Error("gesture-first combat missing");
 if(!gameSource.includes("gesture-abilities")||!gameSource.includes('await act("roam")'))throw new Error("gesture-primary combat or playable Veil Pulse missing");
 if(!gameSource.includes("cameraCombat")||!gameSource.includes("combat-camera-feed")||!gameSource.includes("combat(cameraCombat)"))throw new Error("optional live-camera combat bridge missing");
+if(!gameSource.includes("function startFieldMove")||!gameSource.includes("function checkExpeditionProximity")||!gameSource.includes("data-field-stick")||!gameSource.includes("data-expedition"))throw new Error("direct Field exploration controls missing");
+if(!gameSource.includes("signalPos=signal?fieldCoords(signal):null")||!gameSource.includes('data-world-x="'+signalPos.x'))throw new Error("hostile visual/gameplay coordinates diverged");
 for(const enemy of ["mirehorn","revenant","choirless","riftweaver"])if(!gameSource.includes("function "+enemy+"()"))throw new Error("new enemy art missing: "+enemy);
 if(!gameSource.includes("enemyDamage=")||!gameSource.includes("playerDamage="))throw new Error("authoritative combat damage feedback missing");
 if(!gameSource.includes("travel-paused")||!gameSource.includes("geo(true)"))throw new Error("rapid-travel safety UI/location refresh missing");
