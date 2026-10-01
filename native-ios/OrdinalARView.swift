@@ -4,6 +4,8 @@ import ARKit
 import UIKit
 
 struct OrdinalARView: UIViewRepresentable {
+    let nodes: [OrdinalAPI.FieldNode]
+
     final class Coordinator: NSObject, ARSessionDelegate {
         weak var view: ARView?
 
@@ -30,11 +32,14 @@ struct OrdinalARView: UIViewRepresentable {
         if ARWorldTrackingConfiguration.isSupported {
             Self.runTracking(on: view, reset: false)
             Self.installPrototypeAnchor(in: view)
+            Self.installFieldNodes(nodes, in: view)
         }
         return view
     }
 
-    func updateUIView(_ uiView: ARView, context: Context) {}
+    func updateUIView(_ uiView: ARView, context: Context) {
+        Self.installFieldNodes(nodes, in: uiView)
+    }
 
     static func runTracking(on view: ARView, reset: Bool) {
         let configuration = ARWorldTrackingConfiguration()
@@ -49,6 +54,30 @@ struct OrdinalARView: UIViewRepresentable {
 
         let options: ARSession.RunOptions = reset ? [.resetTracking, .removeExistingAnchors] : []
         view.session.run(configuration, options: options)
+    }
+
+    static func installFieldNodes(_ nodes: [OrdinalAPI.FieldNode], in view: ARView) {
+        for anchor in view.scene.anchors where anchor.name.hasPrefix("ordinal-field-") {
+            view.scene.removeAnchor(anchor)
+        }
+
+        for (index, node) in nodes.filter({ !$0.collected }).prefix(6).enumerated() {
+            let angle = Float(index) / Float(max(1, min(6, nodes.count))) * .pi * 2
+            let radius: Float = node.kind == "signal" ? 1.65 : 2.2
+            let position = SIMD3<Float>(sin(angle) * radius, -0.35, -abs(cos(angle) * radius) - 0.8)
+            let anchor = AnchorEntity(world: position)
+            anchor.name = "ordinal-field-\(node.id)"
+
+            let size: Float = node.kind == "signal" ? 0.13 : 0.075
+            let mesh = MeshResource.generateSphere(radius: size)
+            let color: UIColor = node.kind == "signal"
+                ? UIColor(red: 0.82, green: 0.16, blue: 0.20, alpha: 0.86)
+                : UIColor(red: 0.25, green: 0.85, blue: 0.80, alpha: 0.78)
+            let entity = ModelEntity(mesh: mesh, materials: [SimpleMaterial(color: color, isMetallic: true)])
+            entity.generateCollisionShapes(recursive: true)
+            anchor.addChild(entity)
+            view.scene.addAnchor(anchor)
+        }
     }
 
     static func installPrototypeAnchor(in view: ARView) {
