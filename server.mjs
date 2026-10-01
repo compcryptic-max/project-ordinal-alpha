@@ -365,7 +365,7 @@ function combatProfile(p){
 function fight(p,type){
  const c=p.combat;if(!c)return;
  c.stamina??=100;c.focus??=0;c.phase??=1;c.flow??=0;c.lastAction??="";
- const allowed=new Set(["attack","skill","guard","dodge","potion","retreat"]);
+ const allowed=new Set(["attack","skill","guard","dodge","potion","retreat","idle"]);
  if(!allowed.has(type)){c.lastResult="Unknown combat command.";return;}
  if(type==="retreat"){p.combat=null;p.region.threat=Math.min(100,p.region.threat+1);addFeed(p,"WITHDRAWAL — You escaped the encounter. The threat remains in the region.");return;}
  const profile=combatProfile(p);
@@ -374,12 +374,13 @@ function fight(p,type){
  if(type==="dodge"&&c.stamina<24){c.lastResult="Not enough stamina to evade.";return;}
  if(type==="attack"&&c.stamina<8){c.lastResult="You are exhausted. Guard to recover stamina.";return;}
  if(type==="potion"&&!p.inventory.some(i=>i.id==="potion"&&(i.qty||0)>0)){c.lastResult="No tonics remain.";return;}
- c.lastResult="";trainPath(p,type);
+ c.lastResult="";const idle=type==="idle";if(!idle)trainPath(p,type);
  const heavy=/HEAVY/.test(c.intent),repeat=c.lastAction===type,mod=c.modifier||{},wasExposed=(c.exposed||0)>0;
- c.flow=Math.max(0,Math.min(5,repeat?c.flow-1:c.flow+1));c.lastAction=type;
+ if(!idle){c.flow=Math.max(0,Math.min(5,repeat?c.flow-1:c.flow+1));c.lastAction=type;}
  const flowMult=1+c.flow*.04;
  let dmg=0,mitigation=0,evaded=false,acted=true,counter=0,breakGain=0;
- if(type==="potion"){
+ if(type==="idle"){c.lastResult=heavy?"REACTION MISSED — the heavy telegraph connects.":"REACTION MISSED — the hostile closes the opening.";addFeed(p,c.lastResult);
+ } else if(type==="potion"){
   const pot=p.inventory.find(i=>i.id==="potion"&&(i.qty||0)>0);
   pot.qty--;const heal=Math.max(28,Math.round(p.maxHp*.32));p.hp=Math.min(p.maxHp,p.hp+heal);c.lastResult="Tonic restored "+heal+" vitality, but using it leaves you exposed.";addFeed(p,"You used a Wayfarer Tonic.");
  } else if(type==="dodge"){
