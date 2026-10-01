@@ -7,6 +7,10 @@ final class WorldStore: ObservableObject {
     @Published var status = "WORLD LINK // READY"
     @Published var busy = false
     @Published var lastError: String?
+    @Published var presence: [OrdinalAPI.Presence] = []
+    @Published var leaders: [OrdinalAPI.Leader] = []
+    @Published var worldRank: Int?
+    @Published var rankedPopulation = 0
 
     private(set) var sessionID: String?
     private var playerKey: String?
@@ -104,6 +108,7 @@ final class WorldStore: ObservableObject {
         do {
             state = try await OrdinalAPI.shared.state(sessionID: sessionID)
             status = "WORLD LINK // ONLINE"
+            await syncSocial()
         } catch {
             status = "WORLD LINK // RECONNECTING"
             await connect(lat: lastLat, lon: lastLon)
@@ -121,6 +126,7 @@ final class WorldStore: ObservableObject {
                 body: .init(type: type, id: id, choice: choice)
             )
             lastError = nil
+            await syncSocial()
         } catch {
             lastError = error.localizedDescription
         }
@@ -136,5 +142,21 @@ final class WorldStore: ObservableObject {
         state = session.state
         status = "WORLD LINK // ONLINE"
         lastError = nil
+        Task { await syncSocial() }
+    }
+
+    func syncSocial() async {
+        guard let sessionID else { return }
+        async let nearby = OrdinalAPI.shared.presence(sessionID: sessionID)
+        async let board = OrdinalAPI.shared.leaderboard(sessionID: sessionID)
+        do {
+            let (players, ranking) = try await (nearby, board)
+            presence = players
+            leaders = ranking.leaders
+            worldRank = ranking.rank
+            rankedPopulation = ranking.total
+        } catch {
+            // Social state can fail independently without taking the world offline.
+        }
     }
 }
