@@ -6,6 +6,7 @@ struct NativeFieldView: View {
     @Binding var arOpen: Bool
     @EnvironmentObject private var location: CoarseLocationService
     @State private var showProfile = false
+    @State private var selectedNode: OrdinalAPI.FieldNode?
 
     var body: some View {
         GeometryReader { proxy in
@@ -45,6 +46,14 @@ struct NativeFieldView: View {
         }
         .sheet(isPresented: $showProfile) {
             NativeProfileView(world: world)
+        }
+        .fullScreenCover(item: $selectedNode) { node in
+            NativeFieldInteractionView(
+                world: world,
+                node: node,
+                onComplete: { selectedNode = nil },
+                onCancel: { selectedNode = nil }
+            )
         }
         .task {
             while !Task.isCancelled {
@@ -98,12 +107,10 @@ struct NativeFieldView: View {
             ForEach(nodes.filter { !$0.collected }) { node in
                 Button {
                     UIImpactFeedbackGenerator(style: node.kind == "signal" ? .heavy : .light).impactOccurred()
-                    Task {
-                        if node.kind == "signal" {
-                            await world.act("investigate")
-                        } else {
-                            await world.act("collect", id: node.id)
-                        }
+                    if node.kind == "signal" {
+                        Task { await world.act("investigate") }
+                    } else {
+                        selectedNode = node
                     }
                 } label: {
                     FieldContact(node: node)
