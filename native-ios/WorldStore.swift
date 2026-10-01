@@ -11,6 +11,7 @@ final class WorldStore: ObservableObject {
     @Published var leaders: [OrdinalAPI.Leader] = []
     @Published var worldRank: Int?
     @Published var rankedPopulation = 0
+    @Published var recoveryCode: String?
 
     private(set) var sessionID: String?
     private var playerKey: String?
@@ -100,6 +101,18 @@ final class WorldStore: ObservableObject {
             adopt(session)
         } catch {
             lastError = "Recovery code was not accepted."
+        }
+    }
+
+    func generateRecoveryCode() async {
+        guard let sessionID, !busy else { return }
+        busy = true
+        defer { busy = false }
+        do {
+            recoveryCode = try await OrdinalAPI.shared.createRecoveryCode(sessionID: sessionID)
+            lastError = nil
+        } catch {
+            lastError = "Could not generate a recovery code right now."
         }
     }
 
