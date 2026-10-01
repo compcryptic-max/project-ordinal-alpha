@@ -288,6 +288,17 @@ function nemesisIdentity(name,victories){
  const titles=["the Remembering","the Unbroken","Wayfarer-Bane","the Region's Grudge"],title=titles[Math.min(titles.length-1,Math.max(0,victories-1))];
  return {title,mutation:enemyMods[hash(name+":nemesis:"+victories)%enemyMods.length]};
 }
+function riftEnemy(p,wave){const pool=rumors.map(x=>x[2]),seed=p.riftRun?.seed||hash(p.key+":"+utcDay()+":rift");return pool[(seed+wave*5)%pool.length]}
+function startRift(p){
+ if(p.combat||p.pendingEncounter||p.pendingChoice||p.pendingLoot)return;
+ p.riftRun={wave:1,total:3,seed:hash(p.key+":"+Date.now()+":"+p.region.key),startedAt:Date.now()};
+ const enemy=riftEnemy(p,1);startEncounter(p,enemy,1);p.combat.rift=true;p.combat.riftWave=1;p.combat.lastResult="RIFT RUN 1/3 — survive the breach.";addFeed(p,"RIFT BREACH — three hostile layers detected. Withdrawal forfeits the run.");
+}
+function nextRiftWave(p){
+ const run=p.riftRun;if(!run)return false;run.wave++;
+ if(run.wave>run.total)return false;
+ p.hp=Math.min(p.maxHp,p.hp+Math.ceil(p.maxHp*.12));const enemy=riftEnemy(p,run.wave);startEncounter(p,enemy,run.wave===run.total?2:1);p.combat.rift=true;p.combat.riftWave=run.wave;p.combat.lastResult="RIFT RUN "+run.wave+"/"+run.total+" — breach depth increasing.";addFeed(p,"RIFT WAVE "+run.wave+"/"+run.total+" — "+enemy+" entered the breach.");return true;
+}
 function startEncounter(p,boss,elite=0){
  const nemesis=p.region.nemesis?.name===boss?p.region.nemesis:null,nem=nemesis?.power||0,profile=enemyProfile(boss,p.region),rules=regionRules(p.region),hp=Math.round((78+p.level*16+p.region.threat*.3+nem*20)*(1+elite*.22)*rules.enemyHp);
  p.combat={name:boss,nemesisTitle:nemesis?.title||null,hp,maxHp:hp,nemesisPower:nem,elite,archetype:profile.archetype,weakness:profile.weakness,modifier:nemesis?.mutation||profile.modifier,break:0,breakMax:100,exposed:0,turn:1,intent:"The enemy circles for an opening.",stamina:100,focus:0,flow:0,lastAction:"",lastResult:"Encounter started.",phase:1};
@@ -367,7 +378,7 @@ function fight(p,type){
  c.stamina??=100;c.focus??=0;c.phase??=1;c.flow??=0;c.lastAction??="";
  const allowed=new Set(["attack","skill","guard","dodge","potion","retreat","idle"]);
  if(!allowed.has(type)){c.lastResult="Unknown combat command.";return;}
- if(type==="retreat"){p.combat=null;p.region.threat=Math.min(100,p.region.threat+1);addFeed(p,"WITHDRAWAL — You escaped the encounter. The threat remains in the region.");return;}
+ if(type==="retreat"){const rift=!!c.rift;p.combat=null;if(rift)p.riftRun=null;p.region.threat=Math.min(100,p.region.threat+1);addFeed(p,rift?"RIFT RUN FAILED — you escaped before the breach closed.":"WITHDRAWAL — You escaped the encounter. The threat remains in the region.");return;}
  const profile=combatProfile(p);
  if(type==="skill"&&c.focus<profile.skillCost){c.lastResult="Build Focus before using "+p.skill+".";return;}
  if(type==="skill"&&c.stamina<12){c.lastResult="Not enough stamina to execute your skill.";return;}
@@ -414,10 +425,13 @@ function fight(p,type){
  if(dmg)c.hp=Math.max(0,c.hp-dmg);
  if(c.hp<=Math.ceil(c.maxHp*.45)&&c.phase===1){c.phase=2;c.lastResult+=" The enemy enters a desperate second phase.";addFeed(p,c.name+" entered PHASE II.");}
  if(c.hp<=0){
-  const enemy=c.name,nemesisKill=c.nemesisPower>0,apexKill=!!c.apex;ensureProgress(p);p.stats.kills++;if(c.elite)p.stats.elites++;p.codex.enemies[enemy]=(p.codex.enemies[enemy]||0)+1;checkFeats(p);p.combat=null;p.gold+=24+p.level*3+(nemesisKill?c.nemesisPower*18:0);level(p,42+(nemesisKill?20:0));p.reputation+=2+(nemesisKill?2:0);if(nemesisKill){p.region.history.unshift(p.name+" ended the Nemesis "+enemy+" after "+p.region.nemesis.victories+" recorded victory.");p.region.nemesis=null;}
-  const rare=(hash(p.key+enemy+p.region.day)%100)<18+regionRules(p.region).rare+Math.min(5,Math.floor((ensureActivity(p).momentum||0)/10));
-  p.pendingLoot=enemyLoot(enemy,rare,p.level);if(apexKill)apexVictory(p,enemy);
-  p.pendingChoice=null;p.region.history.unshift(p.name+" defeated "+enemy+".");journeyAction(p,"hunt",2);regionContribution(p,"hunt",c.elite?2:1);addFeed(p,enemy+" fell. Something remains in the Veil.");return;
+  const enemy=c.name,nemesisKill=c.nemesisPower>0,apexKill=!!c.apex,riftKill=!!c.rift,riftWave=c.riftWave||0;ensureProgress(p);p.stats.kills++;if(c.elite)p.stats.elites++;p.codex.enemies[enemy]=(p.codex.enemies[enemy]||0)+1;checkFeats(p);p.combat=null;p.gold+=24+p.level*3+(nemesisKill?c.nemesisPower*18:0);level(p,42+(nemesisKill?20:0));p.reputation+=2+(nemesisKill?2:0);if(nemesisKill){p.region.history.unshift(p.name+" ended the Nemesis "+enemy+" after "+p.region.nemesis.victories+" recorded victory.");p.region.nemesis=null;}
+  let rare=(hash(p.key+enemy+p.region.day)%100)<18+regionRules(p.region).rare+Math.min(5,Math.floor((ensureActivity(p).momentum||0)/10));
+  if(apexKill)apexVictory(p,enemy);
+  p.pendingChoice=null;p.region.history.unshift(p.name+" defeated "+enemy+".");journeyAction(p,"hunt",2);regionContribution(p,"hunt",c.elite?2:1);
+  if(riftKill&&p.riftRun&&riftWave<p.riftRun.total){addFeed(p,enemy+" fell inside the breach. No time to loot — the next layer is opening.");nextRiftWave(p);return;}
+  if(riftKill&&p.riftRun){rare=true;p.gold+=45;p.reputation+=3;p.riftRun=null;awardTitle(p,"Rift Runner","Clear a complete three-wave Rift Run.");addFeed(p,"RIFT CLEARED — final-layer relic secured.");}
+  p.pendingLoot=enemyLoot(enemy,rare,p.level);addFeed(p,enemy+" fell. Something remains in the Veil.");return;
  }
  let incoming=((heavy?18:9)+p.level*1.15+p.region.threat/15+(c.phase===2?3:0)+(c.nemesisPower||0)*2)*(mod.damage||1)*regionRules(p.region).incoming;
  if(/Marauder/i.test(c.name))incoming+=3;if(/Hound/i.test(c.name)&&heavy)incoming+=2;
@@ -433,7 +447,7 @@ function fight(p,type){
  if(p.hp<=0){
   const killer=c.name,n=p.region.nemesis;
   const victories=n&&n.name===killer?n.victories+1:1,identity=nemesisIdentity(killer,victories);p.region.nemesis={name:killer,power:n&&n.name===killer?n.power+1:1,victories,lastDefeated:p.name,title:identity.title,mutation:identity.mutation};
-  p.hp=Math.ceil(p.maxHp*.55);p.combat=null;p.region.threat=Math.min(100,p.region.threat+4);p.region.history.unshift(killer+" "+p.region.nemesis.title+" became a regional Nemesis after defeating "+p.name+" · "+p.region.nemesis.mutation.name+".");addFeed(p,"DEATH ECHO — "+killer+" remembers you. It has grown stronger.");
+  p.hp=Math.ceil(p.maxHp*.55);if(c.rift){p.riftRun=null;addFeed(p,"RIFT RUN FAILED — the breach rejected you.")}p.combat=null;p.region.threat=Math.min(100,p.region.threat+4);p.region.history.unshift(killer+" "+p.region.nemesis.title+" became a regional Nemesis after defeating "+p.name+" · "+p.region.nemesis.mutation.name+".");addFeed(p,"DEATH ECHO — "+killer+" remembers you. It has grown stronger.");
  }
 }
 function evolveRegion(p){
@@ -577,6 +591,7 @@ const server=http.createServer(async(req,res)=>{
     else if(action==="collect")fieldCollect(p,String(b.id||""));
     else if(action==="roam")roam(p);
     else if(action==="apex")enterApex(p);
+    else if(action==="rift")startRift(p);
     else if(action==="checkin")checkin(p);
     else if(action==="calling")chooseCalling(p,String(b.id||""));
     else if(action==="contract")claimContract(p,String(b.id||""));
