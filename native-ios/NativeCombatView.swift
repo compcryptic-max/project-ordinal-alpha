@@ -3,6 +3,7 @@ import UIKit
 
 struct NativeCombatView: View {
     @ObservedObject var world: WorldStore
+    @EnvironmentObject private var location: CoarseLocationService
 
     private var combat: OrdinalAPI.Combat? { world.state?.combat }
     private var isHeavy: Bool { combat?.intent.localizedCaseInsensitiveContains("HEAVY") == true }
@@ -24,11 +25,12 @@ struct NativeCombatView: View {
             .padding()
         }
         .foregroundStyle(.white)
-        .task(id: combat?.turn) {
-            guard let turn = combat?.turn else { return }
+        .task(id: "\(combat?.turn ?? -1)-\(location.rapidTravel)") {
+            guard !location.rapidTravel, let turn = combat?.turn else { return }
             try? await Task.sleep(for: .seconds(reactionSeconds))
             guard !Task.isCancelled,
-                  world.state?.combat?.turn == turn else { return }
+                  world.state?.combat?.turn == turn,
+                  !location.rapidTravel else { return }
             await world.act("combat", type: "idle")
         }
     }
@@ -154,11 +156,11 @@ struct NativeCombatView: View {
             .frame(height: 54)
         }
         .buttonStyle(.bordered)
-        .disabled(world.busy)
+        .disabled(world.busy || location.rapidTravel)
     }
 
     private func combatAction(_ type: String, impact: UIImpactFeedbackGenerator.FeedbackStyle) {
-        guard !world.busy else { return }
+        guard !world.busy, !location.rapidTravel else { return }
         UIImpactFeedbackGenerator(style: impact).impactOccurred()
         Task { await world.act("combat", type: type) }
     }
