@@ -85,6 +85,10 @@ actor OrdinalAPI {
         let inventory: [Item]
         let equipment: Equipment
         let mastery: Mastery
+        let journey: Journey
+        let contractList: [Contract]
+        let callingOptions: [String: Calling]
+        let path: CombatPath
         let ordinalRating: Int?
         let region: Region
         let field: [FieldNode]?
@@ -112,6 +116,42 @@ actor OrdinalAPI {
         let xp: Int
         let next: Int
         let name: String
+    }
+
+    struct Journey: Decodable {
+        let title: String
+        let hook: String
+        let chapter: Int
+        let progress: Int
+        let next: Int
+        let beats: [String]
+        let calling: String?
+        let callingProgress: Int
+        let callingTier: Int
+    }
+
+    struct Contract: Decodable, Identifiable {
+        let id: String
+        let name: String
+        let desc: String
+        let value: Int
+        let target: Int
+        let reward: String
+    }
+
+    struct Calling: Decodable {
+        let name: String
+        let desc: String
+        let metric: String
+    }
+
+    struct CombatPath: Decodable {
+        let attack: Int
+        let guard: Int
+        let evade: Int
+        let skill: Int
+        let specialization: String?
+        let revealedAt: Int
     }
 
     struct Region: Decodable {
