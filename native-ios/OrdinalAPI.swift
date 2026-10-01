@@ -147,11 +147,16 @@ actor OrdinalAPI {
 
     struct CombatPath: Decodable {
         let attack: Int
-        let guard: Int
+        let guardCount: Int
         let evade: Int
         let skill: Int
         let specialization: String?
         let revealedAt: Int
+
+        enum CodingKeys: String, CodingKey {
+            case attack, evade, skill, specialization, revealedAt
+            case guardCount = "guard"
+        }
     }
 
     struct Region: Decodable {
