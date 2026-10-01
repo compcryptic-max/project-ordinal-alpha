@@ -249,11 +249,11 @@ actor OrdinalAPI {
     }
 
     struct ActionEnvelope: Encodable {
-        var type: String?
-        var id: String?
-        var choice: String?
-        var lat: Double?
-        var lon: Double?
+        var type: String? = nil
+        var id: String? = nil
+        var choice: String? = nil
+        var lat: Double? = nil
+        var lon: Double? = nil
     }
 
     func health() async throws -> Health {
