@@ -252,6 +252,8 @@ actor OrdinalAPI {
         var type: String?
         var id: String?
         var choice: String?
+        var lat: Double?
+        var lon: Double?
     }
 
     func health() async throws -> Health {
