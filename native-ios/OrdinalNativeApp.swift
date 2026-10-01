@@ -117,6 +117,14 @@ struct NativeBridgeView: View {
                 selectedARNode = nil
             }
         }
+        .onChange(of: location.relocationToken) { _, token in
+            guard !token.isEmpty,
+                  let coordinate = location.coordinate,
+                  world.state != nil else { return }
+            Task {
+                await world.relocateIfNeeded(lat: coordinate.latitude, lon: coordinate.longitude)
+            }
+        }
         .onChange(of: world.state?.combat?.name) { _, newValue in
             if newValue == nil {
                 arCombatMode = false
