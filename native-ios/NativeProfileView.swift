@@ -33,6 +33,14 @@ struct NativeProfileView: View {
                     LabeledContent("Region", value: world.state?.region.name ?? "Unknown")
                 }
 
+                Section("LOADOUT") {
+                    NavigationLink {
+                        NativeGearView(world: world)
+                    } label: {
+                        Label("Gear & Mastery", systemImage: "shield.lefthalf.filled")
+                    }
+                }
+
                 Section("GLOBAL ORDINAL NETWORK") {
                     if world.leaders.isEmpty {
                         Text("Ranking network is syncing…")
