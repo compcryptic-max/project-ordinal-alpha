@@ -4,17 +4,20 @@ import ARKit
 @main
 struct OrdinalNativeApp: App {
     @StateObject private var world = WorldStore()
+    @StateObject private var location = CoarseLocationService()
 
     var body: some Scene {
         WindowGroup {
             NativeBridgeView()
                 .environmentObject(world)
+                .environmentObject(location)
         }
     }
 }
 
 struct NativeBridgeView: View {
     @EnvironmentObject private var world: WorldStore
+    @EnvironmentObject private var location: CoarseLocationService
     @State private var arOpen = false
 
     var body: some View {
@@ -58,7 +61,8 @@ struct NativeBridgeView: View {
         }
         .task {
             if world.state == nil {
-                await world.connect()
+                let coarse = await location.acquire()
+                await world.connect(lat: coarse?.latitude, lon: coarse?.longitude)
             }
         }
     }
