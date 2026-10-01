@@ -107,8 +107,7 @@ struct OrdinalARView: UIViewRepresentable {
             entity.generateCollisionShapes(recursive: true)
 
             let haloMesh = MeshResource.generateSphere(radius: size * 1.75)
-            var haloMaterial = UnlitMaterial(color: color.withAlphaComponent(0.10))
-            haloMaterial.faceCulling = .front
+            let haloMaterial = UnlitMaterial(color: color.withAlphaComponent(0.10))
             let halo = ModelEntity(mesh: haloMesh, materials: [haloMaterial])
             halo.name = "ordinal-node:\(node.id)"
             entity.addChild(halo)
