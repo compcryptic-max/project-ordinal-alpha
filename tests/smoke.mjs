@@ -25,6 +25,7 @@ if(!gameSource.includes("data-combat-arena")||!gameSource.includes('combatGestur
 if(!gameSource.includes("gesture-abilities")||!gameSource.includes('await act("roam")'))throw new Error("gesture-primary combat or playable Veil Pulse missing");
 if(!gameSource.includes("cameraCombat")||!gameSource.includes("combat-camera-feed")||!gameSource.includes("combat(cameraCombat)"))throw new Error("optional live-camera combat bridge missing");
 if(!gameSource.includes("function startFieldMove")||!gameSource.includes("function checkExpeditionProximity")||!gameSource.includes("data-field-stick")||!gameSource.includes("data-expedition"))throw new Error("direct Field exploration controls missing");
+if(!gameSource.includes("function armCombatClock")||!gameSource.includes('body:{type:"idle"}')||!gameSource.includes("combat-clock"))throw new Error("real-time reaction combat clock missing");
 if(!gameSource.includes("signalPos=signal?fieldCoords(signal):null")||!gameSource.includes('data-world-x="'+signalPos.x'))throw new Error("hostile visual/gameplay coordinates diverged");
 for(const enemy of ["mirehorn","revenant","choirless","riftweaver"])if(!gameSource.includes("function "+enemy+"()"))throw new Error("new enemy art missing: "+enemy);
 if(!gameSource.includes("enemyDamage=")||!gameSource.includes("playerDamage="))throw new Error("authoritative combat damage feedback missing");
@@ -64,6 +65,8 @@ try{
  const apexPlayer=await fetch(base+"/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerKey:"apex-player",playerName:"ApexTester",origin:"Vanguard"})}).then(r=>r.json());
  const apexFight=await fetch(base+"/api/session/"+apexPlayer.sessionId+"/apex",{method:"POST",headers:{"content-type":"application/json"},body:"{}"}).then(r=>r.json());
  if(!apexFight.state.combat?.apex||apexFight.state.combat.elite!==2||!apexFight.state.region.apex?.name)throw new Error("shared Apex Incursion failed to start");
+ const apexMiss=await fetch(base+"/api/session/"+apexPlayer.sessionId+"/combat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({type:"idle"})}).then(r=>r.json());
+ if(!apexMiss.state.combat||apexMiss.state.combat.turn!==apexFight.state.combat.turn+1||!(apexMiss.state.hp<apexFight.state.hp))throw new Error("real-time missed reaction did not resolve an enemy turn");
  if(!Array.isArray(created.state.field)||created.state.field.length<4)throw new Error("timed field nodes missing");
  if(created.state.field.some(n=>n.distance<90||n.distance>709||n.x<12||n.x>88||n.y<15||n.y>82))throw new Error("Field projection generated invalid unsigned coordinates");
  const leaderboard=await fetch(base+"/api/session/"+sid+"/leaderboard").then(r=>r.json());
