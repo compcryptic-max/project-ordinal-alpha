@@ -196,8 +196,8 @@ function wire(){
  $$("[data-field-stabilize]").forEach(b=>b.onclick=async()=>{fieldStep++;sfx("signal");if(fieldStep<3)return draw();const n=(state.field||[]).find(x=>x.id===fieldFocus);if(!n)return;try{await act("collect",{id:n.id});fieldFocus=null;fieldStep=0;sfx("loot");draw()}catch(x){notice=x.message;draw()}});
  $$("[data-field-complete]").forEach(b=>b.onclick=async()=>{const n=(state.field||[]).find(x=>x.id===fieldFocus);if(!n)return;try{await act("collect",{id:n.id});fieldFocus=null;fieldStep=0;sfx("loot");draw()}catch(x){notice=x.message;draw()}});
  $$("[data-calling]").forEach(b=>b.onclick=async()=>{try{await act("calling",{id:b.dataset.calling});notice="";draw()}catch(x){notice=x.message;draw()}});
- $("[data-contract]").forEach(b=>b.onclick=async()=>{try{await act("contract",{id:b.dataset.contract});notice="";draw()}catch(x){notice=x.message;draw()}});
- $("[data-story-choice]").forEach(b=>b.onclick=async()=>{try{await act("story",{choice:b.dataset.storyChoice});notice="";draw()}catch(x){notice=x.message;draw()}});
+ $$("[data-contract]").forEach(b=>b.onclick=async()=>{try{await act("contract",{id:b.dataset.contract});notice="";draw()}catch(x){notice=x.message;draw()}});
+ $$("[data-story-choice]").forEach(b=>b.onclick=async()=>{try{await act("story",{choice:b.dataset.storyChoice});notice="";draw()}catch(x){notice=x.message;draw()}});
 
  $$("[data-act]").forEach(b=>b.onclick=async()=>{clearCombatClock();try{sfx(b.dataset.type);await act(b.dataset.act,{type:b.dataset.type});notice="";if(cameraCombat&&!state.combat){cameraCombat=false;if(lensStream){lensStream.getTracks().forEach(t=>t.stop());lensStream=null}}draw()}catch(x){notice=x.message;draw()}});
  async function combatGesture(type){if(actionBusy||!state?.combat)return;clearCombatClock();try{sfx(type);await act("combat",{type});notice="";if(cameraCombat&&!state.combat){cameraCombat=false;if(lensStream){lensStream.getTracks().forEach(t=>t.stop());lensStream=null}}draw()}catch(x){notice=x.message;draw()}}
