@@ -18,6 +18,7 @@ struct OrdinalNativeApp: App {
 struct NativeBridgeView: View {
     @EnvironmentObject private var world: WorldStore
     @EnvironmentObject private var location: CoarseLocationService
+    @Environment(\.scenePhase) private var scenePhase
     @State private var arOpen = false
     @State private var arCombatMode = false
     @State private var encounterCameFromAR = false
@@ -92,6 +93,19 @@ struct NativeBridgeView: View {
                 if world.hasSavedIdentity {
                     await world.connect(lat: coarse?.latitude, lon: coarse?.longitude)
                 }
+                location.startSafetyMonitoring()
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                location.startSafetyMonitoring()
+            } else {
+                location.stopSafetyMonitoring()
+            }
+        }
+        .onChange(of: location.rapidTravel) { _, rapid in
+            if rapid {
+                arOpen = false
             }
         }
         .onChange(of: world.state?.combat?.name) { _, newValue in
