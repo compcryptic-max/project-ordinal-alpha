@@ -59,7 +59,7 @@ struct NativeBridgeView: View {
                 .foregroundStyle(.white)
             } else if world.state != nil {
                 NativeFieldView(world: world, arOpen: $arOpen)
-            } else {
+            } else if world.hasSavedIdentity {
                 Color.black.ignoresSafeArea()
                 VStack(spacing: 14) {
                     ProgressView()
@@ -68,20 +68,19 @@ struct NativeBridgeView: View {
                     Text(world.status)
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
-                    if world.lastError != nil {
-                        Button("RETRY WORLD LINK") {
-                            Task { await world.connect() }
-                        }
-                        .buttonStyle(.bordered)
-                    }
                 }
                 .foregroundStyle(.white)
+            } else {
+                NativeOnboardingView(world: world)
             }
         }
         .task {
             if world.state == nil {
                 let coarse = await location.acquire()
-                await world.connect(lat: coarse?.latitude, lon: coarse?.longitude)
+                world.setLocation(lat: coarse?.latitude, lon: coarse?.longitude)
+                if world.hasSavedIdentity {
+                    await world.connect(lat: coarse?.latitude, lon: coarse?.longitude)
+                }
             }
         }
     }
