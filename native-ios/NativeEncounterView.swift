@@ -3,6 +3,7 @@ import UIKit
 
 struct NativeEncounterView: View {
     @ObservedObject var world: WorldStore
+    @EnvironmentObject private var location: CoarseLocationService
     var onEngage: (() -> Void)? = nil
 
     private var encounter: OrdinalAPI.PendingEncounter? { world.state?.pendingEncounter }
@@ -85,7 +86,7 @@ struct NativeEncounterView: View {
                     }
                     .buttonStyle(.bordered)
                 }
-                .disabled(world.busy)
+                .disabled(world.busy || location.rapidTravel)
             }
             .padding(18)
         }
