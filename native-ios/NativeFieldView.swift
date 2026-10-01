@@ -4,6 +4,7 @@ import UIKit
 struct NativeFieldView: View {
     @ObservedObject var world: WorldStore
     @Binding var arOpen: Bool
+    @EnvironmentObject private var location: CoarseLocationService
     @State private var showProfile = false
 
     var body: some View {
@@ -11,6 +12,7 @@ struct NativeFieldView: View {
             ZStack {
                 worldBackground
                 projectedWorld(size: proxy.size)
+                    .allowsHitTesting(!location.rapidTravel)
 
                 VStack(spacing: 10) {
                     header
@@ -20,6 +22,25 @@ struct NativeFieldView: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
+
+                if location.rapidTravel {
+                    VStack(spacing: 6) {
+                        Image(systemName: "car.fill")
+                            .font(.title2)
+                        Text("RAPID TRAVEL")
+                            .font(.caption.monospaced().bold())
+                        Text("Field interactions pause while moving at vehicle speed.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(16)
+                    .background(.black.opacity(0.82), in: RoundedRectangle(cornerRadius: 16))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(.orange.opacity(0.30))
+                    }
+                    .foregroundStyle(.white)
+                }
             }
         }
         .sheet(isPresented: $showProfile) {
@@ -223,7 +244,7 @@ struct NativeFieldView: View {
                 Task { await world.act("rift") }
             }
         }
-        .disabled(world.busy)
+        .disabled(world.busy || location.rapidTravel)
     }
 
     private func action(_ title: String, _ icon: String, perform: @escaping () -> Void) -> some View {
