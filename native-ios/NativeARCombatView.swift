@@ -5,6 +5,7 @@ import UIKit
 
 struct NativeARCombatView: View {
     @ObservedObject var world: WorldStore
+    @EnvironmentObject private var location: CoarseLocationService
 
     private var combat: OrdinalAPI.Combat? { world.state?.combat }
     private var isHeavy: Bool { combat?.intent.localizedCaseInsensitiveContains("HEAVY") == true }
@@ -38,11 +39,12 @@ struct NativeARCombatView: View {
             .padding(14)
         }
         .foregroundStyle(.white)
-        .task(id: combat?.turn) {
-            guard let turn = combat?.turn else { return }
+        .task(id: "\(combat?.turn ?? -1)-\(location.rapidTravel)") {
+            guard !location.rapidTravel, let turn = combat?.turn else { return }
             try? await Task.sleep(for: .seconds(reactionSeconds))
             guard !Task.isCancelled,
-                  world.state?.combat?.turn == turn else { return }
+                  world.state?.combat?.turn == turn,
+                  !location.rapidTravel else { return }
             await world.act("combat", type: "idle")
         }
     }
@@ -164,11 +166,11 @@ struct NativeARCombatView: View {
         }
         .buttonStyle(.borderedProminent)
         .tint(.black.opacity(0.56))
-        .disabled(world.busy)
+        .disabled(world.busy || location.rapidTravel)
     }
 
     private func combatAction(_ type: String, style: UIImpactFeedbackGenerator.FeedbackStyle) {
-        guard !world.busy else { return }
+        guard !world.busy, !location.rapidTravel else { return }
         UIImpactFeedbackGenerator(style: style).impactOccurred()
         Task { await world.act("combat", type: type) }
     }
