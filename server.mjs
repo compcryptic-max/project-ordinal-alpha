@@ -200,7 +200,7 @@ function ensureJourney(p){
   const h=hash(p.key),omens=["The Signal That Knows Your Name","Ash Beneath the Glass","The Door Between Footsteps","A Voice Beyond the Veil","The Unmarked Frequency"],motives=["Find what is calling to you.","Learn why the Veil reacts to your presence.","Trace a disappearance no one else remembers.","Discover who altered your first memory.","Reach the source before another Wayfarer does."];
   p.journey={title:omens[h%omens.length],hook:motives[(h>>3)%motives.length],chapter:1,progress:0,next:8,beats:[],calling:null,callingProgress:0,callingTier:1,choices:[],affinity:{mercy:0,defiance:0,curiosity:0,secrecy:0}};
  }
- p.journey.choices??=[];p.journey.affinity??={mercy:0,defiance:0,curiosity:0,secrecy:0};p.storyDecision??=null;
+ p.journey.choices??=[];p.journey.affinity??={mercy:0,defiance:0,curiosity:0,secrecy:0};p.journey.callingProgressById??={};p.journey.callingTierById??={};if(p.journey.calling){p.journey.callingProgressById[p.journey.calling]??=p.journey.callingProgress||0;p.journey.callingTierById[p.journey.calling]??=p.journey.callingTier||1;}p.storyDecision??=null;
  p.contracts??={field:0,hunts:0,discoveries:0,completed:0};p.trail??=null;ensureProgress(p);
  return p.journey;
 }
@@ -252,21 +252,28 @@ function journeyAction(p,type,amount=1){
  const j=ensureJourney(p);amount=Math.max(1,Number(amount)||1);
  j.progress+=amount;
  const c=callings[j.calling];
- if(c&&(c.metric===type||c.metric==="any"||(c.metric==="protect"&&["hunt","field"].includes(type))))j.callingProgress+=amount;
+ if(c&&(c.metric===type||c.metric==="any"||(c.metric==="protect"&&["hunt","field"].includes(type)))){j.callingProgress+=amount;j.callingProgressById[j.calling]=j.callingProgress;}
  if(type==="field")p.contracts.field+=1;if(type==="hunt")p.contracts.hunts+=1;if(type==="discover")p.contracts.discoveries+=1;
  if(j.progress>=j.next){
   j.progress-=j.next;j.chapter++;j.next=Math.min(30,8+j.chapter*3);
   const beats=["A fragment addressed you by name.","Your signal appeared in a record older than your arrival.","A second presence answered your frequency.","The trail split toward something the region refuses to map.","Someone else has begun following your trail."];
-  const beat=beats[(hash(p.key+":"+j.chapter))%beats.length];j.beats.unshift("CHAPTER "+j.chapter+" — "+beat);j.beats=j.beats.slice(0,8);p.reputation+=2;level(p,20+j.chapter*2);addFeed(p,"STORY THREAD — "+beat);if(j.chapter%2===0)makeStoryDecision(p);
+  const branchBeats={
+   mercy:["Someone you spared left a ward where you were expected to die.","A Wayfall distress call names you as the person most likely to answer."],
+   defiance:["A hostile faction has started marking your victories on abandoned walls.","The Veil pushes back harder whenever your signature enters the region."],
+   curiosity:["The unmapped signal now opens only when your frequency is nearby.","A hidden route appears in places your previous choices disturbed."],
+   secrecy:["Another Wayfarer is searching for a trail only you know exists.","A record of your movements has a deliberate blank where your last choice should be."]
+  };
+  const dominant=Object.entries(j.affinity||{}).sort((a,b)=>b[1]-a[1])[0],pool=dominant&&dominant[1]>0?branchBeats[dominant[0]]:beats;
+  const beat=pool[(hash(p.key+":"+j.chapter+":"+(dominant?.[0]||"base")))%pool.length];j.beats.unshift("CHAPTER "+j.chapter+" — "+beat);j.beats=j.beats.slice(0,8);p.reputation+=2;level(p,20+j.chapter*2);addFeed(p,"STORY THREAD — "+beat);if(j.chapter%2===0)makeStoryDecision(p);
  }
  if(c){
   const target=8+j.callingTier*7;
-  if(j.callingProgress>=target){j.callingProgress-=target;j.callingTier++;p.reputation+=3;p.gold+=20+j.callingTier*5;level(p,25);addFeed(p,c.name.toUpperCase()+" GOAL — Tier "+j.callingTier+" reached.");}
+  if(j.callingProgress>=target){j.callingProgress-=target;j.callingTier++;j.callingProgressById[j.calling]=j.callingProgress;j.callingTierById[j.calling]=j.callingTier;p.reputation+=3;p.gold+=20+j.callingTier*5;level(p,25);addFeed(p,c.name.toUpperCase()+" GOAL — Tier "+j.callingTier+" reached.");}
  }
 }
 function chooseCalling(p,id){
  ensureJourney(p);if(!callings[id])return;
- p.journey.calling=id;p.journey.callingProgress=0;addFeed(p,"CALLING CHOSEN — "+callings[id].name+". This can be changed later without resetting your story.");
+ const j=p.journey;if(j.calling){j.callingProgressById[j.calling]=j.callingProgress||0;j.callingTierById[j.calling]=j.callingTier||1;}j.calling=id;j.callingProgress=j.callingProgressById[id]||0;j.callingTier=j.callingTierById[id]||1;addFeed(p,"CALLING CHOSEN — "+callings[id].name+". Your progress in every Calling is remembered.");
 }
 function contractState(p){
  ensureJourney(p);
