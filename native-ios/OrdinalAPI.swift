@@ -89,6 +89,7 @@ actor OrdinalAPI {
         let contractList: [Contract]
         let callingOptions: [String: Calling]
         let path: CombatPath
+        let storyDecision: StoryDecision?
         let ordinalRating: Int?
         let region: Region
         let field: [FieldNode]?
@@ -143,6 +144,20 @@ actor OrdinalAPI {
         let name: String
         let desc: String
         let metric: String
+    }
+
+    struct StoryDecision: Decodable {
+        let id: String
+        let chapter: Int
+        let kind: String
+        let title: String
+        let prompt: String
+        let options: [StoryOption]
+    }
+
+    struct StoryOption: Decodable, Identifiable {
+        let id: String
+        let label: String
     }
 
     struct CombatPath: Decodable {
