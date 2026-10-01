@@ -9,7 +9,7 @@ if(!serverSource.includes("ordinal_recovery")||!serverSource.includes("function 
 if(!serverSource.includes("function ensureApex")||!serverSource.includes("function apexVictory"))throw new Error("shared Apex Incursion backend missing");
 if(!serverSource.includes("function startRift")||!serverSource.includes("function nextRiftWave"))throw new Error("Rift Run backend missing");
 if(!gameSource.includes("data-recovery-create")||!gameSource.includes('id="recovery-input"'))throw new Error("cross-device recovery UI missing");
-const bindingSource=gameSource.replaceAll("$$(","__ALL__("); if(bindingSource.includes('$("[data-')||gameSource.includes("$$$("))throw new Error("regression: broken selector binding");
+if(/(^|[^$])\$\("\[data-[^"]+\]"\)\.forEach/m.test(gameSource)||gameSource.includes("$$("))throw new Error("regression: broken collection selector binding");
 if(!gameSource.includes('$=s=>[...document.querySelectorAll(s)]'))throw new Error("multi-selector helper missing");
 if(!gameSource.includes("function nearby()")||!gameSource.includes("world-contact"))throw new Error("visual Field network UI missing");
 if(!gameSource.includes("function traitEffect")||!gameSource.includes("breakbar"))throw new Error("combat depth UI missing");
