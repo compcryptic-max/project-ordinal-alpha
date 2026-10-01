@@ -212,7 +212,13 @@ private struct ARCombatScene: UIViewRepresentable {
             view.scene.removeAnchor(anchor)
         }
 
-        let anchor = AnchorEntity(world: SIMD3<Float>(0, -0.45, -1.7))
+        let floorHit = view.raycast(
+            from: CGPoint(x: view.bounds.midX, y: view.bounds.height * 0.62),
+            allowing: .estimatedPlane,
+            alignment: .horizontal
+        ).first
+        let anchor = floorHit.map { AnchorEntity(world: $0.worldTransform) }
+            ?? AnchorEntity(world: SIMD3<Float>(0, -0.45, -1.7))
         anchor.name = "ordinal-combat-anchor"
 
         let root = Entity()
