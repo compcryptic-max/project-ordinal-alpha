@@ -116,6 +116,30 @@ final class WorldStore: ObservableObject {
         }
     }
 
+    func relocateIfNeeded(lat: Double, lon: Double) async {
+        lastLat = lat
+        lastLon = lon
+        guard let sessionID, !busy else { return }
+
+        let cell = "\(Int(floor(lat * 90))):\(Int(floor(lon * 90)))"
+        let currentCell = state.map { $0.region.key.replacingOccurrences(of: "c1200:", with: "") }
+        guard currentCell != cell else { return }
+
+        busy = true
+        defer { busy = false }
+        do {
+            state = try await OrdinalAPI.shared.action(
+                sessionID: sessionID,
+                name: "relocate",
+                body: .init(lat: lat, lon: lon)
+            )
+            status = state?.region.key.hasPrefix("c1200:") == true ? "WORLD LINK // ONLINE" : status
+            await syncSocial()
+        } catch {
+            lastError = "Could not synchronize the new world region."
+        }
+    }
+
     func refresh() async {
         guard let sessionID, !busy else { return }
         do {
