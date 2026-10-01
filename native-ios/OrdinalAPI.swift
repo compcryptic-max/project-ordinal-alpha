@@ -36,6 +36,37 @@ actor OrdinalAPI {
         let state: PlayerState
     }
 
+    struct PresenceEnvelope: Decodable {
+        let players: [Presence]
+    }
+
+    struct Presence: Decodable, Identifiable {
+        var id: String { name + origin }
+        let name: String
+        let origin: String
+        let level: Int
+        let rating: Int
+        let title: String?
+    }
+
+    struct LeaderboardEnvelope: Decodable {
+        let rank: Int
+        let total: Int
+        let leaders: [Leader]
+    }
+
+    struct Leader: Decodable, Identifiable {
+        var id: Int { rank }
+        let name: String
+        let origin: String
+        let level: Int
+        let rating: Int
+        let title: String?
+        let rank: Int
+    }
+
+
+
     struct PlayerState: Decodable {
         let name: String
         let origin: String
@@ -55,7 +86,24 @@ actor OrdinalAPI {
     struct Region: Decodable {
         let key: String
         let name: String
+        let stage: String
         let threat: Int
+        let apex: Apex?
+        let objective: Objective?
+    }
+
+    struct Apex: Decodable {
+        let name: String
+        let seals: Int
+        let target: Int
+        let complete: Bool
+        let contributors: [String]
+    }
+
+    struct Objective: Decodable {
+        let title: String
+        let progress: Int
+        let target: Int
     }
 
     struct FieldNode: Decodable, Identifiable {
@@ -143,6 +191,20 @@ actor OrdinalAPI {
         let (data, response) = try await URLSession.shared.data(from: url)
         try validate(response)
         return try decoder.decode(StateEnvelope.self, from: data).state
+    }
+
+    func presence(sessionID: String) async throws -> [Presence] {
+        let url = baseURL.appending(path: "api/session/\(sessionID)/presence")
+        let (data, response) = try await URLSession.shared.data(from: url)
+        try validate(response)
+        return try decoder.decode(PresenceEnvelope.self, from: data).players
+    }
+
+    func leaderboard(sessionID: String) async throws -> LeaderboardEnvelope {
+        let url = baseURL.appending(path: "api/session/\(sessionID)/leaderboard")
+        let (data, response) = try await URLSession.shared.data(from: url)
+        try validate(response)
+        return try decoder.decode(LeaderboardEnvelope.self, from: data)
     }
 
     func action(sessionID: String, name: String, body: ActionEnvelope = .init()) async throws -> PlayerState {
