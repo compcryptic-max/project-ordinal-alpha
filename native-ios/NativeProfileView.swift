@@ -33,7 +33,13 @@ struct NativeProfileView: View {
                     LabeledContent("Region", value: world.state?.region.name ?? "Unknown")
                 }
 
-                Section("LOADOUT") {
+                Section("PROGRESSION") {
+                    NavigationLink {
+                        NativeJourneyView(world: world)
+                    } label: {
+                        Label("Journey & Calling", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                    }
+
                     NavigationLink {
                         NativeGearView(world: world)
                     } label: {
