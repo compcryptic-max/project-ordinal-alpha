@@ -23,7 +23,17 @@ struct NativeBridgeView: View {
     var body: some View {
         ZStack {
             if arOpen && ARWorldTrackingConfiguration.isSupported {
-                OrdinalARView(nodes: world.state?.field ?? []).ignoresSafeArea()
+                OrdinalARView(nodes: world.state?.field ?? []) { node in
+                    Task {
+                        if node.kind == "signal" {
+                            await world.act("investigate")
+                            if world.state?.combat != nil { arOpen = false }
+                        } else {
+                            await world.act("collect", id: node.id)
+                        }
+                    }
+                }
+                .ignoresSafeArea()
                 VStack {
                     HStack {
                         Text("ORDINAL // NATIVE VEIL")
