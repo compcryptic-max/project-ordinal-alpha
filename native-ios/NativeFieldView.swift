@@ -119,7 +119,7 @@ struct NativeFieldView: View {
                     x: size.width * clamped(node.x / 100),
                     y: size.height * clamped(node.y / 100)
                 )
-                .accessibilityLabel(node.name ?? node.kind)
+                .accessibilityLabel(node.label)
             }
         }
 
