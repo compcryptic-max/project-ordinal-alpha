@@ -10,6 +10,8 @@ final class WorldStore: ObservableObject {
 
     private(set) var sessionID: String?
     private let playerKey: String
+    private var lastLat: Double?
+    private var lastLon: Double?
 
     init() {
         if let saved = UserDefaults.standard.string(forKey: "ordinal.playerKey") {
@@ -23,6 +25,8 @@ final class WorldStore: ObservableObject {
 
     func connect(lat: Double? = nil, lon: Double? = nil) async {
         guard !busy else { return }
+        if let lat { lastLat = lat }
+        if let lon { lastLon = lon }
         busy = true
         defer { busy = false }
         do {
@@ -30,8 +34,8 @@ final class WorldStore: ObservableObject {
                 playerKey: playerKey,
                 playerName: "Wayfarer",
                 origin: "Rogue",
-                lat: lat,
-                lon: lon
+                lat: lat ?? lastLat,
+                lon: lon ?? lastLon
             )
             sessionID = session.sessionId
             state = session.state
@@ -50,7 +54,7 @@ final class WorldStore: ObservableObject {
             status = "WORLD LINK // ONLINE"
         } catch {
             status = "WORLD LINK // RECONNECTING"
-            await connect()
+            await connect(lat: lastLat, lon: lastLon)
         }
     }
 
