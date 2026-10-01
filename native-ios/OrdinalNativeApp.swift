@@ -33,6 +33,8 @@ struct NativeBridgeView: View {
                     Spacer()
                 }
                 .foregroundStyle(.white)
+            } else if world.state?.combat != nil {
+                NativeCombatView(world: world)
             } else if world.state != nil {
                 NativeFieldView(world: world, arOpen: $arOpen)
             } else {
