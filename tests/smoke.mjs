@@ -134,5 +134,26 @@ try{
  if(!(roamed.state.playBalance?.momentum>=1))throw new Error("grinder Field Momentum did not advance");
  const equipped=await fetch(base+"/api/session/"+sid+"/equip",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({id:"starter"})}).then(r=>r.json());
  if(equipped.state.equipment.weapon!=="starter")throw new Error("equip route failed");
+
+ // Reach a real Story Thread fracture entirely through normal gameplay actions.
+ const storyPlayer=await fetch(base+"/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerKey:"story-branch-player",playerName:"BranchTester",origin:"Ranger"})}).then(r=>r.json());
+ let storyState=storyPlayer.state;
+ for(const node of storyState.field.filter(n=>n.action==="collect")){
+  storyState=(await fetch(base+"/api/session/"+storyPlayer.sessionId+"/collect",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({id:node.id})}).then(r=>r.json())).state;
+ }
+ storyState=(await fetch(base+"/api/session/"+storyPlayer.sessionId+"/scout",{method:"POST",headers:{"content-type":"application/json"},body:"{}"}).then(r=>r.json())).state;
+ storyState=(await fetch(base+"/api/session/"+storyPlayer.sessionId+"/checkin",{method:"POST",headers:{"content-type":"application/json"},body:"{}"}).then(r=>r.json())).state;
+ storyState=(await fetch(base+"/api/session/"+storyPlayer.sessionId+"/advance",{method:"POST",headers:{"content-type":"application/json"},body:"{}"}).then(r=>r.json())).state;
+ storyState=(await fetch(base+"/api/session/"+storyPlayer.sessionId+"/scout",{method:"POST",headers:{"content-type":"application/json"},body:"{}"}).then(r=>r.json())).state;
+ if(storyState.journey.chapter<2||!storyState.storyDecision?.options?.length)throw new Error("normal gameplay did not produce a Story Thread branch");
+ const beforeStory={rep:storyState.reputation,gold:storyState.gold,threat:storyState.region.threat,order:storyState.region.order,corruption:storyState.region.corruption};
+ const storyChoice=storyState.storyDecision.options[0].id;
+ const resolved=(await fetch(base+"/api/session/"+storyPlayer.sessionId+"/story",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({choice:storyChoice})}).then(r=>r.json())).state;
+ if(resolved.storyDecision!==null||resolved.journey.choices.length!==1)throw new Error("Story Thread branch did not persist its choice");
+ const affinityTotal=Object.values(resolved.journey.affinity).reduce((a,b)=>a+b,0);
+ if(affinityTotal!==1)throw new Error("Story Thread affinity did not record the branch");
+ if(!resolved.region.history.some(x=>x.includes("altered a hidden Story Thread")))throw new Error("Story Thread branch did not enter shared regional history");
+ if(resolved.reputation===beforeStory.rep&&resolved.gold===beforeStory.gold&&resolved.region.threat===beforeStory.threat&&resolved.region.order===beforeStory.order&&resolved.region.corruption===beforeStory.corruption)throw new Error("Story Thread choice had no persistent gameplay consequence");
+
  console.log("Project Ordinal smoke tests passed");
 }finally{child.kill("SIGTERM")}
