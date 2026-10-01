@@ -19,6 +19,8 @@ struct NativeBridgeView: View {
     @EnvironmentObject private var world: WorldStore
     @EnvironmentObject private var location: CoarseLocationService
     @State private var arOpen = false
+    @State private var arCombatMode = false
+    @State private var encounterCameFromAR = false
 
     var body: some View {
         ZStack {
@@ -27,13 +29,22 @@ struct NativeBridgeView: View {
             } else if world.state?.pendingChoice != nil {
                 NativeShrineChoiceView(world: world)
             } else if world.state?.pendingEncounter != nil {
-                NativeEncounterView(world: world)
+                NativeEncounterView(world: world) {
+                    if encounterCameFromAR {
+                        arCombatMode = true
+                    }
+                }
             } else if world.state?.combat != nil {
-                NativeCombatView(world: world)
+                if arCombatMode && ARWorldTrackingConfiguration.isSupported {
+                    NativeARCombatView(world: world)
+                } else {
+                    NativeCombatView(world: world)
+                }
             } else if arOpen && ARWorldTrackingConfiguration.isSupported {
                 OrdinalARView(nodes: world.state?.field ?? []) { node in
                     Task {
                         if node.kind == "signal" {
+                            encounterCameFromAR = true
                             await world.act("investigate")
                             if world.state?.pendingEncounter != nil || world.state?.combat != nil {
                                 arOpen = false
@@ -81,6 +92,12 @@ struct NativeBridgeView: View {
                 if world.hasSavedIdentity {
                     await world.connect(lat: coarse?.latitude, lon: coarse?.longitude)
                 }
+            }
+        }
+        .onChange(of: world.state?.combat?.name) { _, newValue in
+            if newValue == nil {
+                arCombatMode = false
+                encounterCameFromAR = false
             }
         }
     }
