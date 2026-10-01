@@ -7,7 +7,8 @@ struct OrdinalARView: UIViewRepresentable {
     let nodes: [OrdinalAPI.FieldNode]
     let onSelect: (OrdinalAPI.FieldNode) -> Void
 
-    final class Coordinator: NSObject, ARSessionDelegate {
+    @MainActor
+    final class Coordinator: NSObject, @preconcurrency ARSessionDelegate {
         weak var view: ARView?
         var nodesByID: [String: OrdinalAPI.FieldNode] = [:]
         var onSelect: ((OrdinalAPI.FieldNode) -> Void)?
