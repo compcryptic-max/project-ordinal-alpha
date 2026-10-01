@@ -10,6 +10,9 @@ struct NativeJourneyView: View {
         ScrollView {
             VStack(spacing: 16) {
                 storyCard
+                if world.state?.storyDecision != nil {
+                    storyDecisionCard
+                }
                 callingCard
                 specializationCard
                 contracts
@@ -59,6 +62,45 @@ struct NativeJourneyView: View {
         .overlay {
             RoundedRectangle(cornerRadius: 16)
                 .stroke(.cyan.opacity(0.12))
+        }
+    }
+
+    @ViewBuilder
+    private var storyDecisionCard: some View {
+        if let decision = world.state?.storyDecision {
+            VStack(alignment: .leading, spacing: 11) {
+                Text("THREAD FRACTURE · PERSISTENT CHOICE")
+                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.purple)
+                Text(decision.title)
+                    .font(.headline)
+                Text(decision.prompt)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 8) {
+                    ForEach(decision.options) { option in
+                        Button {
+                            Task { await world.act("story", choice: option.id) }
+                        } label: {
+                            Text(option.label)
+                                .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                .multilineTextAlignment(.center)
+                                .frame(maxWidth: .infinity)
+                                .frame(minHeight: 48)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.purple.opacity(0.38))
+                        .disabled(world.busy)
+                    }
+                }
+            }
+            .padding(14)
+            .background(.purple.opacity(0.055), in: RoundedRectangle(cornerRadius: 16))
+            .overlay {
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(.purple.opacity(0.20))
+            }
         }
     }
 
