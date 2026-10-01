@@ -82,6 +82,9 @@ actor OrdinalAPI {
         let hp: Int
         let maxHp: Int
         let gold: Int
+        let inventory: [Item]
+        let equipment: Equipment
+        let mastery: Mastery
         let ordinalRating: Int?
         let region: Region
         let field: [FieldNode]?
@@ -89,6 +92,26 @@ actor OrdinalAPI {
         let combat: Combat?
         let pendingLoot: Loot?
         let pendingChoice: String?
+    }
+
+    struct Item: Decodable, Identifiable {
+        let id: String
+        let name: String
+        let rarity: String
+        let power: Int?
+        let trait: String?
+        let qty: Int?
+    }
+
+    struct Equipment: Decodable {
+        let weapon: String?
+    }
+
+    struct Mastery: Decodable {
+        let rank: Int
+        let xp: Int
+        let next: Int
+        let name: String
     }
 
     struct Region: Decodable {
