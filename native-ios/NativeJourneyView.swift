@@ -141,13 +141,13 @@ struct NativeJourneyView: View {
 
             HStack(spacing: 8) {
                 pathBar("STRIKE", path?.attack ?? 0)
-                pathBar("GUARD", path?.guard ?? 0)
+                pathBar("GUARD", path?.guardCount ?? 0)
                 pathBar("EVADE", path?.evade ?? 0)
                 pathBar("SKILL", path?.skill ?? 0)
             }
 
             if path?.specialization == nil {
-                let total = (path?.attack ?? 0) + (path?.guard ?? 0) + (path?.evade ?? 0) + (path?.skill ?? 0)
+                let total = (path?.attack ?? 0) + (path?.guardCount ?? 0) + (path?.evade ?? 0) + (path?.skill ?? 0)
                 Text("\(min(total, 25))/25 combat decisions observed")
                     .font(.caption2.monospaced())
                     .foregroundStyle(.secondary)
