@@ -220,40 +220,115 @@ private struct ARCombatScene: UIViewRepresentable {
 
         let dark = SimpleMaterial(color: UIColor(red: 0.07, green: 0.075, blue: 0.08, alpha: 0.96), isMetallic: true)
         let vein = SimpleMaterial(color: UIColor(red: 0.72, green: 0.08, blue: 0.12, alpha: 0.90), isMetallic: true)
+        let glass = SimpleMaterial(color: UIColor(red: 0.25, green: 0.70, blue: 0.78, alpha: 0.68), isMetallic: true)
+        let violet = SimpleMaterial(color: UIColor(red: 0.47, green: 0.24, blue: 0.76, alpha: 0.80), isMetallic: true)
 
-        let torso = ModelEntity(mesh: .generateBox(size: SIMD3<Float>(0.42, 0.72, 0.22)), materials: [dark])
-        torso.position = [0, 0.48, 0]
-        root.addChild(torso)
-
-        let head = ModelEntity(mesh: .generateSphere(radius: 0.19), materials: [dark])
-        head.position = [0, 0.98, 0]
-        root.addChild(head)
-
-        let eye = ModelEntity(mesh: .generateSphere(radius: 0.045), materials: [vein])
-        eye.position = [0, 0.99, 0.18]
-        root.addChild(eye)
-
-        for side: Float in [-1, 1] {
-            let arm = ModelEntity(mesh: .generateBox(size: SIMD3<Float>(0.13, 0.68, 0.13)), materials: [dark])
-            arm.position = [side * 0.29, 0.45, 0]
-            arm.orientation = simd_quatf(angle: side * -0.20, axis: SIMD3<Float>(0, 0, 1))
-            root.addChild(arm)
-
-            let blade = ModelEntity(mesh: .generateBox(size: SIMD3<Float>(0.055, 0.50, 0.08)), materials: [vein])
-            blade.position = [side * 0.38, 0.17, 0]
-            blade.orientation = simd_quatf(angle: side * 0.28, axis: SIMD3<Float>(0, 0, 1))
-            root.addChild(blade)
+        let kind = enemyName.lowercased()
+        if kind.contains("mirehorn") {
+            addQuadrupedMirehorn(to: root, dark: dark, accent: vein)
+        } else if kind.contains("rift weaver") || kind.contains("riftweaver") {
+            addRiftWeaver(to: root, dark: dark, accent: violet)
+        } else if kind.contains("glass warden") {
+            addGlassWarden(to: root, dark: dark, glass: glass)
+        } else if kind.contains("hound") {
+            addPaleHound(to: root, dark: dark, accent: vein)
+        } else if kind.contains("revenant") {
+            addRevenant(to: root, dark: dark, accent: vein)
+        } else {
+            addHumanoid(to: root, dark: dark, accent: vein)
         }
 
+        let haloColor = kind.contains("rift") ? UIColor.purple : kind.contains("glass") ? UIColor.cyan : UIColor.red
         let halo = ModelEntity(
             mesh: .generateSphere(radius: 0.72),
-            materials: [UnlitMaterial(color: UIColor.red.withAlphaComponent(0.035))]
+            materials: [UnlitMaterial(color: haloColor.withAlphaComponent(0.035))]
         )
         halo.position = [0, 0.52, 0]
         root.addChild(halo)
-
         anchor.addChild(root)
         view.scene.addAnchor(anchor)
+    }
+
+    private func addHumanoid(to root: Entity, dark: SimpleMaterial, accent: SimpleMaterial) {
+        addBox([0.42, 0.72, 0.22], at: [0, 0.48, 0], material: dark, to: root)
+        addSphere(0.19, at: [0, 0.98, 0], material: dark, to: root)
+        addSphere(0.045, at: [0, 0.99, 0.18], material: accent, to: root)
+        for side: Float in [-1, 1] {
+            addBox([0.13, 0.68, 0.13], at: [side * 0.29, 0.45, 0], angle: side * -0.20, material: dark, to: root)
+            addBox([0.055, 0.50, 0.08], at: [side * 0.38, 0.17, 0], angle: side * 0.28, material: accent, to: root)
+        }
+    }
+
+    private func addPaleHound(to root: Entity, dark: SimpleMaterial, accent: SimpleMaterial) {
+        addBox([0.62, 0.30, 0.26], at: [0, 0.34, 0], material: dark, to: root)
+        addBox([0.30, 0.28, 0.30], at: [0, 0.43, 0.34], material: dark, to: root)
+        addSphere(0.04, at: [-0.08, 0.48, 0.48], material: accent, to: root)
+        addSphere(0.04, at: [0.08, 0.48, 0.48], material: accent, to: root)
+        for x: Float in [-0.22, 0.22] {
+            for z: Float in [-0.17, 0.17] {
+                addBox([0.09, 0.42, 0.09], at: [x, 0.10, z], material: dark, to: root)
+            }
+        }
+        addBox([0.08, 0.50, 0.08], at: [0, 0.44, -0.38], angle: -0.55, material: dark, to: root)
+    }
+
+    private func addQuadrupedMirehorn(to root: Entity, dark: SimpleMaterial, accent: SimpleMaterial) {
+        addBox([0.72, 0.40, 0.38], at: [0, 0.40, 0], material: dark, to: root)
+        addBox([0.36, 0.36, 0.38], at: [0, 0.54, 0.40], material: dark, to: root)
+        for x: Float in [-0.23, 0.23] {
+            addBox([0.10, 0.52, 0.10], at: [x, 0.10, 0.16], material: dark, to: root)
+            addBox([0.10, 0.52, 0.10], at: [x, 0.10, -0.20], material: dark, to: root)
+            addBox([0.055, 0.48, 0.055], at: [x * 0.75, 0.76, 0.52], angle: x > 0 ? -0.52 : 0.52, material: accent, to: root)
+        }
+        addSphere(0.055, at: [0, 0.57, 0.59], material: accent, to: root)
+    }
+
+    private func addRiftWeaver(to root: Entity, dark: SimpleMaterial, accent: SimpleMaterial) {
+        addSphere(0.28, at: [0, 0.63, 0], material: dark, to: root)
+        addSphere(0.10, at: [0, 0.68, 0.24], material: accent, to: root)
+        for i in 0..<6 {
+            let a = Float(i) / 6 * .pi * 2
+            let x = cos(a) * 0.34
+            let z = sin(a) * 0.22
+            addBox([0.055, 0.62, 0.055], at: [x, 0.38, z], angle: a * 0.25, material: accent, to: root)
+        }
+        for y: Float in [0.18, 0.63, 1.02] {
+            let ring = ModelEntity(mesh: .generateSphere(radius: y == 0.63 ? 0.42 : 0.24), materials: [UnlitMaterial(color: UIColor.purple.withAlphaComponent(0.06))])
+            ring.position = [0, y, 0]
+            root.addChild(ring)
+        }
+    }
+
+    private func addGlassWarden(to root: Entity, dark: SimpleMaterial, glass: SimpleMaterial) {
+        addHumanoid(to: root, dark: dark, accent: glass)
+        addBox([0.55, 0.74, 0.07], at: [-0.40, 0.48, 0.16], angle: 0.08, material: glass, to: root)
+        addBox([0.07, 0.92, 0.07], at: [0.42, 0.47, 0.08], angle: -0.18, material: glass, to: root)
+    }
+
+    private func addRevenant(to root: Entity, dark: SimpleMaterial, accent: SimpleMaterial) {
+        addBox([0.36, 0.82, 0.18], at: [0, 0.47, 0], material: dark, to: root)
+        addSphere(0.17, at: [0, 1.02, 0], material: dark, to: root)
+        for y: Float in [0.24, 0.50, 0.76] {
+            addSphere(0.055, at: [0, y, 0.15], material: accent, to: root)
+        }
+        for side: Float in [-1, 1] {
+            addBox([0.08, 0.82, 0.08], at: [side * 0.29, 0.45, 0], angle: side * 0.16, material: accent, to: root)
+        }
+    }
+
+    private func addBox(_ size: SIMD3<Float>, at position: SIMD3<Float>, angle: Float = 0, material: SimpleMaterial, to root: Entity) {
+        let part = ModelEntity(mesh: .generateBox(size: size), materials: [material])
+        part.position = position
+        if angle != 0 {
+            part.orientation = simd_quatf(angle: angle, axis: SIMD3<Float>(0, 0, 1))
+        }
+        root.addChild(part)
+    }
+
+    private func addSphere(_ radius: Float, at position: SIMD3<Float>, material: SimpleMaterial, to root: Entity) {
+        let part = ModelEntity(mesh: .generateSphere(radius: radius), materials: [material])
+        part.position = position
+        root.addChild(part)
     }
 }
 
