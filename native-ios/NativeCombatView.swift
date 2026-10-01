@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct NativeCombatView: View {
     @ObservedObject var world: WorldStore
@@ -18,7 +19,7 @@ struct NativeCombatView: View {
                 enemy
                 Spacer()
                 resources
-                controls
+                abilities
             }
             .padding()
         }
@@ -46,10 +47,17 @@ struct NativeCombatView: View {
             ReactionBar(seconds: reactionSeconds, urgent: isHeavy)
                 .id(combat?.turn)
 
-            Text(combat?.intent ?? "READ THE HOSTILE")
+            Text(reactionPrompt)
                 .font(.caption.monospaced().bold())
                 .foregroundStyle(isHeavy ? .red : .secondary)
         }
+    }
+
+    private var reactionPrompt: String {
+        let intent = combat?.intent ?? ""
+        if intent.localizedCaseInsensitiveContains("EVADE") { return "↔  SWIPE" }
+        if intent.localizedCaseInsensitiveContains("GUARD") { return "◇  HOLD" }
+        return isHeavy ? "!  REACT" : intent
     }
 
     private var enemy: some View {
@@ -57,18 +65,54 @@ struct NativeCombatView: View {
             ZStack {
                 Circle()
                     .stroke(isHeavy ? .red.opacity(0.5) : .white.opacity(0.18), lineWidth: 1)
-                    .frame(width: 220, height: 220)
+                    .frame(width: 235, height: 235)
                 Circle()
-                    .fill(.black.opacity(0.4))
-                    .frame(width: 180, height: 180)
+                    .fill(.black.opacity(0.42))
+                    .frame(width: 192, height: 192)
                 Image(systemName: isHeavy ? "exclamationmark.triangle.fill" : "eye.fill")
-                    .font(.system(size: 64, weight: .thin))
-                    .foregroundStyle(isHeavy ? .red : .white.opacity(0.8))
+                    .font(.system(size: 70, weight: .thin))
+                    .foregroundStyle(isHeavy ? .red : .white.opacity(0.84))
+
+                VStack {
+                    Spacer()
+                    HStack(spacing: 18) {
+                        Text("TAP · STRIKE")
+                        Text("SWIPE · EVADE")
+                        Text("HOLD · GUARD")
+                    }
+                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                }
+                .frame(height: 270)
             }
+            .contentShape(Circle())
+            .gesture(
+                LongPressGesture(minimumDuration: 0.45)
+                    .exclusively(before: TapGesture())
+                    .onEnded { result in
+                        switch result {
+                        case .first:
+                            combatAction("guard", impact: .rigid)
+                        case .second:
+                            combatAction("attack", impact: .medium)
+                        }
+                    }
+            )
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 36)
+                    .onEnded { value in
+                        if hypot(value.translation.width, value.translation.height) > 52 {
+                            combatAction("dodge", impact: .light)
+                        }
+                    }
+            )
+
             Text(combat?.name.uppercased() ?? "HOSTILE")
                 .font(.title3.monospaced().bold())
+
             ProgressView(value: Double(combat?.hp ?? 0), total: Double(max(1, combat?.maxHp ?? 1)))
                 .tint(.red)
+
             if let result = combat?.lastResult, !result.isEmpty {
                 Text(result)
                     .font(.caption2.monospaced())
@@ -89,18 +133,17 @@ struct NativeCombatView: View {
         .font(.caption.monospaced().bold())
     }
 
-    private var controls: some View {
-        HStack(spacing: 10) {
-            combatButton("STRIKE", "bolt.fill", "attack")
-            combatButton("GUARD", "shield.fill", "guard")
-            combatButton("EVADE", "arrow.left.and.right", "dodge")
-            combatButton("SKILL", "sparkles", "skill")
+    private var abilities: some View {
+        HStack(spacing: 12) {
+            abilityButton("SKILL", "sparkles", "skill")
+            abilityButton("TONIC", "cross.case.fill", "potion")
+            abilityButton("WITHDRAW", "figure.run", "retreat")
         }
     }
 
-    private func combatButton(_ label: String, _ icon: String, _ type: String) -> some View {
+    private func abilityButton(_ label: String, _ icon: String, _ type: String) -> some View {
         Button {
-            Task { await world.act("combat", type: type) }
+            combatAction(type, impact: type == "skill" ? .heavy : .soft)
         } label: {
             VStack(spacing: 5) {
                 Image(systemName: icon)
@@ -112,6 +155,12 @@ struct NativeCombatView: View {
         }
         .buttonStyle(.bordered)
         .disabled(world.busy)
+    }
+
+    private func combatAction(_ type: String, impact: UIImpactFeedbackGenerator.FeedbackStyle) {
+        guard !world.busy else { return }
+        UIImpactFeedbackGenerator(style: impact).impactOccurred()
+        Task { await world.act("combat", type: type) }
     }
 }
 
