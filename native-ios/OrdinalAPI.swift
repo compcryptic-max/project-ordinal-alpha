@@ -17,6 +17,8 @@ actor OrdinalAPI {
         let playerKey: String
         let playerName: String
         let origin: String
+        let lat: Double?
+        let lon: Double?
         var recoverOnly = false
     }
 
@@ -85,11 +87,11 @@ actor OrdinalAPI {
         return try decoder.decode(Health.self, from: data)
     }
 
-    func createSession(playerKey: String, playerName: String, origin: String) async throws -> SessionEnvelope {
+    func createSession(playerKey: String, playerName: String, origin: String, lat: Double? = nil, lon: Double? = nil) async throws -> SessionEnvelope {
         var request = URLRequest(url: baseURL.appending(path: "api/session"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try encoder.encode(CreateSession(playerKey: playerKey, playerName: playerName, origin: origin))
+        request.httpBody = try encoder.encode(CreateSession(playerKey: playerKey, playerName: playerName, origin: origin, lat: lat, lon: lon))
         let (data, response) = try await URLSession.shared.data(for: request)
         try validate(response)
         return try decoder.decode(SessionEnvelope.self, from: data)
