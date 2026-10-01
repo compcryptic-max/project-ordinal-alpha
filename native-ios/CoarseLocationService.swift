@@ -6,6 +6,7 @@ import Combine
 final class CoarseLocationService: NSObject, ObservableObject, @preconcurrency CLLocationManagerDelegate {
     @Published private(set) var coordinate: CLLocationCoordinate2D?
     @Published private(set) var rapidTravel = false
+    @Published private(set) var relocationToken = ""
 
     private let manager = CLLocationManager()
     private var waiter: CheckedContinuation<CLLocationCoordinate2D?, Never>?
@@ -97,6 +98,10 @@ final class CoarseLocationService: NSObject, ObservableObject, @preconcurrency C
             longitude: (raw.coordinate.longitude * 100).rounded() / 100
         )
         coordinate = coarse
+        let token = String(format: "%.2f,%.2f", coarse.latitude, coarse.longitude)
+        if token != relocationToken {
+            relocationToken = token
+        }
 
         if waiter != nil {
             finish(coarse)
