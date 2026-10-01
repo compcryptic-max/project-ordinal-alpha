@@ -21,7 +21,7 @@ final class WorldStore: ObservableObject {
         }
     }
 
-    func connect() async {
+    func connect(lat: Double? = nil, lon: Double? = nil) async {
         guard !busy else { return }
         busy = true
         defer { busy = false }
@@ -29,7 +29,9 @@ final class WorldStore: ObservableObject {
             let session = try await OrdinalAPI.shared.createSession(
                 playerKey: playerKey,
                 playerName: "Wayfarer",
-                origin: "Rogue"
+                origin: "Rogue",
+                lat: lat,
+                lon: lon
             )
             sessionID = session.sessionId
             state = session.state
