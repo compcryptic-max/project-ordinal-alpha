@@ -42,7 +42,10 @@ actor OrdinalAPI {
         let ordinalRating: Int?
         let region: Region
         let field: [FieldNode]?
+        let pendingEncounter: PendingEncounter?
         let combat: Combat?
+        let pendingLoot: Loot?
+        let pendingChoice: String?
     }
 
     struct Region: Decodable {
@@ -59,6 +62,30 @@ actor OrdinalAPI {
         let x: Double
         let y: Double
         let collected: Bool
+    }
+
+    struct PendingEncounter: Decodable {
+        let name: String
+        let elite: Int
+        let archetype: String
+        let weakness: String
+        let threat: Int
+        let rumorTitle: String?
+        let modifier: Modifier?
+    }
+
+    struct Modifier: Decodable {
+        let name: String
+        let desc: String
+    }
+
+    struct Loot: Decodable {
+        let id: String
+        let name: String
+        let rarity: String
+        let source: String
+        let power: Int
+        let trait: String
     }
 
     struct Combat: Decodable {
