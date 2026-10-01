@@ -32,6 +32,14 @@ actor OrdinalAPI {
         let code: String
     }
 
+    struct RecoveryCreateRequest: Encodable {
+        let sessionId: String
+    }
+
+    struct RecoveryCreateResponse: Decodable {
+        let code: String
+    }
+
     struct StateEnvelope: Decodable {
         let state: PlayerState
     }
@@ -174,6 +182,16 @@ actor OrdinalAPI {
         let (data, response) = try await URLSession.shared.data(for: request)
         try validate(response)
         return try decoder.decode(SessionEnvelope.self, from: data)
+    }
+
+    func createRecoveryCode(sessionID: String) async throws -> String {
+        var request = URLRequest(url: baseURL.appending(path: "api/recovery/create"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try encoder.encode(RecoveryCreateRequest(sessionId: sessionID))
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try validate(response)
+        return try decoder.decode(RecoveryCreateResponse.self, from: data).code
     }
 
     func recover(code: String) async throws -> SessionEnvelope {
