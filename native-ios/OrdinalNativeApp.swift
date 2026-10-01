@@ -22,10 +22,18 @@ struct NativeBridgeView: View {
     @State private var arOpen = false
     @State private var arCombatMode = false
     @State private var encounterCameFromAR = false
+    @State private var selectedARNode: OrdinalAPI.FieldNode?
 
     var body: some View {
         ZStack {
-            if world.state?.pendingLoot != nil {
+            if let node = selectedARNode {
+                NativeFieldInteractionView(
+                    world: world,
+                    node: node,
+                    onComplete: { selectedARNode = nil },
+                    onCancel: { selectedARNode = nil }
+                )
+            } else if world.state?.pendingLoot != nil {
                 NativeLootView(world: world)
             } else if world.state?.pendingChoice != nil {
                 NativeShrineChoiceView(world: world)
@@ -51,7 +59,7 @@ struct NativeBridgeView: View {
                                 arOpen = false
                             }
                         } else {
-                            await world.act("collect", id: node.id)
+                            selectedARNode = node
                         }
                     }
                 }
@@ -106,6 +114,7 @@ struct NativeBridgeView: View {
         .onChange(of: location.rapidTravel) { _, rapid in
             if rapid {
                 arOpen = false
+                selectedARNode = nil
             }
         }
         .onChange(of: world.state?.combat?.name) { _, newValue in
