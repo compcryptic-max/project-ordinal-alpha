@@ -4,6 +4,7 @@ import UIKit
 struct NativeFieldView: View {
     @ObservedObject var world: WorldStore
     @Binding var arOpen: Bool
+    @State private var showProfile = false
 
     var body: some View {
         GeometryReader { proxy in
@@ -20,6 +21,9 @@ struct NativeFieldView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
             }
+        }
+        .sheet(isPresented: $showProfile) {
+            NativeProfileView(world: world)
         }
         .task {
             while !Task.isCancelled {
@@ -156,16 +160,21 @@ struct NativeFieldView: View {
 
             Spacer()
 
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(world.worldRank.map { "WORLD #\($0)" } ?? "RATING")
-                    .font(.system(size: 8, weight: .bold, design: .monospaced))
-                    .foregroundStyle(.cyan)
-                Text("\(world.state?.ordinalRating ?? 0)")
-                    .font(.title3.monospaced().bold())
-                Text("LV \(world.state?.level ?? 1)  ·  \(world.state?.hp ?? 0) HP")
-                    .font(.system(size: 8, design: .monospaced))
-                    .foregroundStyle(.secondary)
+            Button {
+                showProfile = true
+            } label: {
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(world.worldRank.map { "WORLD #\($0)" } ?? "RATING")
+                        .font(.system(size: 8, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.cyan)
+                    Text("\(world.state?.ordinalRating ?? 0)")
+                        .font(.title3.monospaced().bold())
+                    Text("LV \(world.state?.level ?? 1)  ·  \(world.state?.hp ?? 0) HP")
+                        .font(.system(size: 8, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
             }
+            .buttonStyle(.plain)
         }
         .foregroundStyle(.white)
         .padding(12)
