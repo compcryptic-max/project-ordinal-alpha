@@ -23,6 +23,7 @@ if(!gameSource.includes("function rankOverlay")||!gameSource.includes("data-rank
 if(!gameSource.includes("FIELD RANGE · F-")||gameSource.includes("distance)+'m")||gameSource.includes("distance+'m"))throw new Error("projected Field range labeling regressed");
 if(!gameSource.includes("apex-rift")||!gameSource.includes('data-simple="apex"'))throw new Error("Apex world projection missing");
 if(!gameSource.includes("data-combat-arena")||!gameSource.includes('combatGesture("dodge")')||!gameSource.includes('combatGesture("guard")'))throw new Error("gesture-first combat missing");
+if(!gameSource.includes("reaction-cue")||!gameSource.includes('label:"SWIPE"')||!gameSource.includes('label:"HOLD"'))throw new Error("visual combat reaction cues missing");
 if(!gameSource.includes("gesture-abilities")||!gameSource.includes('await act("roam")'))throw new Error("gesture-primary combat or playable Veil Pulse missing");
 if(!gameSource.includes("cameraCombat")||!gameSource.includes("combat-camera-feed")||!gameSource.includes("combat(cameraCombat)"))throw new Error("optional live-camera combat bridge missing");
 if(!gameSource.includes("function startFieldMove")||!gameSource.includes("function checkExpeditionProximity")||!gameSource.includes("data-field-stick")||!gameSource.includes("data-expedition"))throw new Error("direct Field exploration controls missing");
