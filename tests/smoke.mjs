@@ -7,6 +7,7 @@ if(!serverSource.includes("function nemesisIdentity")||!serverSource.includes("n
 if(!serverSource.includes("ordinal_meta")||!serverSource.includes("persistenceProbe"))throw new Error("database persistence health marker missing");
 if(!serverSource.includes("ordinal_recovery")||!serverSource.includes("function recoveryHash"))throw new Error("hashed cross-device recovery backend missing");
 if(!serverSource.includes("function ensureApex")||!serverSource.includes("function apexVictory"))throw new Error("shared Apex Incursion backend missing");
+if(!serverSource.includes("function startRift")||!serverSource.includes("function nextRiftWave"))throw new Error("Rift Run backend missing");
 if(!gameSource.includes("data-recovery-create")||!gameSource.includes('id="recovery-input"'))throw new Error("cross-device recovery UI missing");
 const bindingSource=gameSource.replaceAll("$$(","__ALL__("); if(bindingSource.includes('$("[data-')||gameSource.includes("$$$("))throw new Error("regression: broken selector binding");
 if(!gameSource.includes('$=s=>[...document.querySelectorAll(s)]'))throw new Error("multi-selector helper missing");
@@ -26,6 +27,7 @@ if(!gameSource.includes("gesture-abilities")||!gameSource.includes('await act("r
 if(!gameSource.includes("cameraCombat")||!gameSource.includes("combat-camera-feed")||!gameSource.includes("combat(cameraCombat)"))throw new Error("optional live-camera combat bridge missing");
 if(!gameSource.includes("function startFieldMove")||!gameSource.includes("function checkExpeditionProximity")||!gameSource.includes("data-field-stick")||!gameSource.includes("data-expedition"))throw new Error("direct Field exploration controls missing");
 if(!gameSource.includes("function armCombatClock")||!gameSource.includes('body:{type:"idle"}')||!gameSource.includes("combat-clock"))throw new Error("real-time reaction combat clock missing");
+if(!gameSource.includes("rift-breach")||!gameSource.includes('data-simple="rift"')||!gameSource.includes("RIFT RUN "))throw new Error("Rift Run world activity UI missing");
 if(!gameSource.includes("signalPos=signal?fieldCoords(signal):null")||!gameSource.includes('data-world-x="'+signalPos.x'))throw new Error("hostile visual/gameplay coordinates diverged");
 for(const enemy of ["mirehorn","revenant","choirless","riftweaver"])if(!gameSource.includes("function "+enemy+"()"))throw new Error("new enemy art missing: "+enemy);
 if(!gameSource.includes("enemyDamage=")||!gameSource.includes("playerDamage="))throw new Error("authoritative combat damage feedback missing");
@@ -67,6 +69,11 @@ try{
  if(!apexFight.state.combat?.apex||apexFight.state.combat.elite!==2||!apexFight.state.region.apex?.name)throw new Error("shared Apex Incursion failed to start");
  const apexMiss=await fetch(base+"/api/session/"+apexPlayer.sessionId+"/combat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({type:"idle"})}).then(r=>r.json());
  if(!apexMiss.state.combat||apexMiss.state.combat.turn!==apexFight.state.combat.turn+1||!(apexMiss.state.hp<apexFight.state.hp))throw new Error("real-time missed reaction did not resolve an enemy turn");
+ const riftPlayer=await fetch(base+"/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerKey:"rift-player",playerName:"RiftTester",origin:"Rogue"})}).then(r=>r.json());
+ const riftStart=await fetch(base+"/api/session/"+riftPlayer.sessionId+"/rift",{method:"POST",headers:{"content-type":"application/json"},body:"{}"}).then(r=>r.json());
+ if(!riftStart.state.combat?.rift||riftStart.state.combat.riftWave!==1||riftStart.state.riftRun?.total!==3)throw new Error("three-wave Rift Run failed to start");
+ const riftExit=await fetch(base+"/api/session/"+riftPlayer.sessionId+"/combat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({type:"retreat"})}).then(r=>r.json());
+ if(riftExit.state.combat||riftExit.state.riftRun)throw new Error("Rift Run did not fail cleanly on withdrawal");
  if(!Array.isArray(created.state.field)||created.state.field.length<4)throw new Error("timed field nodes missing");
  if(created.state.field.some(n=>n.distance<90||n.distance>709||n.x<12||n.x>88||n.y<15||n.y>82))throw new Error("Field projection generated invalid unsigned coordinates");
  const leaderboard=await fetch(base+"/api/session/"+sid+"/leaderboard").then(r=>r.json());
