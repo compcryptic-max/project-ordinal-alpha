@@ -45,10 +45,24 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build | tee native-ios-build.log
 
+      - name: Compile Project Ordinal for unsigned iPhone device
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project ProjectOrdinal.xcodeproj \
+            -scheme ProjectOrdinal \
+            -configuration Debug \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            build | tee native-ios-device-build.log
+
       - name: Preserve build log
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: native-ios-build-log
-          path: native-ios-build.log
+          path: |
+            native-ios-build.log
+            native-ios-device-build.log
           if-no-files-found: ignore
