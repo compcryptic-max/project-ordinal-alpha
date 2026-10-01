@@ -9,6 +9,7 @@ if(!serverSource.includes("ordinal_recovery")||!serverSource.includes("function 
 if(!serverSource.includes("function ensureApex")||!serverSource.includes("function apexVictory"))throw new Error("shared Apex Incursion backend missing");
 if(!serverSource.includes("function startRift")||!serverSource.includes("function nextRiftWave"))throw new Error("Rift Run backend missing");
 if(!serverSource.includes("function makeStoryDecision")||!serverSource.includes("function chooseStoryDecision")||!serverSource.includes('action==="story"'))throw new Error("persistent branching Story Thread backend missing");
+if(!serverSource.includes("callingProgressById")||!serverSource.includes("branchBeats"))throw new Error("persistent Calling progress or branch-shaped future beats missing");
 if(!gameSource.includes("data-recovery-create")||!gameSource.includes('id="recovery-input"'))throw new Error("cross-device recovery UI missing");
 if(/(^|[^$])\$\("\[data-[^"]+\]"\)\.forEach/m.test(gameSource)||gameSource.includes("$"+"$$("))throw new Error("regression: broken collection selector binding");
 if(!gameSource.includes('$=s=>[...document.querySelectorAll(s)]'))throw new Error("multi-selector helper missing");
@@ -104,6 +105,15 @@ try{
  if(!collected.state.journey?.title||!Array.isArray(collected.state.contractList))throw new Error("personal journey system missing");
  const called=await fetch(base+"/api/session/"+sid+"/calling",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({id:"hunter"})}).then(r=>r.json());
  if(called.state.journey.calling!=="hunter")throw new Error("calling selection failed");
+
+ const callingPlayer=await fetch(base+"/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerKey:"calling-memory-player",playerName:"CallingMemory",origin:"Rogue"})}).then(r=>r.json());
+ const seeker=await fetch(base+"/api/session/"+callingPlayer.sessionId+"/calling",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({id:"seeker"})}).then(r=>r.json());
+ const callingNode=seeker.state.field.find(n=>n.action==="collect");
+ const seekerProgress=await fetch(base+"/api/session/"+callingPlayer.sessionId+"/collect",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({id:callingNode.id})}).then(r=>r.json());
+ if(seekerProgress.state.journey.callingProgress<1)throw new Error("Calling progress did not advance");
+ await fetch(base+"/api/session/"+callingPlayer.sessionId+"/calling",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({id:"hunter"})}).then(r=>r.json());
+ const seekerRestored=await fetch(base+"/api/session/"+callingPlayer.sessionId+"/calling",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({id:"seeker"})}).then(r=>r.json());
+ if(seekerRestored.state.journey.callingProgress!==seekerProgress.state.journey.callingProgress)throw new Error("Calling progress was lost after switching away and back");
 
  const scout=await fetch(base+"/api/session/"+sid+"/scout",{method:"POST",headers:{"content-type":"application/json"},body:"{}"}).then(r=>r.json());
  if(!(scout.state.region.discoveries||[]).includes("sunken-road")||!(scout.state.knownDiscoveries||[]).includes("sunken-road"))throw new Error("scouting did not reveal personal map landmark");
