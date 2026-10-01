@@ -1,0 +1,50 @@
+name: Native iOS Compile Gate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "native-ios/**"
+      - "project.yml"
+      - ".github/workflows/native-ios.yml"
+  workflow_dispatch:
+
+jobs:
+  ios-build:
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Show Apple toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate --spec project.yml
+
+      - name: Compile Project Ordinal for iPhone Simulator
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project ProjectOrdinal.xcodeproj \
+            -scheme ProjectOrdinal \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build | tee native-ios-build.log
+
+      - name: Preserve build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-ios-build-log
+          path: native-ios-build.log
+          if-no-files-found: ignore
