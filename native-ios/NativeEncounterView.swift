@@ -3,6 +3,7 @@ import UIKit
 
 struct NativeEncounterView: View {
     @ObservedObject var world: WorldStore
+    var onEngage: (() -> Void)? = nil
 
     private var encounter: OrdinalAPI.PendingEncounter? { world.state?.pendingEncounter }
 
@@ -65,6 +66,7 @@ struct NativeEncounterView: View {
                 HStack(spacing: 12) {
                     Button {
                         UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+                        onEngage?()
                         Task { await world.act("engage", choice: "engage") }
                     } label: {
                         Label("ENGAGE", systemImage: "bolt.fill")
