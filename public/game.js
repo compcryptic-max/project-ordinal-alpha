@@ -174,7 +174,7 @@ function wire(){
  const e=$("#enter");if(e)e.onclick=async()=>{try{e.disabled=true;e.textContent="CONNECTING…";await start();notice="";draw()}catch(x){notice=x.message;draw()}};
  const recover=$("#recover");if(recover)recover.onclick=async()=>{const code=$("#recovery-input")?.value?.trim();if(!code)return;try{recover.disabled=true;recover.textContent="LINKING…";const j=await api("/api/recovery/use",{method:"POST",body:{code}});sid=j.sessionId;pk=j.playerKey;state=j.state;localStorage.setItem(SK,sid);localStorage.setItem(PK,pk);await shared();tab="map";notice="WAYFARER RECOVERED · this device is now linked.";draw()}catch(x){notice=x.message;draw()}};
 
- $("[data-tab]").forEach(b=>b.onclick=()=>{stopFieldMove();if(b.dataset.tab!=="map")expeditionMode=false;tab=b.dataset.tab;draw()});
+ $$("[data-tab]").forEach(b=>b.onclick=()=>{stopFieldMove();if(b.dataset.tab!=="map")expeditionMode=false;tab=b.dataset.tab;draw()});
  $$("[data-map-world]").forEach(b=>b.onclick=()=>{tab="map";draw()});
  $$("[data-rank-open]").forEach(b=>b.onclick=()=>{rankOpen=true;draw()});
  $$("[data-rank-close]").forEach(b=>b.onclick=()=>{rankOpen=false;draw()});
@@ -184,10 +184,10 @@ function wire(){
  $$("[data-lens-node]").forEach(b=>b.onclick=()=>{fieldFocus=b.dataset.lensNode;fieldStep=0;sfx("signal");draw();attachLensStream()});
  $$("[data-lens-investigate]").forEach(b=>b.onclick=async()=>{try{await act("investigate");closeLens()}catch(x){notice=x.message;draw();attachLensStream()}});
 
- $("[data-expedition]").forEach(b=>b.onclick=()=>{expeditionMode=true;fieldFocus=null;sfx("signal");draw()});
- $("[data-expedition-exit]").forEach(b=>b.onclick=()=>{stopFieldMove();expeditionMode=false;draw()});
+ $$("[data-expedition]").forEach(b=>b.onclick=()=>{expeditionMode=true;fieldFocus=null;sfx("signal");draw()});
+ $$("[data-expedition-exit]").forEach(b=>b.onclick=()=>{stopFieldMove();expeditionMode=false;draw()});
  const stick=$("[data-field-stick]");if(stick){let active=false;const move=e=>{if(!active)return;const r=stick.getBoundingClientRect(),dx=(e.clientX-(r.left+r.width/2))/(r.width/2),dy=(e.clientY-(r.top+r.height/2))/(r.height/2),mag=Math.hypot(dx,dy)||1,nx=Math.max(-1,Math.min(1,dx/mag)),ny=Math.max(-1,Math.min(1,dy/mag));stick.style.setProperty("--sx",(nx*18)+"px");stick.style.setProperty("--sy",(ny*18)+"px");startFieldMove(nx,ny)};stick.onpointerdown=e=>{active=true;stick.setPointerCapture(e.pointerId);move(e)};stick.onpointermove=move;stick.onpointerup=stick.onpointercancel=()=>{active=false;stopFieldMove();stick.style.setProperty("--sx","0px");stick.style.setProperty("--sy","0px")}}
- $("[data-simple]").forEach(b=>b.onclick=async()=>{try{sfx("signal");await act(b.dataset.simple);notice="";draw()}catch(x){notice=x.message;draw()}});
+ $$("[data-simple]").forEach(b=>b.onclick=async()=>{try{sfx("signal");await act(b.dataset.simple);notice="";draw()}catch(x){notice=x.message;draw()}});
  $$("[data-field-id]").forEach(b=>b.onclick=()=>{fieldFocus=b.dataset.fieldId;fieldStep=0;sfx("signal");draw()});
  $$("[data-recovery-create]").forEach(b=>b.onclick=async()=>{try{const j=await api("/api/recovery/create",{method:"POST",body:{sessionId:sid}});recoveryCode=j.code;notice="Recovery code generated. Keep it private.";draw()}catch(x){notice=x.message;draw()}});
  $$("[data-field-close]").forEach(b=>b.onclick=()=>{fieldFocus=null;fieldStep=0;draw()});
