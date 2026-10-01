@@ -65,6 +65,10 @@ actor OrdinalAPI {
         let maxHp: Int
         let intent: String
         let turn: Int?
+        let stamina: Int?
+        let focus: Int?
+        let phase: Int?
+        let lastResult: String?
         let rift: Bool?
         let riftWave: Int?
     }
