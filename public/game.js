@@ -15,7 +15,7 @@ function clearCombatClock(){if(combatClock)clearTimeout(combatClock);combatClock
 function armCombatClock(){
  clearCombatClock();const c=state?.combat;if(!c||document.hidden||actionBusy)return;
  const heavy=/HEAVY/i.test(c.intent),turn=c.turn??0,ms=heavy?3400:4800;combatClockTurn=turn;
- combatClock=setTimeout(async()=>{if(document.hidden||actionBusy||!state?.combat||(state.combat.turn??0)!==turn)return;try{actionBusy=true;const j=await api("/api/session/"+sid+"/combat",{method:"POST",body:{type:"idle"}});state=j.state;await shared();if(cameraCombat&&!state.combat){cameraCombat=false;if(lensStream){lensStream.getTracks().forEach(t=>t.stop());lensStream=null}}sfx("guard");draw()}catch(x){notice=x.message;draw()}finally{actionBusy=false}},ms);
+ combatClock=setTimeout(async()=>{if(document.hidden||actionBusy||!state?.combat||(state.combat.turn??0)!==turn)return;try{actionBusy=true;const j=await api("/api/session/"+sid+"/combat",{method:"POST",body:{type:"idle"}});state=j.state;await shared();if(cameraCombat&&!state.combat){cameraCombat=false;if(lensStream){lensStream.getTracks().forEach(t=>t.stop());lensStream=null}}sfx("guard");draw()}catch(x){notice=x.message;draw()}finally{actionBusy=false;if(state?.combat)armCombatClock()}},ms);
 }
 document.addEventListener("visibilitychange",()=>{if(document.hidden)clearCombatClock();else if(state?.combat)armCombatClock()});
 const esc=(v="")=>String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])),pct=(a,b)=>Math.max(0,Math.min(100,Math.round(a/b*100)));
