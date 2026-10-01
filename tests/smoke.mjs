@@ -28,7 +28,7 @@ if(!gameSource.includes("cameraCombat")||!gameSource.includes("combat-camera-fee
 if(!gameSource.includes("function startFieldMove")||!gameSource.includes("function checkExpeditionProximity")||!gameSource.includes("data-field-stick")||!gameSource.includes("data-expedition"))throw new Error("direct Field exploration controls missing");
 if(!gameSource.includes("function armCombatClock")||!gameSource.includes('body:{type:"idle"}')||!gameSource.includes("combat-clock"))throw new Error("real-time reaction combat clock missing");
 if(!gameSource.includes("rift-breach")||!gameSource.includes('data-simple="rift"')||!gameSource.includes("RIFT RUN "))throw new Error("Rift Run world activity UI missing");
-if(!gameSource.includes("signalPos=signal?fieldCoords(signal):null")||!gameSource.includes('data-world-x="'+signalPos.x'))throw new Error("hostile visual/gameplay coordinates diverged");
+if(!gameSource.includes("signalPos=signal?fieldCoords(signal):null")||!gameSource.includes("data-world-x=")||!gameSource.includes("signalPos.x"))throw new Error("hostile visual/gameplay coordinates diverged");
 for(const enemy of ["mirehorn","revenant","choirless","riftweaver"])if(!gameSource.includes("function "+enemy+"()"))throw new Error("new enemy art missing: "+enemy);
 if(!gameSource.includes("enemyDamage=")||!gameSource.includes("playerDamage="))throw new Error("authoritative combat damage feedback missing");
 if(!gameSource.includes("travel-paused")||!gameSource.includes("geo(true)"))throw new Error("rapid-travel safety UI/location refresh missing");
