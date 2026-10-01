@@ -22,18 +22,29 @@ struct NativeBridgeView: View {
 
     var body: some View {
         ZStack {
-            if arOpen && ARWorldTrackingConfiguration.isSupported {
+            if world.state?.pendingLoot != nil {
+                NativeLootView(world: world)
+            } else if world.state?.pendingChoice != nil {
+                NativeShrineChoiceView(world: world)
+            } else if world.state?.pendingEncounter != nil {
+                NativeEncounterView(world: world)
+            } else if world.state?.combat != nil {
+                NativeCombatView(world: world)
+            } else if arOpen && ARWorldTrackingConfiguration.isSupported {
                 OrdinalARView(nodes: world.state?.field ?? []) { node in
                     Task {
                         if node.kind == "signal" {
                             await world.act("investigate")
-                            if world.state?.combat != nil { arOpen = false }
+                            if world.state?.pendingEncounter != nil || world.state?.combat != nil {
+                                arOpen = false
+                            }
                         } else {
                             await world.act("collect", id: node.id)
                         }
                     }
                 }
                 .ignoresSafeArea()
+
                 VStack {
                     HStack {
                         Text("ORDINAL // NATIVE VEIL")
@@ -46,8 +57,6 @@ struct NativeBridgeView: View {
                     Spacer()
                 }
                 .foregroundStyle(.white)
-            } else if world.state?.combat != nil {
-                NativeCombatView(world: world)
             } else if world.state != nil {
                 NativeFieldView(world: world, arOpen: $arOpen)
             } else {
