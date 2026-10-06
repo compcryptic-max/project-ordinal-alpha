@@ -31,8 +31,16 @@ struct NativeGuildView: View {
                             Text(guild.role)
                             Text("\(guild.resources) supplies · \(guild.renown) renown")
                             Button("Bring field supplies") { Task { await request(.init(action: "contribute")) } }
-                            if guild.role == "Leader", guild.hallLevel < 5 {
+                            if ["Leader", "Officer"].contains(guild.role), guild.hallLevel < 5 {
                                 Button("Restore Hall · \(guild.hallLevel * 25) supplies") { Task { await request(.init(action: "upgrade")) } }
+                            }
+                            Text("Hall specialty: " + (guild.specialty ?? "Unchosen")).font(.headline)
+                            Text(guild.specialtyEffect ?? "Restore Hall level 2 to choose a specialty.").font(.caption)
+                            if guild.role == "Leader", guild.hallLevel >= 2 {
+                                ForEach(["Pathfinders", "Sentinels", "Artisans"], id: \.self) { specialty in
+                                    Button(specialty) { Task { await request(.init(action: "specialize", specialty: specialty)) } }
+                                        .disabled(guild.specialty == specialty)
+                                }
                             }
                             Text("Allies: " + (guild.alliances.isEmpty ? "None yet" : guild.alliances.joined(separator: ", ")))
                             if guild.role == "Leader" {
@@ -56,6 +64,11 @@ struct NativeGuildView: View {
                                     if let key = member.member {
                                         Button("Transfer leadership") {
                                             pending = .init(action: "transfer", member: key)
+                                        }
+                                        if member.role == "Member" {
+                                            Button("Promote to officer") { Task { await request(.init(action: "promote", member: key)) } }
+                                        } else if member.role == "Officer" {
+                                            Button("Demote to member") { Task { await request(.init(action: "demote", member: key)) } }
                                         }
                                     }
                                 }

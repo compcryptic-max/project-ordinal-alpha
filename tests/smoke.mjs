@@ -31,6 +31,7 @@ if(!gameSource.includes("gesture-abilities")||!gameSource.includes('await act("r
 if(!gameSource.includes("cameraCombat")||!gameSource.includes("combat-camera-feed")||!gameSource.includes("combat(cameraCombat)"))throw new Error("optional live-camera combat bridge missing");
 if(!gameSource.includes("function startFieldMove")||!gameSource.includes("function checkExpeditionProximity")||!gameSource.includes("data-field-stick")||!gameSource.includes("data-expedition"))throw new Error("direct Field exploration controls missing");
 if(!gameSource.includes("QUEST DIRECTOR")||!gameSource.includes('data-directive="claim"')||!gameSource.includes('act("directive"'))throw new Error("adaptive Quest Director UI missing");
+if(!gameSource.includes("HALL SPECIALTY")||!gameSource.includes('data-guild="promote"')||!gameSource.includes('data-guild="specialize"'))throw new Error("guild officer or specialty controls missing");
 if(!gameSource.includes("function armCombatClock")||!gameSource.includes('body:{type:"idle"}')||!gameSource.includes("combat-clock")||!gameSource.includes("if(state?.combat)armCombatClock()"))throw new Error("real-time reaction combat clock missing or does not re-arm");
 if(!gameSource.includes("rift-breach")||!gameSource.includes('data-simple="rift"')||!gameSource.includes("RIFT RUN "))throw new Error("Rift Run world activity UI missing");
 if(!gameSource.includes("signalPos=signal?fieldCoords(signal):null")||!gameSource.includes("data-world-x=")||!gameSource.includes("signalPos.x"))throw new Error("hostile visual/gameplay coordinates diverged");

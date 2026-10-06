@@ -49,3 +49,7 @@ Verification checkpoint: 1e4c033 passes both Simulator and unsigned iPhone devic
 ## v0.15 Quest Director
 
 The next solo/replayability milestone adds a server-authoritative adaptive directive to Journey. It selects hunt, discovery or Field work from the player's Calling and regional conditions; records a fresh baseline; verifies progress; grants bounded rewards and changes regional threat, prosperity or order. Players may reroute once per UTC day. Browser and native iPhone share the same state and controls. This covers the approved adaptive quest-director foundation without adding public meters or making multiplayer mandatory.
+
+## v0.16 Living Halls
+
+Guild organizations now include Leader, Officer and Member permissions. Leaders control roles, alliances, leadership and specialization; officers can recruit and restore the Hall. Hall level 2 unlocks Pathfinders, Sentinels or Artisans, which reward different newly contributed activity. Specialty changes cost guild supplies. Browser and native iPhone share these controls. Secret organizations and deeper proposal/voting governance remain unfinished.

@@ -442,6 +442,8 @@ actor OrdinalAPI {
         let hallLevel: Int
         let resources: Int
         let renown: Int
+        let specialty: String?
+        let specialtyEffect: String?
         let alliances: [String]
         let requests: [String]
         let chronicle: [String]
@@ -457,6 +459,7 @@ actor OrdinalAPI {
         var name: String? = nil
         var code: String? = nil
         var member: String? = nil
+        var specialty: String? = nil
         var choice: String? = nil
         var bounty: String? = nil
         var item: String? = nil

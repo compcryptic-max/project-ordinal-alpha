@@ -22,6 +22,7 @@ export function createGuildService(pool,{startDuel,loadPlayer,syncPlayer}={}) {
    const member=guild?.members.find(m=>m.key===player.key);
    const requireGuild=()=>{if(!guild)throw Error('Join a guild first.');};
    const requireLeader=()=>{requireGuild();if(member.role!=='Leader')throw Error('Only the guild leader can do this.');};
+   const requireSteward=()=>{requireGuild();if(!['Leader','Officer'].includes(member.role))throw Error('Only a guild leader or officer can do this.');};
    if(action==='list-item'){
     requirePeace();const price=integer(input.price,1,10000);
     const item=player.inventory.find(i=>i.id===String(input.item||'')&&i.power>0&&!i.qty);
@@ -108,7 +109,7 @@ export function createGuildService(pool,{startDuel,loadPlayer,syncPlayer}={}) {
     if(!/^[\p{L}\p{N} '\-]{3,32}$/u.test(name))throw Error('Use a guild name of 3–32 letters, numbers, spaces, apostrophes or hyphens.');
     if(draft.guilds.some(g=>g.name.toLowerCase()===name.toLowerCase()))throw Error('That guild name is already taken.');
     let code;do{code=randomBytes(6).toString('hex').toUpperCase();}while(draft.guilds.some(g=>g.code===code));
-    draft.guilds.push({name,code,hallLevel:1,resources:0,renown:0,alliances:[],requests:[],members:[{key:player.key,name:player.name,role:'Leader'}],chronicle:['The guild founded its Town Hall.']});
+    draft.guilds.push({name,code,hallLevel:1,resources:0,renown:0,specialty:null,alliances:[],requests:[],members:[{key:player.key,name:player.name,role:'Leader'}],chronicle:['The guild founded its Town Hall.']});
    }else if(action==='join'){
     if(guild)throw Error('You already belong to a guild.');
     const target=draft.guilds.find(g=>g.code===String(input.code||'').trim().toUpperCase());
@@ -119,15 +120,25 @@ export function createGuildService(pool,{startDuel,loadPlayer,syncPlayer}={}) {
     requireGuild();draft.contributions??={};
     const before=draft.contributions[player.key]||{kills:0,discoveries:0,contracts:0};
     const now={kills:player.stats?.kills||0,discoveries:(player.knownDiscoveries||[]).length,contracts:player.contracts?.completed||0};
-    const amount=Math.max(0,now.kills-before.kills)+3*Math.max(0,now.discoveries-before.discoveries)+2*Math.max(0,now.contracts-before.contracts);
+    const gained={kills:Math.max(0,now.kills-before.kills),discoveries:Math.max(0,now.discoveries-before.discoveries),contracts:Math.max(0,now.contracts-before.contracts)};
+    let amount=gained.kills+3*gained.discoveries+2*gained.contracts;
+    if(guild.specialty==='Sentinels')amount+=gained.kills;
+    if(guild.specialty==='Pathfinders')amount+=2*gained.discoveries;
+    if(guild.specialty==='Artisans')amount+=2*gained.contracts;
     if(!amount)throw Error('Explore, hunt or finish contracts to bring something new to the Hall.');
     draft.contributions[player.key]={kills:Math.max(before.kills,now.kills),discoveries:Math.max(before.discoveries,now.discoveries),contracts:Math.max(before.contracts,now.contracts)};
     guild.resources=(guild.resources||0)+amount;guild.renown=(guild.renown||0)+amount;guild.chronicle.unshift(player.name+' brought field knowledge and supplies to the Hall.');
    }else if(action==='upgrade'){
-    requireLeader();const cost=(guild.hallLevel||1)*25;
+    requireSteward();const cost=(guild.hallLevel||1)*25;
     if(guild.hallLevel>=5)throw Error('The Town Hall is fully restored.');
     if((guild.resources||0)<cost)throw Error('The next Hall restoration requires '+cost+' supplies.');
     guild.resources-=cost;guild.hallLevel++;guild.chronicle.unshift('The guild restored its Town Hall to level '+guild.hallLevel+'.');
+   }else if(action==='specialize'){
+    requireLeader();if((guild.hallLevel||1)<2)throw Error('Restore the Town Hall to level 2 before choosing a specialty.');
+    const specialty=String(input.specialty||'');if(!['Pathfinders','Sentinels','Artisans'].includes(specialty))throw Error('Choose Pathfinders, Sentinels or Artisans.');
+    if(guild.specialty===specialty)throw Error('That is already your Hall specialty.');
+    if(guild.specialty){if((guild.resources||0)<25)throw Error('Changing a Hall specialty requires 25 supplies.');guild.resources-=25;}
+    guild.specialty=specialty;guild.chronicle.unshift('The Town Hall became known as '+specialty+'.');
    }else if(action==='alliance'){
     requireLeader();const target=draft.guilds.find(g=>g.code===String(input.code||'').trim().toUpperCase());
     if(!target||target===guild)throw Error('Use another guild leader’s invitation.');
@@ -151,6 +162,12 @@ export function createGuildService(pool,{startDuel,loadPlayer,syncPlayer}={}) {
     requireLeader();const target=guild.members.find(m=>m.key===String(input.member||''));
     if(!target||target===member)throw Error('Choose another guild member.');
     member.role='Member';target.role='Leader';guild.chronicle.unshift(target.name+' became guild leader.');
+   }else if(action==='promote'){
+    requireLeader();const target=guild.members.find(m=>m.key===String(input.member||''));
+    if(!target||target.role!=='Member')throw Error('Choose a guild member to promote.');target.role='Officer';guild.chronicle.unshift(target.name+' became a guild officer.');
+   }else if(action==='demote'){
+    requireLeader();const target=guild.members.find(m=>m.key===String(input.member||''));
+    if(!target||target.role!=='Officer')throw Error('Choose a guild officer to demote.');target.role='Member';guild.chronicle.unshift(target.name+' returned to member rank.');
    }else if(action)throw Error('Unknown guild action.');
    for(const g of draft.guilds)g.chronicle=g.chronicle.slice(0,30);
    const updatedPlayer=reward?{...player,inventory:[...player.inventory,reward]}:changedPlayer;
@@ -174,7 +191,8 @@ export function createGuildService(pool,{startDuel,loadPlayer,syncPlayer}={}) {
    if(!current)return {guild:null,persistent:!!pool,mystery,bounties,market,contracts};
    const me=current.members.find(m=>m.key===player.key);
    const guildNames=codes=>(codes||[]).map(c=>world.guilds.find(g=>g.code===c)?.name).filter(Boolean);
-   return {persistent:!!pool,mystery,bounties,market,contracts,guild:{name:current.name,invitation:me.role==='Leader'?current.code:null,role:me.role,hallLevel:current.hallLevel,resources:current.resources||0,renown:current.renown||0,alliances:guildNames(current.alliances),requests:me.role==='Leader'?guildNames(current.requests):[],chronicle:current.chronicle,members:current.members.map(m=>({name:m.name,role:m.role,member:me.role==='Leader'&&m.key!==player.key?m.key:null}))}};
+   const specialtyEffects={Pathfinders:'Discovery contributions bring +2 supplies.',Sentinels:'Hostile defeats bring +1 supply.',Artisans:'Completed contracts bring +2 supplies.'};
+   return {persistent:!!pool,mystery,bounties,market,contracts,guild:{name:current.name,invitation:['Leader','Officer'].includes(me.role)?current.code:null,role:me.role,hallLevel:current.hallLevel,resources:current.resources||0,renown:current.renown||0,specialty:current.specialty||null,specialtyEffect:specialtyEffects[current.specialty]||'Restore Hall level 2 to choose a specialty.',alliances:guildNames(current.alliances),requests:me.role==='Leader'?guildNames(current.requests):[],chronicle:current.chronicle,members:current.members.map(m=>({name:m.name,role:m.role,member:me.role==='Leader'&&m.key!==player.key?m.key:null}))}};
   }catch(e){if(client)await client.query('rollback').catch(()=>{});throw e;}
   finally{client?.release();release();}
  };

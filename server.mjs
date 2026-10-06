@@ -673,7 +673,7 @@ async function acquireRegionLock(key){
 const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
-  if(req.method==="GET"&&u.pathname==="/health")return json(res,200,{ok:true,name:"project-ordinal-alpha",version:"0.15.0",storage:pool?"postgres":"memory",databaseConfigured:!!DB,databaseStatus:pool?"connected":DB?"degraded":"not_configured",databaseError:dbError?"unavailable":null,persistenceProbe:pool?persistenceProbe:null});
+  if(req.method==="GET"&&u.pathname==="/health")return json(res,200,{ok:true,name:"project-ordinal-alpha",version:"0.16.0",storage:pool?"postgres":"memory",databaseConfigured:!!DB,databaseStatus:pool?"connected":DB?"degraded":"not_configured",databaseError:dbError?"unavailable":null,persistenceProbe:pool?persistenceProbe:null});
   if(req.method==="POST"&&u.pathname==="/api/recovery/create"){
    if(!pool)return json(res,503,{ok:false,error:"persistent_storage_required"});
    const b=await body(req),p=sessions.get(String(b.sessionId||""));if(!p)return json(res,404,{ok:false,error:"session_not_found"});

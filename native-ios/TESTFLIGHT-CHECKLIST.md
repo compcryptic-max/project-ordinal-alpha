@@ -1,6 +1,6 @@
 # Project Ordinal — TestFlight Gate
 
-Current target: native iPhone vertical slice that connects to the existing v0.15 world server and adds true AR world anchoring.
+Current target: native iPhone vertical slice that connects to the existing v0.16 world server and adds true AR world anchoring.
 
 ## Required human-side gate
 - A macOS/Xcode build environment: the repository includes a cloud compile workflow; local Mac access is optional when a cloud signing/distribution workflow is configured.

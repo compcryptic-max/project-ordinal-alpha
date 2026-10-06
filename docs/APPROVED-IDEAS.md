@@ -1,6 +1,6 @@
 # Approved idea implementation ledger
 
-v0.15 Quest Director. This is a playable foundation ledger, not a declaration that the finished MMO has shipped. The current twenty-system scope is preserved below. Later identification/UI constraints override prominent serial-number concepts.
+v0.16 Living Halls. This is a playable foundation ledger, not a declaration that the finished MMO has shipped. The current twenty-system scope is preserved below. Later identification/UI constraints override prominent serial-number concepts.
 
 | Approved idea | Working foundation | Remaining depth / verification |
 |---|---|---|
@@ -16,7 +16,7 @@ v0.15 Quest Director. This is a playable foundation ledger, not a declaration th
 | Remote Network | Solo sanctuary, crafting tonics, rest, remote archive investigations, guilds and escrow trading | Larger crafting economy and price balancing |
 | Dynamic Contracts | Repeatable contracts and player-funded hunt/discovery/field work with acceptance baselines | Richer context-directed contracts |
 | NPC Memory | Keeper remembers help, refusal and threats; persistent trust changes dialogue | More NPCs, faction reactions and richer remembered relationships |
-| Organizations | Guilds, members/leaders, Town Hall, supplies, renown, upgrades, alliances | Officer roles, specialties, secret organizations, governance |
+| Organizations | Guilds, members/leaders/officers, Town Hall, supplies, renown, upgrades, alliances and contribution specialties | Secret organizations and deeper governance |
 | Player Bounties | Voluntary Echo arena plus live two-player private duels, level brackets, turn deadlines and replay protection | PvP balance, richer matchmaking and funded bounty variants |
 | Regional Influence | Hunting, shrine choices and objectives change regional conditions | Guild territorial influence and governance |
 | Discoverable World Bosses | Regional Apex encounters and evolving Nemeses | Boss migration and world-discovery conditions; main Field HUD now foregrounds the solo Story Thread instead of shared progress counters |
