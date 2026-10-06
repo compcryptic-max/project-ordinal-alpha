@@ -31,4 +31,32 @@ clock+=600001;
 await arena(c,'create');clock+=600001;
 assert.equal((await arena(c)).match.status,'cancelled');
 await assert.rejects(arena({...c,combat:{}},'create'),/encounter/);
-console.log('Live arena passed: two-player consent, brackets, turn/replay protection, concurrent moves, guard, forfeit and timeout.');
+const code3=(await arena(a,'create')).match.invitation;
+await arena(b,'join',{code:code3});
+for(let i=0;i<30;i++){
+ const snapshot=(await arena(a)).match;
+ if(snapshot.status==='complete')break;
+ await arena(snapshot.yourTurn?a:b,'move',{move:'attack',revision:snapshot.revision});
+}
+assert.equal((await arena(a)).match.status,'complete');
+assert.equal((await arena(a)).record.wins,2);
+assert.equal(a.hp,37);assert.equal(b.hp,37);
+const code4=(await arena(a,'create')).match.invitation;
+await arena(b,'join',{code:code4});
+await arena(a,'move',{move:'guard',revision:1});
+await arena(b,'move',{move:'guard',revision:2});
+await arena(a,'move',{move:'guard',revision:3});
+await arena(b,'move',{move:'guard',revision:4});
+await assert.rejects(arena(a,'move',{move:'skill',revision:5}),/40 Focus/);
+await arena(a,'move',{move:'guard',revision:5});
+await arena(b,'move',{move:'guard',revision:6});
+await arena(a,'move',{move:'skill',revision:7});
+assert.equal((await arena(b)).match.you.hp,92);
+for(let i=0;i<100;i++){
+ const snapshot=(await arena(a)).match;
+ if(snapshot.status==='complete')break;
+ await arena(snapshot.yourTurn?a:b,'move',{move:'guard',revision:snapshot.revision});
+}
+assert.equal((await arena(a)).record.draws,1);
+assert.equal((await arena(b)).record.draws,1);
+console.log('Live arena passed: two-player consent, brackets, turn/replay protection, concurrent moves, guard, Focus skill, knockout, draw, forfeit and timeout.');

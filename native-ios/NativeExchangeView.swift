@@ -83,6 +83,6 @@ struct NativeExchangeView: View {
             if let state = envelope?.state { world.state = state }
             if !relics.contains(where: { $0.id == item }) { item = "" }
             error = nil
-        } catch { error = error.localizedDescription }
+        } catch { self.error = error.localizedDescription }
     }
 }

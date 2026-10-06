@@ -11,7 +11,7 @@ The iPhone remains the physical AR/TestFlight target. The production Node/Postgr
 - Author Swift/SwiftUI/RealityKit/ARKit source in GitHub.
 - Generate the Xcode project from project.yml on a hosted macOS runner.
 - Compile against the iOS Simulator SDK with code signing disabled.
-- Keep browser v0.11 available for real-device gameplay and camera UX testing.
+- Keep the currently deployed browser build available for real-device gameplay and camera UX testing.
 - Do not spend money yet.
 
 ## Phase B — physical iPhone / TestFlight

@@ -62,6 +62,6 @@ struct NativePvPView: View {
         busy = true
         defer { busy = false }
         do { arena = try await OrdinalAPI.shared.arena(sessionID: sid, input: input); error = nil }
-        catch { error = error.localizedDescription }
+        catch { self.error = error.localizedDescription }
     }
 }
