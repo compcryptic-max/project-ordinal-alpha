@@ -89,6 +89,7 @@ actor OrdinalAPI {
         let journey: Journey
         let contractList: [Contract]
         let callingOptions: [String: Calling]
+        let directive: Directive?
         let path: CombatPath
         let storyDecision: StoryDecision?
         let ordinalRating: Int?
@@ -151,6 +152,18 @@ actor OrdinalAPI {
         let value: Int
         let target: Int
         let reward: String
+    }
+
+    struct Directive: Decodable, Identifiable {
+        let id: String
+        let kind: String
+        let title: String
+        let desc: String
+        let target: Int
+        let progress: Int
+        let reward: String
+        let regionName: String
+        let canReroute: Bool
     }
 
     struct Calling: Decodable {

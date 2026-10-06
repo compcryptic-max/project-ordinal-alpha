@@ -1,13 +1,13 @@
 # Approved idea implementation ledger
 
-v0.14 Live Arena. This is a playable foundation ledger, not a declaration that the finished MMO has shipped. The current twenty-system scope is preserved below. Later identification/UI constraints override prominent serial-number concepts.
+v0.15 Quest Director. This is a playable foundation ledger, not a declaration that the finished MMO has shipped. The current twenty-system scope is preserved below. Later identification/UI constraints override prominent serial-number concepts.
 
 | Approved idea | Working foundation | Remaining depth / verification |
 |---|---|---|
 | Ordinal Identity | Persistent character, name, titles, progression, recovery | Stronger account authentication; keep technical IDs off normal screens |
 | Living Location World | Coarse-location regions, shared state, Field movement | Verified real-world biome data and authored safe landmarks |
 | World Memory | Regional consequences, discoveries, history; persistent First Door opening | Durable long-term historical archive beyond bounded recent logs |
-| Personal Story Engine | Personal threads, branching decisions, chapter progression | More authored story arcs and consequences |
+| Personal Story Engine | Personal threads, branching decisions, chapter progression and adaptive regional/Calling-aware directives | More authored story arcs and consequences |
 | Nemesis 2.0 | Defeating enemies remember losses, evolve mutations and titles | More differentiated behavior and narratives |
 | Hidden World Layers | Veil Lens, hidden trails, discoveries and Rift Runs | Physical AR tracking acceptance tests and more spatial content |
 | Organic Classes | Combat habits reveal specializations; Callings advance through play | Additional class combinations and balance testing |
@@ -27,7 +27,7 @@ v0.14 Live Arena. This is a playable foundation ledger, not a declaration that t
 
 ## Additional recovered September approvals
 
-Preserve these as explicit remaining scope unless covered above: real-world biomes, regional items, player-created contracts, adaptive quest director, community settlements, migrating bosses, artifact ownership transfer, seasonal shifts without resets, secret organizations, dynamic dungeons beyond the current three-wave Rift Run, region reputation, autonomous NPC factions, governance, crime/outlaw systems, dynamic economy, ghost encounters, community boss evolution, historical seasons, travel achievements and world seeds. Optional real-world deals remain optional. This list does not import unrelated earlier-project rules.
+Preserve these as explicit remaining scope unless covered above: real-world biomes, regional items, community settlements, migrating bosses, seasonal shifts without resets, secret organizations, dynamic dungeons beyond the current three-wave Rift Run, region reputation, autonomous NPC factions, governance, crime/outlaw systems, dynamic economy, ghost encounters, community boss evolution, historical seasons, travel achievements and world seeds. Player-created contracts, artifact ownership transfer and the adaptive Quest Director now have working foundations. Optional real-world deals remain optional. This list does not import unrelated earlier-project rules.
 
 ## Mobile acceptance
 

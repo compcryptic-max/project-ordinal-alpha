@@ -45,3 +45,7 @@ Wayfall Exchange escrows unequipped relics, atomically credits the seller and tr
 Native AR now requests camera permission on explicit Veil entry, retains surviving anchors across field updates, places fallback anchors relative to the camera, reports tracking/interruption errors and cleans up sessions. AR combat pauses local reaction actions while inactive/interrupted and offers standard combat. Physical-device AR acceptance and signed installation remain required.
 
 Verification checkpoint: 1e4c033 passes both Simulator and unsigned iPhone device compilation (run 37510609162); all four npm suites pass. Source is published on main. Live server last reports v0.12, so deployment is pending explicit selection of Comp's workspace in the Render connector. Signed installation and physical iPhone AR acceptance remain pending. Resume with deployment, phone checklist, and the unfinished depth in APPROVED-IDEAS.md; do not reimplement these v0.14 systems.
+
+## v0.15 Quest Director
+
+The next solo/replayability milestone adds a server-authoritative adaptive directive to Journey. It selects hunt, discovery or Field work from the player's Calling and regional conditions; records a fresh baseline; verifies progress; grants bounded rewards and changes regional threat, prosperity or order. Players may reroute once per UTC day. Browser and native iPhone share the same state and controls. This covers the approved adaptive quest-director foundation without adding public meters or making multiplayer mandatory.

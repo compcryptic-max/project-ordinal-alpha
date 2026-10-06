@@ -13,6 +13,7 @@ struct NativeJourneyView: View {
                 if world.state?.storyDecision != nil {
                     storyDecisionCard
                 }
+                directiveCard
                 callingCard
                 specializationCard
                 contracts
@@ -30,6 +31,43 @@ struct NativeJourneyView: View {
         )
         .navigationTitle("Journey")
         .foregroundStyle(.white)
+    }
+
+    @ViewBuilder
+    private var directiveCard: some View {
+        if let directive = world.state?.directive {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("QUEST DIRECTOR · " + directive.regionName.uppercased())
+                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.cyan)
+                Text(directive.title)
+                    .font(.headline)
+                Text(directive.desc)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                ProgressView(value: Double(directive.progress), total: Double(max(1, directive.target)))
+                    .tint(.cyan)
+                Text("\(directive.progress) / \(directive.target) · \(directive.reward)")
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(.secondary)
+                HStack {
+                    Button(directive.progress >= directive.target ? "Claim directive" : "In progress") {
+                        Task { await world.act("directive", choice: "claim") }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.cyan.opacity(0.45))
+                    .disabled(directive.progress < directive.target || world.busy)
+                    Button(directive.canReroute ? "Reroute" : "Reroute used") {
+                        Task { await world.act("directive", choice: "reroute") }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!directive.canReroute || world.busy)
+                }
+            }
+            .padding(14)
+            .background(.cyan.opacity(0.045), in: RoundedRectangle(cornerRadius: 16))
+            .overlay { RoundedRectangle(cornerRadius: 16).stroke(.cyan.opacity(0.18)) }
+        }
     }
 
     private var storyCard: some View {

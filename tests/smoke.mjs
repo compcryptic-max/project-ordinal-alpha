@@ -30,6 +30,7 @@ if(!gameSource.includes("reaction-cue")||!gameSource.includes('label:"SWIPE"')||
 if(!gameSource.includes("gesture-abilities")||!gameSource.includes('await act("roam")'))throw new Error("gesture-primary combat or playable Veil Pulse missing");
 if(!gameSource.includes("cameraCombat")||!gameSource.includes("combat-camera-feed")||!gameSource.includes("combat(cameraCombat)"))throw new Error("optional live-camera combat bridge missing");
 if(!gameSource.includes("function startFieldMove")||!gameSource.includes("function checkExpeditionProximity")||!gameSource.includes("data-field-stick")||!gameSource.includes("data-expedition"))throw new Error("direct Field exploration controls missing");
+if(!gameSource.includes("QUEST DIRECTOR")||!gameSource.includes('data-directive="claim"')||!gameSource.includes('act("directive"'))throw new Error("adaptive Quest Director UI missing");
 if(!gameSource.includes("function armCombatClock")||!gameSource.includes('body:{type:"idle"}')||!gameSource.includes("combat-clock")||!gameSource.includes("if(state?.combat)armCombatClock()"))throw new Error("real-time reaction combat clock missing or does not re-arm");
 if(!gameSource.includes("rift-breach")||!gameSource.includes('data-simple="rift"')||!gameSource.includes("RIFT RUN "))throw new Error("Rift Run world activity UI missing");
 if(!gameSource.includes("signalPos=signal?fieldCoords(signal):null")||!gameSource.includes("data-world-x=")||!gameSource.includes("signalPos.x"))throw new Error("hostile visual/gameplay coordinates diverged");
@@ -57,6 +58,26 @@ try{
  const created=await fetch(base+"/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerKey:"smoke-player",playerName:"Smoke",origin:"Rogue"})}).then(r=>r.json());
  if(!created.sessionId||created.state.origin!=="Rogue")throw new Error("session create failed");
  const sid=created.sessionId;
+ const firstDirective=created.state.directive;
+ if(!firstDirective||!['hunt','discover','field'].includes(firstDirective.kind)||firstDirective.progress!==0)throw new Error("adaptive directive missing");
+ const rerouted=await fetch(base+"/api/session/"+sid+"/directive",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({choice:"reroute"})}).then(r=>r.json());
+ if(rerouted.state.directive.kind===firstDirective.kind||rerouted.state.directive.canReroute!==false)throw new Error("directive reroute did not adapt or enforce daily limit");
+ const secondReroute=await fetch(base+"/api/session/"+sid+"/directive",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({choice:"reroute"})});
+ if(secondReroute.status!==400)throw new Error("second daily directive reroute accepted");
+ const earlyClaim=await fetch(base+"/api/session/"+sid+"/directive",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({choice:"claim"})});
+ if(earlyClaim.status!==400)throw new Error("unfinished directive reward claimed");
+ let directed;
+ for(let i=0;i<24&&!directed;i++){
+  const candidate=await fetch(base+"/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerKey:"director-player-"+i,playerName:"Director",origin:"Ranger",lat:10,lon:10})}).then(r=>r.json());
+  if(candidate.state.directive.kind==="discover")directed=candidate;
+ }
+ if(!directed)throw new Error("could not establish discovery directive fixture");
+ await fetch(base+"/api/session/"+directed.sessionId+"/scout",{method:"POST",headers:{"content-type":"application/json"},body:"{}"});
+ const scouted=await fetch(base+"/api/session/"+directed.sessionId+"/home",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({type:"investigate"})}).then(r=>r.json());
+ if(scouted.state.directive.progress!==scouted.state.directive.target)throw new Error("verified discoveries did not advance adaptive directive");
+ const directiveGold=scouted.state.gold,directiveRep=scouted.state.reputation,directiveProsperity=scouted.state.region.prosperity,directiveID=scouted.state.directive.id;
+ const claimedDirective=await fetch(base+"/api/session/"+directed.sessionId+"/directive",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({choice:"claim"})}).then(r=>r.json());
+ if(claimedDirective.state.gold!==directiveGold+14||claimedDirective.state.reputation!==directiveRep+2||claimedDirective.state.region.prosperity!==Math.min(100,directiveProsperity+2)||claimedDirective.state.directive.id===directiveID)throw new Error("directive reward, consequence or regeneration failed");
  const recoveryUnavailable=await fetch(base+"/api/recovery/create",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({sessionId:sid})});
  if(recoveryUnavailable.status!==503)throw new Error("recovery endpoint should require persistent storage");
  const recovered=await fetch(base+"/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerKey:"smoke-player",recoverOnly:true})}).then(r=>r.json());

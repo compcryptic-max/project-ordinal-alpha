@@ -290,6 +290,48 @@ function claimContract(p,id){
  const key=id,value=p.contracts[key]||0;if(value<cfg[0]){addFeed(p,"CONTRACT — requirements not met.");return;}
  p.contracts[key]-=cfg[0];p.contracts.completed++;level(p,cfg[1]);p.gold+=cfg[2];p.reputation+=1;addFeed(p,"CONTRACT COMPLETE — reward secured. Another cycle is immediately available.");
 }
+const directiveTemplates={
+ hunt:{title:"Contain the Rising Threat",desc:"Wayfall predicts a hostile surge in this region. Defeat threats before they settle into the world.",target:3,xp:32,gold:16,effect:"Threat -2"},
+ discover:{title:"Map What the Region Hid",desc:"A route has vanished from every regional record. Follow discoveries and restore the missing path.",target:2,xp:28,gold:14,effect:"Prosperity +2"},
+ field:{title:"Stabilize the Veil",desc:"The local Veil is shedding recoverable traces. Secure them before the pattern collapses.",target:5,xp:25,gold:12,effect:"Order +2"}
+};
+function directiveMetric(p,kind){ensureJourney(p);return kind==="hunt"?(p.contracts.hunts||0):kind==="discover"?(p.contracts.discoveries||0):(p.contracts.field||0)}
+function chooseDirectiveKind(p,exclude=""){
+ const j=ensureJourney(p),priorities=[];
+ if(p.region.threat>=55)priorities.push("hunt");
+ if(p.region.corruption>=55)priorities.push("field");
+ if(j.calling==="hunter")priorities.push("hunt");
+ if(j.calling==="seeker")priorities.push("discover");
+ if(j.calling==="warden")priorities.push(p.region.threat>=40?"hunt":"field");
+ priorities.push(["field","hunt","discover"][hash(p.key+":"+p.region.key+":"+utcDay()+":"+(p.directiveSerial||0))%3],"field","hunt","discover");
+ return priorities.find(kind=>kind!==exclude)||"field";
+}
+function ensureDirective(p,force=false,exclude=""){
+ ensureJourney(p);
+ if(!force&&p.directive?.regionKey===p.region.key)return p.directive;
+ const kind=chooseDirectiveKind(p,exclude),template=directiveTemplates[kind];p.directiveSerial=(p.directiveSerial||0)+1;
+ p.directive={id:"directive:"+p.directiveSerial,kind,title:template.title,desc:template.desc,target:template.target,baseline:directiveMetric(p,kind),xp:template.xp,gold:template.gold,effect:template.effect,regionKey:p.region.key,regionName:p.region.name,createdAt:Date.now()};
+ addFeed(p,"ORDINAL DIRECTIVE — "+template.title+" adapted to "+p.region.name+".");return p.directive;
+}
+function directiveState(p){
+ const d=ensureDirective(p),progress=Math.min(d.target,Math.max(0,directiveMetric(p,d.kind)-d.baseline));
+ return {...d,progress,reward:d.xp+" XP · "+d.gold+"G · "+d.effect,canReroute:p.directiveRerouteDay!==utcDay()};
+}
+function handleDirective(p,choice){
+ const d=ensureDirective(p);
+ if(choice==="reroute"){
+  if(p.directiveRerouteDay===utcDay())throw Error("The Quest Director can reroute once per day.");
+  p.directiveRerouteDay=utcDay();ensureDirective(p,true,d.kind);return;
+ }
+ if(choice!=="claim")throw Error("Choose claim or reroute.");
+ const progress=directiveMetric(p,d.kind)-d.baseline;if(progress<d.target)throw Error("Complete the current Ordinal Directive before claiming it.");
+ level(p,d.xp);p.gold+=d.gold;p.reputation+=2;
+ if(d.kind==="hunt")p.region.threat=Math.max(5,p.region.threat-2);
+ else if(d.kind==="discover")p.region.prosperity=Math.min(100,p.region.prosperity+2);
+ else p.region.order=Math.min(100,p.region.order+2);
+ const memory="DIRECTIVE — "+d.title+" completed in "+d.regionName+".";p.journey.beats.unshift(memory);p.journey.beats=p.journey.beats.slice(0,8);p.region.history.unshift(p.name+" completed an Ordinal Directive: "+d.title+".");
+ addFeed(p,memory+" The Quest Director has adapted again.");p.directive=null;ensureDirective(p,true,d.kind);
+}
 function freshPlayer(key,name,origin,region){
  const o=origins[origin]||origins.Rogue;
  return {key,name:String(name||"Wayfarer").slice(0,18),origin:origins[origin]?origin:"Rogue",level:1,xp:0,xpNeeded:100,gold:35,hp:o.hp,maxHp:o.hp,skill:o.skill,inventory:[{id:"starter",name:o.weapon,rarity:"Common",power:2,trait:"Wayfarer Issue"},{id:"potion",name:"Wayfarer Tonic",rarity:"Uncommon",qty:2}],equipment:{weapon:"starter"},mastery:{rank:1,xp:0,next:25,name:"Unproven"},path:{attack:0,guard:0,evade:0,skill:0,specialization:null,revealedAt:0},travel:{mode:"explore",lastChangeAt:0,changes:0},titles:[],activeTitle:null,stats:{kills:0,perfectGuards:0,perfectEvades:0,elites:0,scans:0,relics:0},codex:{enemies:{}},knownDiscoveries:[],reputation:0,activity:{date:utcDay(),streak:0,lastCheckin:null,collected:[],dailyScore:0,totalFieldActions:0},journey:null,contracts:{field:0,hunts:0,discoveries:0,completed:0},region:freshRegion(region),rumor:null,combat:null,pendingEncounter:null,pendingLoot:null,pendingChoice:null,feed:[{text:"You entered "+region.name+". The region was already moving before you arrived."}]};
@@ -604,7 +646,7 @@ function visitKeeper(p,choice){
  npc.lastVisitDay=utcDay();npc.memories.unshift(choice==="help"?"You helped repair the sanctuary.":choice==="threaten"?"You threatened the Keeper when she asked for help.":"You declined the Keeper's request.");npc.memories=npc.memories.slice(0,12);
  addFeed(p,"SERA — "+(npc.trust>0?"I remember what you did for us. The Wayfall doors remain open.":npc.trust<0?"I remember your answer. Trust is earned here.":"We will see what kind of Wayfarer you become."));
 }
-function publicState(p){ensureHome(p);ensureJourney(p);ensureProgress(p);ensurePath(p);ensureKnowledge(p);checkFeats(p);ensureRegionObjective(p.region);ensureApex(p.region);const x=clone(p);x.field=fieldState(p);x.contractList=contractState(p);x.callingOptions=callings;x.ordinalRating=ordinalRating(p);x.regionRule=regionRules(p.region);x.playBalance={momentum:ensureActivity(p).momentum||0,restedCharges:ensureActivity(p).restedCharges||0};x.storyDecision=p.storyDecision||null;x.serverNow=Date.now();return x;}
+function publicState(p){ensureHome(p);ensureJourney(p);ensureProgress(p);ensurePath(p);ensureKnowledge(p);checkFeats(p);ensureRegionObjective(p.region);ensureApex(p.region);const x=clone(p);x.field=fieldState(p);x.contractList=contractState(p);x.callingOptions=callings;x.directive=directiveState(p);x.ordinalRating=ordinalRating(p);x.regionRule=regionRules(p.region);x.playBalance={momentum:ensureActivity(p).momentum||0,restedCharges:ensureActivity(p).restedCharges||0};x.storyDecision=p.storyDecision||null;x.serverNow=Date.now();return x;}
 function json(res,status,data){res.writeHead(status,{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"});res.end(JSON.stringify(data));}
 function recoveryHash(code){return createHash("sha256").update(String(code).replace(/[^a-zA-Z0-9]/g,"").toUpperCase()).digest("hex")}
 function newRecoveryCode(){return randomBytes(16).toString("hex").toUpperCase().match(/.{1,4}/g).join("-")}
@@ -631,7 +673,7 @@ async function acquireRegionLock(key){
 const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
-  if(req.method==="GET"&&u.pathname==="/health")return json(res,200,{ok:true,name:"project-ordinal-alpha",version:"0.14.0",storage:pool?"postgres":"memory",databaseConfigured:!!DB,databaseStatus:pool?"connected":DB?"degraded":"not_configured",databaseError:dbError?"unavailable":null,persistenceProbe:pool?persistenceProbe:null});
+  if(req.method==="GET"&&u.pathname==="/health")return json(res,200,{ok:true,name:"project-ordinal-alpha",version:"0.15.0",storage:pool?"postgres":"memory",databaseConfigured:!!DB,databaseStatus:pool?"connected":DB?"degraded":"not_configured",databaseError:dbError?"unavailable":null,persistenceProbe:pool?persistenceProbe:null});
   if(req.method==="POST"&&u.pathname==="/api/recovery/create"){
    if(!pool)return json(res,503,{ok:false,error:"persistent_storage_required"});
    const b=await body(req),p=sessions.get(String(b.sessionId||""));if(!p)return json(res,404,{ok:false,error:"session_not_found"});
@@ -696,6 +738,7 @@ const server=http.createServer(async(req,res)=>{
     else if(action==="checkin")checkin(p);
     else if(action==="calling")chooseCalling(p,String(b.id||""));
     else if(action==="contract")claimContract(p,String(b.id||""));
+    else if(action==="directive")handleDirective(p,String(b.choice||"claim"));
     else if(action==="story")chooseStoryDecision(p,String(b.choice||""));
     else if(action==="home")homeAction(p,String(b.type||""));
     else if(action==="keeper")visitKeeper(p,String(b.choice||""));
