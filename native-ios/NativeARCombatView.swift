@@ -6,6 +6,10 @@ import UIKit
 struct NativeARCombatView: View {
     @ObservedObject var world: WorldStore
     @EnvironmentObject private var location: CoarseLocationService
+    @Environment(\.scenePhase) private var scenePhase
+    var onExitAR: () -> Void = {}
+    @State private var trackingReady = false
+    @State private var trackingStatus = "Move slowly to establish tracking."
 
     private var combat: OrdinalAPI.Combat? { world.state?.combat }
     private var isHeavy: Bool { combat?.intent.localizedCaseInsensitiveContains("HEAVY") == true }
@@ -16,7 +20,8 @@ struct NativeARCombatView: View {
             ARCombatScene(
                 enemyName: combat?.name ?? "Hostile",
                 healthFraction: Double(combat?.hp ?? 0) / Double(max(1, combat?.maxHp ?? 1)),
-                urgent: isHeavy
+                urgent: isHeavy,
+                onTracking: { ready, status in trackingReady = ready; trackingStatus = status }
             )
             .ignoresSafeArea()
 
@@ -30,6 +35,8 @@ struct NativeARCombatView: View {
 
             VStack(spacing: 12) {
                 combatHUD
+                Text(trackingStatus).font(.caption).padding(6).background(.black.opacity(0.5))
+                Button("Use standard combat") { onExitAR() }.font(.caption)
                 Spacer()
                 gestureSurface
                 Spacer()
@@ -39,12 +46,12 @@ struct NativeARCombatView: View {
             .padding(14)
         }
         .foregroundStyle(.white)
-        .task(id: "\(combat?.turn ?? -1)-\(location.rapidTravel)") {
-            guard !location.rapidTravel, let turn = combat?.turn else { return }
+        .task(id: "\(combat?.turn ?? -1)-\(location.rapidTravel)-\(scenePhase)-\(trackingReady)") {
+            guard scenePhase == .active, trackingReady, !location.rapidTravel, let turn = combat?.turn else { return }
             try? await Task.sleep(for: .seconds(reactionSeconds))
             guard !Task.isCancelled,
                   world.state?.combat?.turn == turn,
-                  !location.rapidTravel else { return }
+                  !location.rapidTravel, scenePhase == .active, trackingReady else { return }
             await world.act("combat", type: "idle")
         }
     }
@@ -166,11 +173,11 @@ struct NativeARCombatView: View {
         }
         .buttonStyle(.borderedProminent)
         .tint(.black.opacity(0.56))
-        .disabled(world.busy || location.rapidTravel)
+        .disabled(world.busy || location.rapidTravel || !trackingReady || scenePhase != .active)
     }
 
     private func combatAction(_ type: String, style: UIImpactFeedbackGenerator.FeedbackStyle) {
-        guard !world.busy, !location.rapidTravel else { return }
+        guard !world.busy, !location.rapidTravel, scenePhase == .active, trackingReady else { return }
         UIImpactFeedbackGenerator(style: style).impactOccurred()
         Task { await world.act("combat", type: type) }
     }
@@ -180,10 +187,39 @@ private struct ARCombatScene: UIViewRepresentable {
     let enemyName: String
     let healthFraction: Double
     let urgent: Bool
+    let onTracking: (Bool, String) -> Void
+
+    @MainActor final class Coordinator: NSObject, @preconcurrency ARSessionDelegate {
+        weak var view: ARView?
+        var scene: ARCombatScene?
+        var lastEnemy = ""
+        func session(_ session: ARSession, cameraDidChangeTrackingState camera: ARCamera) {
+            switch camera.trackingState {
+            case .normal: scene?.onTracking(true, "Tracking ready")
+            case .limited: scene?.onTracking(false, "Combat paused. Move slowly in a well-lit area.")
+            case .notAvailable: scene?.onTracking(false, "Tracking unavailable. Use standard combat to continue.")
+            }
+        }
+        func session(_ session: ARSession, didFailWithError error: Error) { scene?.onTracking(false, "Camera failed. Use standard combat to continue.") }
+        func sessionWasInterrupted(_ session: ARSession) { scene?.onTracking(false, "Camera interrupted. Combat paused.") }
+        func sessionInterruptionEnded(_ session: ARSession) {
+            guard let view, let scene else { return }
+            OrdinalARView.runTracking(on: view, reset: true)
+            scene.installEnemy(in: view)
+        }
+    }
+    func makeCoordinator() -> Coordinator { Coordinator() }
+    static func dismantleUIView(_ view: ARView, coordinator: Coordinator) {
+        view.session.pause(); view.session.delegate = nil; view.scene.anchors.removeAll()
+    }
 
     func makeUIView(context: Context) -> ARView {
         let view = ARView(frame: .zero)
         view.automaticallyConfigureSession = false
+        context.coordinator.view = view
+        context.coordinator.scene = self
+        context.coordinator.lastEnemy = enemyName
+        view.session.delegate = context.coordinator
 
         let configuration = ARWorldTrackingConfiguration()
         configuration.planeDetection = [.horizontal]
@@ -195,6 +231,11 @@ private struct ARCombatScene: UIViewRepresentable {
     }
 
     func updateUIView(_ view: ARView, context: Context) {
+        context.coordinator.scene = self
+        if context.coordinator.lastEnemy != enemyName {
+            context.coordinator.lastEnemy = enemyName
+            installEnemy(in: view)
+        }
         guard let enemy = view.scene.findEntity(named: "ordinal-ar-enemy") else {
             installEnemy(in: view)
             return
@@ -217,8 +258,11 @@ private struct ARCombatScene: UIViewRepresentable {
             allowing: .estimatedPlane,
             alignment: .horizontal
         ).first
+        var offset = matrix_identity_float4x4
+        offset.columns.3 = SIMD4<Float>(0, -0.45, -1.7, 1)
+        let placement = (view.session.currentFrame?.camera.transform ?? matrix_identity_float4x4) * offset
         let anchor = floorHit.map { AnchorEntity(world: $0.worldTransform) }
-            ?? AnchorEntity(world: SIMD3<Float>(0, -0.45, -1.7))
+            ?? AnchorEntity(world: placement)
         anchor.name = "ordinal-combat-anchor"
 
         let root = Entity()

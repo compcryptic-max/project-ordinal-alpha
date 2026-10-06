@@ -1,6 +1,6 @@
 # Approved idea implementation ledger
 
-v0.13 Wayfall Hall. This is a playable foundation ledger, not a declaration that the finished MMO has shipped. The current twenty-system scope is preserved below. Later identification/UI constraints override prominent serial-number concepts.
+v0.14 Live Arena. This is a playable foundation ledger, not a declaration that the finished MMO has shipped. The current twenty-system scope is preserved below. Later identification/UI constraints override prominent serial-number concepts.
 
 | Approved idea | Working foundation | Remaining depth / verification |
 |---|---|---|
@@ -11,13 +11,13 @@ v0.13 Wayfall Hall. This is a playable foundation ledger, not a declaration that
 | Nemesis 2.0 | Defeating enemies remember losses, evolve mutations and titles | More differentiated behavior and narratives |
 | Hidden World Layers | Veil Lens, hidden trails, discoveries and Rift Runs | Physical AR tracking acceptance tests and more spatial content |
 | Organic Classes | Combat habits reveal specializations; Callings advance through play | Additional class combinations and balance testing |
-| Globally Limited Items | First 100 First Door solvers receive a unique equippable founding relic | Trading/custody transfer and additional limited collections |
-| Item History | Acquisition and equipped-item victories; history behind a disclosure | Owner transfer history when trading ships |
-| Remote Network | Solo sanctuary, crafting tonics, rest, remote archive investigations, guilds | Trading and larger crafting economy |
-| Dynamic Contracts | Repeatable field/hunt/discovery contracts | Player-created and richer context-directed contracts |
+| Globally Limited Items | First 100 First Door solvers receive a unique equippable founding relic | Custody transfer now follows trades; additional limited collections remain |
+| Item History | Acquisition and equipped-item victories; history behind a disclosure | Additional authored item stories |
+| Remote Network | Solo sanctuary, crafting tonics, rest, remote archive investigations, guilds and escrow trading | Larger crafting economy and price balancing |
+| Dynamic Contracts | Repeatable contracts and player-funded hunt/discovery/field work with acceptance baselines | Richer context-directed contracts |
 | NPC Memory | Keeper remembers help, refusal and threats; persistent trust changes dialogue | More NPCs, faction reactions and richer remembered relationships |
 | Organizations | Guilds, members/leaders, Town Hall, supplies, renown, upgrades, alliances | Officer roles, specialties, secret organizations, governance |
-| Player Bounties | Voluntary asynchronous recorded-Echo arena, level brackets and verified rewards | Live PvP and funded/custom contracts; Echo duels are not synchronous player battles |
+| Player Bounties | Voluntary Echo arena plus live two-player private duels, level brackets, turn deadlines and replay protection | PvP balance, richer matchmaking and funded bounty variants |
 | Regional Influence | Hunting, shrine choices and objectives change regional conditions | Guild territorial influence and governance |
 | Discoverable World Bosses | Regional Apex encounters and evolving Nemeses | Boss migration and world-discovery conditions; main Field HUD now foregrounds the solo Story Thread instead of shared progress counters |
 | Global Mysteries | Three-layer individual investigation opens a permanent shared First Door | More long-running mysteries and richer clues |
@@ -32,7 +32,7 @@ Preserve these as explicit remaining scope unless covered above: real-world biom
 ## Mobile acceptance
 
 - Browser: touch/gesture gameplay, installable PWA, optional camera Lens, safe-area layout, 16px input text in the new Hall forms, 44px action controls.
-- Native iPhone: Field, combat, story, gear, Town Hall, solo sanctuary, mystery and Echo arena use the same authoritative server.
+- Native iPhone: Field, combat, story, gear, Town Hall, trading, player contracts, solo sanctuary, mystery, Echo arena and live PvP use the same authoritative server.
 - Android: browser/PWA path exists; native Android client remains unfinished.
 - Real iPhone camera/world tracking, battery, reconnect and permission acceptance require physical testing. Passing an unsigned cloud compile does not establish TestFlight availability.
 - PostgreSQL preserves shared guild/mystery/limited-item state. Memory fallback explicitly tells players it resets on restart; it is not global durable scarcity.

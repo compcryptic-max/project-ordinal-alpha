@@ -342,7 +342,64 @@ actor OrdinalAPI {
         let guild: Guild?
         let mystery: Mystery?
         let bounties: [EchoBounty]?
+        let market: [MarketListing]?
+        let contracts: [PlayerOrder]?
         let state: PlayerState?
+    }
+    struct MarketListing: Decodable, Identifiable {
+        var id: String { listing }
+        let listing: String
+        let seller: String
+        let price: Int
+        let item: Item
+        let own: Bool
+    }
+    struct PlayerOrder: Decodable, Identifiable {
+        var id: String { contract }
+        let contract: String
+        let author: String
+        let metric: String
+        let target: Int
+        let payment: Int
+        let status: String
+        let own: Bool
+        let accepted: Bool
+        let progress: Int
+    }
+    struct ArenaEnvelope: Decodable { let record: ArenaRecord; let match: ArenaMatch? }
+    struct ArenaRecord: Decodable { let wins: Int; let losses: Int; let draws: Int }
+    struct ArenaFighter: Decodable { let name: String; let hp: Int; let focus: Int; let stamina: Int }
+    struct ArenaMatch: Decodable {
+        let status: String
+        let invitation: String?
+        let revision: Int
+        let yourTurn: Bool
+        let secondsLeft: Int
+        let you: ArenaFighter
+        let opponent: ArenaFighter?
+        let result: String?
+        let events: [String]
+    }
+    struct ArenaInput: Encodable {
+        let action: String
+        var code: String? = nil
+        var move: String? = nil
+        var revision: Int? = nil
+    }
+    func arena(sessionID: String, input: ArenaInput? = nil) async throws -> ArenaEnvelope {
+        var request = URLRequest(url: baseURL.appending(path: "api/session/\(sessionID)/pvp"))
+        if let input {
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try encoder.encode(input)
+        }
+        let (data, response) = try await URLSession.shared.data(for: request)
+        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+            struct Failure: Decodable { let error: String }
+            throw NSError(domain: "OrdinalArena", code: http.statusCode, userInfo: [NSLocalizedDescriptionKey: (try? decoder.decode(Failure.self, from: data).error) ?? "Arena unavailable"])
+        }
+        try validate(response)
+        return try decoder.decode(ArenaEnvelope.self, from: data)
     }
     struct EchoBounty: Decodable, Identifiable {
         var id: String { bounty }
@@ -389,6 +446,13 @@ actor OrdinalAPI {
         var member: String? = nil
         var choice: String? = nil
         var bounty: String? = nil
+        var item: String? = nil
+        var price: Int? = nil
+        var listing: String? = nil
+        var metric: String? = nil
+        var target: Int? = nil
+        var payment: Int? = nil
+        var contract: String? = nil
     }
     func guild(sessionID: String, input: GuildInput? = nil) async throws -> GuildEnvelope {
         var request = URLRequest(url: baseURL.appending(path: "api/session/\(sessionID)/guild"))

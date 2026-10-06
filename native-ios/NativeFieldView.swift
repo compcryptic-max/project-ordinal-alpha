@@ -1,5 +1,7 @@
 import SwiftUI
 import UIKit
+import ARKit
+import AVFoundation
 
 struct NativeFieldView: View {
     @ObservedObject var world: WorldStore
@@ -50,6 +52,9 @@ struct NativeFieldView: View {
                 }
             }
         }
+        .alert("Ordinal", isPresented: Binding(get: { world.lastError != nil }, set: { if !$0 { world.lastError = nil } })) {
+            Button("OK") { world.lastError = nil }
+        } message: { Text(world.lastError ?? "") }
         .sheet(isPresented: $showGuild) {
             NativeGuildView(world: world)
         }
@@ -305,7 +310,7 @@ struct NativeFieldView: View {
                 }
 
                 action("VEIL", "viewfinder") {
-                    arOpen = true
+                    Task { await openVeil() }
                 }
 
                 action("RIFT", "diamond.inset.filled") {
@@ -314,6 +319,18 @@ struct NativeFieldView: View {
             }
             .disabled(world.busy || location.rapidTravel)
         }
+    }
+
+    @MainActor private func openVeil() async {
+        guard ARWorldTrackingConfiguration.isSupported else { world.lastError = "This device does not support native AR."; return }
+        let allowed: Bool
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized: allowed = true
+        case .notDetermined: allowed = await AVCaptureDevice.requestAccess(for: .video)
+        default: allowed = false
+        }
+        guard allowed else { world.lastError = "Enable Camera for Ordinal in iPhone Settings to open Veil."; return }
+        arOpen = true
     }
 
     private var movementTaskID: String {

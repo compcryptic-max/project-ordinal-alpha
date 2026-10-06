@@ -1,7 +1,7 @@
 import {randomBytes} from 'node:crypto';
 
 // Membership lives with the roster, so reconnects cannot produce stale player flags.
-export function createGuildService(pool,{startDuel}={}) {
+export function createGuildService(pool,{startDuel,loadPlayer,syncPlayer}={}) {
  let world={guilds:[]},tail=Promise.resolve();
  const ready=pool?pool.query("create table if not exists ordinal_guild_world (id integer primary key, payload jsonb not null)").then(()=>pool.query("insert into ordinal_guild_world(id,payload) values(1,'{\"guilds\":[]}') on conflict do nothing")):Promise.resolve();
  return async function guildRequest(player,action='',input={}) {
@@ -12,12 +12,61 @@ export function createGuildService(pool,{startDuel}={}) {
    const draft=structuredClone(world),guild=draft.guilds.find(g=>g.members.some(m=>m.key===player.key));
    draft.mystery??={solvers:{},artifacts:[],opened:false};
    let reward=null,changedPlayer=null;
+   const otherPlayers=[];
+   draft.market??=[];draft.contracts??=[];
+   const integer=(value,min,max)=>{const n=Number(value);if(!Number.isSafeInteger(n)||n<min||n>max)throw Error('Choose a whole number between '+min+' and '+max+'.');return n;};
+   const metric=(p,type)=>type==='hunt'?(p.stats?.kills||0):type==='discover'?(p.knownDiscoveries||[]).length:(p.activity?.totalFieldActions||0);
+   const requirePeace=()=>{if(player.combat||player.pendingEncounter||player.pendingLoot||player.pendingChoice)throw Error('Resolve your encounter before using the exchange.');};
    draft.bounties??=[];draft.issued??={};
    draft.bounties=draft.bounties.filter(b=>Date.now()-b.createdAt<86400000);
    const member=guild?.members.find(m=>m.key===player.key);
    const requireGuild=()=>{if(!guild)throw Error('Join a guild first.');};
    const requireLeader=()=>{requireGuild();if(member.role!=='Leader')throw Error('Only the guild leader can do this.');};
-   if(action==='create-bounty'){
+   if(action==='list-item'){
+    requirePeace();const price=integer(input.price,1,10000);
+    const item=player.inventory.find(i=>i.id===String(input.item||'')&&i.power>0&&!i.qty);
+    if(!item||player.equipment?.weapon===item.id)throw Error('Choose an unequipped relic to list.');
+    if(draft.market.filter(l=>l.seller===player.key&&l.status==='open').length>=10)throw Error('You can list ten relics at a time.');
+    changedPlayer=structuredClone(player);changedPlayer.inventory=changedPlayer.inventory.filter(i=>i.id!==item.id);
+    const escrowItem=structuredClone(item);
+    if(!escrowItem.id.startsWith('door-relic-')&&!escrowItem.id.startsWith('exchange-'))escrowItem.id='exchange-'+randomBytes(16).toString('hex');
+    draft.market.push({id:randomBytes(12).toString('hex'),seller:player.key,name:player.name,price,item:escrowItem,status:'open'});
+   }else if(action==='cancel-listing'){
+    requirePeace();const listing=draft.market.find(l=>l.id===String(input.listing||'')&&l.seller===player.key&&l.status==='open');
+    if(!listing)throw Error('Your open listing was not found.');listing.status='cancelled';changedPlayer=structuredClone(player);changedPlayer.inventory.push(listing.item);
+   }else if(action==='buy-item'){
+    requirePeace();const listing=draft.market.find(l=>l.id===String(input.listing||'')&&l.status==='open');
+    if(!listing||listing.seller===player.key)throw Error('Choose an available relic from another Wayfarer.');
+    if(player.gold<listing.price)throw Error('You do not have enough gold.');
+    const seller=client?(await client.query('select payload from ordinal_players where player_key=$1 for update',[listing.seller])).rows[0]?.payload:await loadPlayer?.(listing.seller);
+    if(!seller)throw Error('The seller’s account is unavailable. Your gold has not been charged.');
+    const item=structuredClone(listing.item);item.history??=[];item.history.unshift('Passed from '+listing.name+' to '+player.name+' through the Wayfall Exchange.');item.history=item.history.slice(0,12);
+    changedPlayer=structuredClone(player);changedPlayer.gold-=listing.price;changedPlayer.inventory.push(item);
+    seller.gold+=listing.price;otherPlayers.push(seller);listing.status='sold';
+    const artifact=draft.mystery.artifacts.find(a=>a.item===item.id);if(artifact){artifact.owner=player.key;artifact.name=player.name;}
+   }else if(action==='post-contract'){
+    requirePeace();const type=String(input.metric||'');if(!['hunt','discover','field'].includes(type))throw Error('Choose hunting, discovery or field work.');
+    const target=integer(input.target,1,25),payment=integer(input.payment,5,500);
+    if(player.gold<payment)throw Error('The reward must be funded before posting.');
+    if(draft.contracts.filter(c=>c.owner===player.key&&['open','accepted'].includes(c.status)).length>=5)throw Error('You can fund five active contracts at a time.');
+    changedPlayer=structuredClone(player);changedPlayer.gold-=payment;
+    draft.contracts.push({id:randomBytes(12).toString('hex'),owner:player.key,name:player.name,type,target,payment,status:'open'});
+   }else if(action==='accept-contract'){
+    const contract=draft.contracts.find(c=>c.id===String(input.contract||'')&&c.status==='open'&&c.owner!==player.key);
+    if(!contract)throw Error('Choose an open contract from another Wayfarer.');
+    if(draft.contracts.filter(c=>c.worker===player.key&&c.status==='accepted').length>=3)throw Error('Finish or abandon an active contract first.');
+    contract.status='accepted';contract.worker=player.key;contract.baseline=metric(player,contract.type);
+   }else if(action==='claim-contract'){
+    const contract=draft.contracts.find(c=>c.id===String(input.contract||'')&&c.status==='accepted'&&c.worker===player.key);
+    if(!contract||metric(player,contract.type)-contract.baseline<contract.target)throw Error('Complete the new field work before claiming the reward.');
+    contract.status='complete';changedPlayer=structuredClone(player);changedPlayer.gold+=contract.payment;
+   }else if(action==='abandon-contract'){
+    const contract=draft.contracts.find(c=>c.id===String(input.contract||'')&&c.status==='accepted'&&c.worker===player.key);
+    if(!contract)throw Error('Your active contract was not found.');contract.status='open';delete contract.worker;delete contract.baseline;
+   }else if(action==='cancel-contract'){
+    const contract=draft.contracts.find(c=>c.id===String(input.contract||'')&&c.status==='open'&&c.owner===player.key);
+    if(!contract)throw Error('Only an unaccepted contract can be cancelled.');contract.status='cancelled';changedPlayer=structuredClone(player);changedPlayer.gold+=contract.payment;
+   }else if(action==='create-bounty'){
     const today=new Date().toISOString().slice(0,10);
     if(draft.issued[player.key]===today)throw Error('You can offer one voluntary Echo duel each day.');
     if(draft.bounties.some(b=>b.owner===player.key&&['open','accepted'].includes(b.status)))throw Error('Your Echo already has an active bounty.');
@@ -108,19 +157,24 @@ export function createGuildService(pool,{startDuel}={}) {
    if(client){
     if(action)await client.query('update ordinal_guild_world set payload=$1 where id=1',[JSON.stringify(draft)]);
     if(updatedPlayer)await client.query('update ordinal_players set payload=$1,updated_at=now() where player_key=$2',[JSON.stringify(updatedPlayer),player.key]);
+    for(const other of otherPlayers)await client.query('update ordinal_players set payload=$1,updated_at=now() where player_key=$2',[JSON.stringify(other),other.key]);
     await client.query('commit');
    }
    if(updatedPlayer)Object.assign(player,updatedPlayer);
+   if(updatedPlayer)syncPlayer?.(updatedPlayer);
+   for(const other of otherPlayers)syncPlayer?.(other);
    world=draft;
    const current=world.guilds.find(g=>g.members.some(m=>m.key===player.key));
    const stage=world.mystery.solvers[player.key]||0;
    const prompts=[{prompt:'The first inscription reads: I answer without a mouth and return what you send into the dark.',options:['echo','flame','stone'],requirement:'Chart a hidden discovery.'},{prompt:'The wounded gatekeeper asks: What opens a path without breaking its guardian?',options:['force','mercy','silence'],requirement:'Defeat three hostiles.'},{prompt:'The final inscription reads: The world keeps what the traveler leaves behind. What lets a place remember?',options:['gold','speed','memory'],requirement:'Reach story chapter two.'}];
    const mystery={title:'The Door That Remembers',stage,complete:stage===3,opened:world.mystery.opened,layer:stage<3?prompts[stage]:null,artifact:world.mystery.artifacts.some(a=>a.owner===player.key)?'Remembrance of the First Door':null};
    const bounties=world.bounties.filter(b=>b.status==='open').slice(-20).map(b=>({bounty:b.id,name:b.name,origin:b.origin,level:b.level,own:b.owner===player.key}));
-   if(!current)return {guild:null,persistent:!!pool,mystery,bounties};
+   const market=world.market.filter(l=>l.status==='open').slice(-100).map(l=>({listing:l.id,seller:l.name,price:l.price,item:l.item,own:l.seller===player.key}));
+   const contracts=world.contracts.filter(c=>c.status==='open'||c.status==='accepted'&&(c.worker===player.key||c.owner===player.key)).slice(-100).map(c=>({contract:c.id,author:c.name,metric:c.type,target:c.target,payment:c.payment,status:c.status,own:c.owner===player.key,accepted:c.worker===player.key,progress:c.worker===player.key?Math.min(c.target,Math.max(0,metric(player,c.type)-c.baseline)):0}));
+   if(!current)return {guild:null,persistent:!!pool,mystery,bounties,market,contracts};
    const me=current.members.find(m=>m.key===player.key);
    const guildNames=codes=>(codes||[]).map(c=>world.guilds.find(g=>g.code===c)?.name).filter(Boolean);
-   return {persistent:!!pool,mystery,bounties,guild:{name:current.name,invitation:me.role==='Leader'?current.code:null,role:me.role,hallLevel:current.hallLevel,resources:current.resources||0,renown:current.renown||0,alliances:guildNames(current.alliances),requests:me.role==='Leader'?guildNames(current.requests):[],chronicle:current.chronicle,members:current.members.map(m=>({name:m.name,role:m.role,member:me.role==='Leader'&&m.key!==player.key?m.key:null}))}};
+   return {persistent:!!pool,mystery,bounties,market,contracts,guild:{name:current.name,invitation:me.role==='Leader'?current.code:null,role:me.role,hallLevel:current.hallLevel,resources:current.resources||0,renown:current.renown||0,alliances:guildNames(current.alliances),requests:me.role==='Leader'?guildNames(current.requests):[],chronicle:current.chronicle,members:current.members.map(m=>({name:m.name,role:m.role,member:me.role==='Leader'&&m.key!==player.key?m.key:null}))}};
   }catch(e){if(client)await client.query('rollback').catch(()=>{});throw e;}
   finally{client?.release();release();}
  };

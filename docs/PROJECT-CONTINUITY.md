@@ -34,3 +34,12 @@ Audit existing Living Threads systems before adding previously proposed v0.12 wo
 ## Current local milestone
 
 v0.13 Wayfall Hall adds guild/Town Hall systems, solo sanctuary, NPC memory, item stories, a shared mystery with limited relics, and voluntary recorded-Echo bounties in browser and native iPhone clients. See APPROVED-IDEAS.md for the full coverage ledger and unfinished depth. Signed iPhone distribution and physical AR testing remain unverified.
+
+
+## v0.14 Live Arena
+
+Browser and native iPhone screens now support private live PvP: two real consenting players, ±3-level bracket, server-owned HP/Focus/stamina, attack/guard/evade/skill, 45-second turns, revision/replay rejection, timeout, forfeit and records. This is synchronous turn-based PvP; it is separate from recorded Echo encounters. Field HP is preserved.
+
+Wayfall Exchange escrows unequipped relics, atomically credits the seller and transfers item history/limited relic custody. Funded player contracts pay only for new verified work after acceptance, with cancellation refunds before acceptance. Local mutation and reconnect serialization keeps simultaneous sessions consistent. Deployment currently assumes one Node process; horizontal scaling needs cross-instance player-state/lock handling.
+
+Native AR now requests camera permission on explicit Veil entry, retains surviving anchors across field updates, places fallback anchors relative to the camera, reports tracking/interruption errors and cleans up sessions. AR combat pauses local reaction actions while inactive/interrupted and offers standard combat. Physical-device AR acceptance and signed installation remain required.

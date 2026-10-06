@@ -4,6 +4,8 @@ struct NativeGuildView: View {
     @ObservedObject var world: WorldStore
     @Environment(\.dismiss) private var dismiss
     @State private var envelope: OrdinalAPI.GuildEnvelope?
+    @State private var arenaOpen = false
+    @State private var exchangeOpen = false
     @State private var name = ""
     @State private var code = ""
     @State private var allianceCode = ""
@@ -14,6 +16,10 @@ struct NativeGuildView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section("Wayfall activities") {
+                    Button("Live player duel") { arenaOpen = true }
+                    Button("Exchange and player contracts") { exchangeOpen = true }
+                }
                 if let error { Text(error).foregroundStyle(.red) }
                 if let envelope {
                     if !envelope.persistent {
@@ -124,6 +130,8 @@ struct NativeGuildView: View {
                 }
                 Button("Cancel", role: .cancel) { pending = nil }
             }
+            .sheet(isPresented: $arenaOpen) { NativePvPView(world: world) }
+            .sheet(isPresented: $exchangeOpen, onDismiss: { Task { await request(nil) } }) { NativeExchangeView(world: world) }
             .task { await request(nil) }
         }
     }

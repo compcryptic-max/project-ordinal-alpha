@@ -101,6 +101,17 @@ try{
  await guildCall(sid,{action:'leave'});
  await guildCall(peerSid,{action:'leave'});
  if((await guildCall(peerSid)).data.guild!==null)throw Error('last-member guild cleanup failed');
+ const arenaCall=async(id,input)=>{const response=await fetch(base+'/api/session/'+id+'/pvp',input?{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(input)}:{});return {status:response.status,data:await response.json()}};
+ const duel=await arenaCall(sid,{action:'create'});
+ if(!duel.data.match.invitation)throw Error('live arena invitation missing');
+ const blocked=await fetch(base+'/api/session/'+recovered.sessionId+'/home',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:'rest'})});
+ if(blocked.status!==400)throw Error('second session bypassed arena lock');
+ await arenaCall(peerSid,{action:'join',code:duel.data.match.invitation});
+ if((await arenaCall(peerSid,{action:'move',move:'attack',revision:1})).status!==400)throw Error('out-of-turn live attack accepted');
+ await arenaCall(sid,{action:'move',move:'attack',revision:1});
+ if((await arenaCall(peerSid)).data.match.you.hp!==86)throw Error('live arena state not shared');
+ await arenaCall(peerSid,{action:'forfeit'});
+ if((await arenaCall(sid)).data.record.wins!==1)throw Error('live arena victory missing');
  const offered=await guildCall(peerSid,{action:'create-bounty'});
  if(offered.status!==200||!offered.data.bounties.some(b=>b.own))throw Error('voluntary bounty creation failed');
  const echo=offered.data.bounties.find(b=>b.own).bounty;

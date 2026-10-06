@@ -1,4 +1,4 @@
-const CACHE="ordinal-shell-v0130";
+const CACHE="ordinal-shell-v0140";
 const SHELL=["/","/styles.css","/game.js","/effects.js","/manifest.webmanifest","/ordinal-icon.svg"];
 self.addEventListener("install",event=>event.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener("activate",event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));

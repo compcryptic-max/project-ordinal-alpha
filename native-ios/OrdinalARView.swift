@@ -5,6 +5,7 @@ import UIKit
 
 struct OrdinalARView: UIViewRepresentable {
     let nodes: [OrdinalAPI.FieldNode]
+    var onStatus: (String) -> Void = { _ in }
     let onSelect: (OrdinalAPI.FieldNode) -> Void
 
     @MainActor
@@ -12,6 +13,7 @@ struct OrdinalARView: UIViewRepresentable {
         weak var view: ARView?
         var nodesByID: [String: OrdinalAPI.FieldNode] = [:]
         var onSelect: ((OrdinalAPI.FieldNode) -> Void)?
+        var onStatus: ((String) -> Void)?
 
         @objc func tapped(_ recognizer: UITapGestureRecognizer) {
             guard let view,
@@ -32,15 +34,32 @@ struct OrdinalARView: UIViewRepresentable {
         }
 
         func session(_ session: ARSession, didFailWithError error: Error) {
-            // Standard Field remains available if native tracking fails.
+            onStatus?("Tracking failed. Close Veil and reopen it: " + error.localizedDescription)
         }
 
-        func sessionWasInterrupted(_ session: ARSession) {}
+        func session(_ session: ARSession, cameraDidChangeTrackingState camera: ARCamera) {
+            switch camera.trackingState {
+            case .normal: onStatus?("Tracking ready. Tap a contact to interact.")
+            case .limited: onStatus?("Move slowly in a well-lit area to improve tracking.")
+            case .notAvailable: onStatus?("Tracking unavailable. Keep the camera clear.")
+            }
+        }
+
+        func sessionWasInterrupted(_ session: ARSession) { onStatus?("Camera interrupted. Tracking will resume when available.") }
 
         func sessionInterruptionEnded(_ session: ARSession) {
             guard let view else { return }
+            for anchor in view.scene.anchors where anchor.name.hasPrefix("ordinal-field-") { view.scene.removeAnchor(anchor) }
             OrdinalARView.runTracking(on: view, reset: true)
+            OrdinalARView.installFieldNodes(Array(nodesByID.values).sorted { $0.id < $1.id }, in: view)
+            onStatus?("Move slowly to restore tracking.")
         }
+    }
+
+    static func dismantleUIView(_ view: ARView, coordinator: Coordinator) {
+        view.session.pause()
+        view.session.delegate = nil
+        view.scene.anchors.removeAll()
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
@@ -49,6 +68,7 @@ struct OrdinalARView: UIViewRepresentable {
         let view = ARView(frame: .zero)
         context.coordinator.view = view
         context.coordinator.onSelect = onSelect
+        context.coordinator.onStatus = onStatus
         context.coordinator.nodesByID = Dictionary(uniqueKeysWithValues: nodes.map { ($0.id, $0) })
         view.session.delegate = context.coordinator
         view.automaticallyConfigureSession = false
@@ -65,6 +85,7 @@ struct OrdinalARView: UIViewRepresentable {
 
     func updateUIView(_ uiView: ARView, context: Context) {
         context.coordinator.onSelect = onSelect
+        context.coordinator.onStatus = onStatus
         context.coordinator.nodesByID = Dictionary(uniqueKeysWithValues: nodes.map { ($0.id, $0) })
         Self.installFieldNodes(nodes, in: uiView)
     }
@@ -85,12 +106,14 @@ struct OrdinalARView: UIViewRepresentable {
     }
 
     static func installFieldNodes(_ nodes: [OrdinalAPI.FieldNode], in view: ARView) {
-        for anchor in view.scene.anchors where anchor.name.hasPrefix("ordinal-field-") {
+        let live = Array(nodes.filter { !$0.collected }.prefix(6))
+        let wanted = Set(live.map { "ordinal-field-" + $0.id })
+        for anchor in view.scene.anchors where anchor.name.hasPrefix("ordinal-field-") && !wanted.contains(anchor.name) {
             view.scene.removeAnchor(anchor)
         }
-
-        let live = Array(nodes.filter { !$0.collected }.prefix(6))
+        let existing = Set(view.scene.anchors.map { $0.name })
         for (index, node) in live.enumerated() {
+            if existing.contains("ordinal-field-" + node.id) { continue }
             let angle = Float(index) / Float(max(1, live.count)) * .pi * 2
             let radius: Float = node.kind == "signal" ? 1.65 : 2.2
             let fallback = SIMD3<Float>(sin(angle) * radius, -0.35, -abs(cos(angle) * radius) - 0.8)
@@ -107,7 +130,10 @@ struct OrdinalARView: UIViewRepresentable {
                 alignment: .any
             ).first
 
-            let anchor = surface.map { AnchorEntity(world: $0.worldTransform) } ?? AnchorEntity(world: fallback)
+            var offset = matrix_identity_float4x4
+            offset.columns.3 = SIMD4<Float>(fallback.x, fallback.y, fallback.z, 1)
+            let placement = (view.session.currentFrame?.camera.transform ?? matrix_identity_float4x4) * offset
+            let anchor = surface.map { AnchorEntity(world: $0.worldTransform) } ?? AnchorEntity(world: placement)
             anchor.name = "ordinal-field-\(node.id)"
 
             let size: Float = node.kind == "signal" ? 0.14 : 0.085

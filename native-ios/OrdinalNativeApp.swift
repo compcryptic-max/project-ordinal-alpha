@@ -20,6 +20,7 @@ struct NativeBridgeView: View {
     @EnvironmentObject private var location: CoarseLocationService
     @Environment(\.scenePhase) private var scenePhase
     @State private var arOpen = false
+    @State private var arStatus = "Move slowly to establish tracking."
     @State private var arCombatMode = false
     @State private var encounterCameFromAR = false
     @State private var selectedARNode: OrdinalAPI.FieldNode?
@@ -45,12 +46,12 @@ struct NativeBridgeView: View {
                 }
             } else if world.state?.combat != nil {
                 if arCombatMode && ARWorldTrackingConfiguration.isSupported {
-                    NativeARCombatView(world: world)
+                    NativeARCombatView(world: world, onExitAR: { arCombatMode = false })
                 } else {
                     NativeCombatView(world: world)
                 }
             } else if arOpen && ARWorldTrackingConfiguration.isSupported {
-                OrdinalARView(nodes: world.state?.field ?? []) { node in
+                OrdinalARView(nodes: world.state?.field ?? [], onStatus: { arStatus = $0 }) { node in
                     Task {
                         if node.kind == "signal" {
                             encounterCameFromAR = true
@@ -74,6 +75,7 @@ struct NativeBridgeView: View {
                     .font(.caption.monospaced().bold())
                     .padding()
                     .background(.black.opacity(0.55))
+                    Text(arStatus).font(.caption).padding(8).background(.black.opacity(0.55))
                     Spacer()
                 }
                 .foregroundStyle(.white)

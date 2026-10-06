@@ -3,6 +3,7 @@ import {readFile} from "node:fs/promises";
 import {Pool} from "pg";
 import {randomUUID,randomBytes,createHash} from "node:crypto";
 import {createGuildService} from "./guilds.mjs";
+import {createArenaService} from "./pvp.mjs";
 
 const PORT=Number(process.env.PORT||8787);
 const DB=process.env.DATABASE_URL||"";
@@ -526,7 +527,7 @@ function enemyLoot(enemy,rare,level){
   "Choirless Knight":["Nameless Vow","Broken Canticle","Executioner"],
   "Rift Weaver":["Seamcutter","Violet Thread","Veilstep"]
  },x=table[enemy]||["Veil-Touched Relic","Veilbound Fragment","Veil-Touched"];
- return {id:"loot-"+Date.now(),name:rare?x[0]:x[1],rarity:rare?"Epic":"Rare",source:enemy,power:4+Math.ceil(level*1.35)+(rare?4:0),trait:x[2]};
+ return {id:"loot-"+randomUUID(),name:rare?x[0]:x[1],rarity:rare?"Epic":"Rare",source:enemy,power:4+Math.ceil(level*1.35)+(rare?4:0),trait:x[2]};
 }
 function claimLoot(p){
  if(!p.pendingLoot)return;
@@ -609,7 +610,12 @@ function recoveryHash(code){return createHash("sha256").update(String(code).repl
 function newRecoveryCode(){return randomBytes(16).toString("hex").toUpperCase().match(/.{1,4}/g).join("-")}
 async function body(req){let s="";for await(const c of req){s+=c;if(s.length>100000)throw Error("body_too_large");}return s?JSON.parse(s):{};}
 const sessions=new Map();
-const guildRequest=createGuildService(pool,{startDuel:(p,bounty)=>{
+const arenaRequest=createArenaService(pool);
+function syncEconomy(p){
+ if(!pool)memory.set(p.key,clone(p));
+ for(const live of sessions.values())if(live.key===p.key){live.gold=p.gold;live.inventory=clone(p.inventory);live.equipment=clone(p.equipment);}
+}
+const guildRequest=createGuildService(pool,{loadPlayer:load,syncPlayer:syncEconomy,startDuel:(p,bounty)=>{
  const returnHp=p.hp;startEncounter(p,bounty.name+"’s Wayfarer Echo");
  p.combat.bountyId=bounty.id;p.combat.returnHp=returnHp;
  p.combat.hp=p.combat.maxHp=Math.max(60,Math.min(250,bounty.maxHp));
@@ -625,7 +631,7 @@ async function acquireRegionLock(key){
 const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
-  if(req.method==="GET"&&u.pathname==="/health")return json(res,200,{ok:true,name:"project-ordinal-alpha",version:"0.13.0",storage:pool?"postgres":"memory",databaseConfigured:!!DB,databaseStatus:pool?"connected":DB?"degraded":"not_configured",databaseError:dbError?"unavailable":null,persistenceProbe:pool?persistenceProbe:null});
+  if(req.method==="GET"&&u.pathname==="/health")return json(res,200,{ok:true,name:"project-ordinal-alpha",version:"0.14.0",storage:pool?"postgres":"memory",databaseConfigured:!!DB,databaseStatus:pool?"connected":DB?"degraded":"not_configured",databaseError:dbError?"unavailable":null,persistenceProbe:pool?persistenceProbe:null});
   if(req.method==="POST"&&u.pathname==="/api/recovery/create"){
    if(!pool)return json(res,503,{ok:false,error:"persistent_storage_required"});
    const b=await body(req),p=sessions.get(String(b.sessionId||""));if(!p)return json(res,404,{ok:false,error:"session_not_found"});
@@ -633,15 +639,18 @@ const server=http.createServer(async(req,res)=>{
    return json(res,201,{ok:true,code});
   }
   if(req.method==="POST"&&u.pathname==="/api/recovery/use"){
+   const unlock=await acquireRegionLock("world-mutations");try{
    if(!pool)return json(res,503,{ok:false,error:"persistent_storage_required"});
    const b=await body(req),tokenHash=recoveryHash(b.code||"");if(!b.code||tokenHash.length!==64)return json(res,400,{ok:false,error:"invalid_recovery_code"});
    const hit=await pool.query("select player_key from ordinal_recovery where token_hash=$1 limit 1",[tokenHash]);if(!hit.rows[0])return json(res,404,{ok:false,error:"recovery_code_not_found"});
-   const p=await load(hit.rows[0].player_key);if(!p)return json(res,404,{ok:false,error:"player_not_found"});
+   const p=[...sessions.values()].find(x=>x.key===hit.rows[0].player_key)||await load(hit.rows[0].player_key);if(!p)return json(res,404,{ok:false,error:"player_not_found"});
    const id=randomUUID();sessions.set(id,p);addFeed(p,"DEVICE RECOVERY — persistent character linked to a new browser.");await save(p);return json(res,200,{ok:true,sessionId:id,playerKey:p.key,state:publicState(p)});
+   }finally{unlock();}
   }
   if(req.method==="POST"&&u.pathname==="/api/session"){
+   const unlock=await acquireRegionLock("world-mutations");try{
    const b=await body(req),key=String(b.playerKey||randomUUID()).replace(/[^a-zA-Z0-9_-]/g,"").slice(0,80),reg=regionFrom(b.lat,b.lon);
-   let p=await load(key);
+   let p=[...sessions.values()].find(x=>x.key===key)||await load(key);
    if(!p&&b.recoverOnly)return json(res,404,{ok:false,error:"player_not_found"});
    if(!p){p=freshPlayer(key,b.playerName,b.origin,reg);newRumor(p);}
    else {
@@ -651,12 +660,15 @@ const server=http.createServer(async(req,res)=>{
    }
    const shared=simulateRegion((await loadRegion(p.region.key))||p.region);p.region=shared;regions.set(shared.key,shared);
    const id=randomUUID();sessions.set(id,p);await save(p);return json(res,201,{sessionId:id,playerKey:key,regionKey:p.region.key,regionSource:reg.source,state:publicState(p)});
+   }finally{unlock();}
   }
   const m=u.pathname.match(/^\/api\/session\/([^/]+)(?:\/(.*))?$/);
   if(m){
    const p=sessions.get(m[1]),action=m[2]||"";if(!p)return json(res,404,{ok:false,error:"session_not_found"});
+   if(action==="pvp"&&req.method==="GET")return json(res,200,{ok:true,...await arenaRequest(p)});
+   if(action==="pvp"&&req.method==="POST"){const b=await body(req),unlock=await acquireRegionLock("world-mutations");try{return json(res,200,{ok:true,...await arenaRequest(p,String(b.action||""),b)});}finally{unlock();}}
    if(action==="guild"&&req.method==="GET")return json(res,200,{ok:true,...await guildRequest(p)});
-   if(action==="guild"&&req.method==="POST"){const b=await body(req),unlock=await acquireRegionLock(p.region.key);try{await refreshSharedRegion(p);const result=await guildRequest(p,String(b.action||""),b);if(["mystery","hunt-bounty","claim-bounty"].includes(b.action))await save(p);return json(res,200,{ok:true,...result,state:publicState(p)});}finally{unlock();}}
+   if(action==="guild"&&req.method==="POST"){const b=await body(req),unlock=await acquireRegionLock("world-mutations");try{await refreshSharedRegion(p);const arena=await arenaRequest(p);if(["active","waiting"].includes(arena.match?.status))throw Error("Finish or cancel your live arena session first.");const result=await guildRequest(p,String(b.action||""),b);if(["mystery","hunt-bounty","claim-bounty","list-item","cancel-listing","buy-item","post-contract","claim-contract","cancel-contract"].includes(b.action))await save(p);return json(res,200,{ok:true,...result,state:publicState(p)});}finally{unlock();}}
    if(req.method==="GET"&&!action){await refreshSharedRegion(p);return json(res,200,{ok:true,state:publicState(p)});}
    if(req.method==="GET"&&action==="presence")return json(res,200,{ok:true,players:[...sessions.values()].filter(x=>x!==p&&x.region.key===p.region.key).slice(0,25).map(x=>({name:x.name,origin:x.origin,level:x.level,rating:ordinalRating(x),title:x.titles[0]||null}))});
    if(req.method==="GET"&&action==="leaderboard"){
@@ -667,7 +679,7 @@ const server=http.createServer(async(req,res)=>{
     const rank=Math.max(1,ranked.findIndex(x=>x.key===p.key)+1);return json(res,200,{ok:true,rank,total:ranked.length,leaders:ranked.slice(0,20).map(({key,...x},i)=>({...x,rank:i+1}))});
    }
    if(req.method==="POST"){
-    const b=await body(req),unlock=await acquireRegionLock(p.region.key);try{await refreshSharedRegion(p);
+    const b=await body(req),unlock=await acquireRegionLock("world-mutations");try{await refreshSharedRegion(p);const arena=await arenaRequest(p);if(["active","waiting"].includes(arena.match?.status))throw Error("Finish or cancel your live arena session first.");
     if(p.travel?.mode==="transit"&&["investigate","collect","roam","scout"].includes(action))addFeed(p,"TRAVEL MODE — Field interactions are paused during rapid movement. Arrive safely to resume.");
     else if(action==="investigate")investigate(p);
     else if(action==="engage")engageEncounter(p,String(b.choice||"leave"));
