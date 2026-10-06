@@ -1,6 +1,6 @@
 {
   "name": "project-ordinal-alpha",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -8,7 +8,7 @@
   },
   "scripts": {
     "start": "node server.mjs",
-    "test": "node tests/smoke.mjs",
+    "test": "node tests/smoke.mjs && node tests/community.mjs",
     "postinstall": "npm test"
   },
   "dependencies": {

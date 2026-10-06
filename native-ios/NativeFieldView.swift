@@ -6,6 +6,7 @@ struct NativeFieldView: View {
     @Binding var arOpen: Bool
     @EnvironmentObject private var location: CoarseLocationService
     @State private var showProfile = false
+    @State private var showGuild = false
     @State private var selectedNode: OrdinalAPI.FieldNode?
     @State private var roamMode = false
     @State private var moveVector = CGSize.zero
@@ -48,6 +49,9 @@ struct NativeFieldView: View {
                     .foregroundStyle(.white)
                 }
             }
+        }
+        .sheet(isPresented: $showGuild) {
+            NativeGuildView(world: world)
         }
         .sheet(isPresented: $showProfile) {
             NativeProfileView(world: world)
@@ -174,7 +178,7 @@ struct NativeFieldView: View {
                     Text("REGIONAL APEX")
                         .font(.system(size: 7, weight: .bold, design: .monospaced))
                         .foregroundStyle(.purple)
-                    Text("\(apex.seals)/\(apex.target)")
+                    Text("DISCOVERED THREAT")
                         .font(.system(size: 7, weight: .bold, design: .monospaced))
                         .foregroundStyle(.secondary)
                 }
@@ -211,6 +215,10 @@ struct NativeFieldView: View {
 
             Spacer()
 
+            Button("GUILD") { showGuild = true }
+                .font(.caption.bold())
+                .frame(minHeight: 44)
+
             Button {
                 showProfile = true
             } label: {
@@ -238,12 +246,12 @@ struct NativeFieldView: View {
 
     @ViewBuilder
     private var objective: some View {
-        if let item = world.state?.region.objective {
+        if let item = world.state?.journey {
             VStack(alignment: .leading, spacing: 5) {
                 HStack {
-                    Text("REGION DIRECTIVE")
+                    Text("YOUR STORY")
                     Spacer()
-                    Text("\(item.progress)/\(item.target)")
+                    Text("CHAPTER \(item.chapter)")
                 }
                 .font(.system(size: 7, weight: .bold, design: .monospaced))
                 .foregroundStyle(.secondary)
@@ -251,7 +259,7 @@ struct NativeFieldView: View {
                 Text(item.title)
                     .font(.caption.bold())
 
-                ProgressView(value: Double(item.progress), total: Double(max(1, item.target)))
+                ProgressView(value: Double(item.progress), total: Double(max(1, item.next)))
                     .tint(.cyan)
             }
             .foregroundStyle(.white)

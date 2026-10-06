@@ -82,6 +82,7 @@ actor OrdinalAPI {
         let hp: Int
         let maxHp: Int
         let gold: Int
+        let home: Home?
         let inventory: [Item]
         let equipment: Equipment
         let mastery: Mastery
@@ -106,6 +107,18 @@ actor OrdinalAPI {
         let power: Int?
         let trait: String?
         let qty: Int?
+        let history: [String]?
+    }
+
+    struct Home: Decodable {
+        let investigations: Int
+        let nextInvestigationAt: Double
+        let npc: Keeper
+    }
+    struct Keeper: Decodable {
+        let name: String
+        let trust: Int
+        let memories: [String]
     }
 
     struct Equipment: Decodable {
@@ -322,6 +335,76 @@ actor OrdinalAPI {
         let (data, response) = try await URLSession.shared.data(for: request)
         try validate(response)
         return try decoder.decode(StateEnvelope.self, from: data).state
+    }
+
+    struct GuildEnvelope: Decodable {
+        let persistent: Bool
+        let guild: Guild?
+        let mystery: Mystery?
+        let bounties: [EchoBounty]?
+        let state: PlayerState?
+    }
+    struct EchoBounty: Decodable, Identifiable {
+        var id: String { bounty }
+        let bounty: String
+        let name: String
+        let origin: String
+        let level: Int
+        let own: Bool
+    }
+    struct Mystery: Decodable {
+        let title: String
+        let stage: Int
+        let complete: Bool
+        let opened: Bool
+        let artifact: String?
+        let layer: MysteryLayer?
+    }
+    struct MysteryLayer: Decodable {
+        let prompt: String
+        let options: [String]
+        let requirement: String
+    }
+    struct Guild: Decodable {
+        let name: String
+        let invitation: String?
+        let role: String
+        let hallLevel: Int
+        let resources: Int
+        let renown: Int
+        let alliances: [String]
+        let requests: [String]
+        let chronicle: [String]
+        let members: [GuildMember]
+    }
+    struct GuildMember: Decodable {
+        let name: String
+        let role: String
+        let member: String?
+    }
+    struct GuildInput: Encodable {
+        let action: String
+        var name: String? = nil
+        var code: String? = nil
+        var member: String? = nil
+        var choice: String? = nil
+        var bounty: String? = nil
+    }
+    func guild(sessionID: String, input: GuildInput? = nil) async throws -> GuildEnvelope {
+        var request = URLRequest(url: baseURL.appending(path: "api/session/\(sessionID)/guild"))
+        if let input {
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try encoder.encode(input)
+        }
+        let (data, response) = try await URLSession.shared.data(for: request)
+        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+            struct Failure: Decodable { let error: String }
+            let message = (try? decoder.decode(Failure.self, from: data).error) ?? "Guild unavailable"
+            throw NSError(domain: "OrdinalGuild", code: http.statusCode, userInfo: [NSLocalizedDescriptionKey: message])
+        }
+        try validate(response)
+        return try decoder.decode(GuildEnvelope.self, from: data)
     }
 
     private func validate(_ response: URLResponse) throws {

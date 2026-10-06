@@ -75,6 +75,12 @@ struct NativeGearView: View {
                 }
                 .font(.caption2.monospaced())
 
+                if let history = item.history, !history.isEmpty {
+                    DisclosureGroup("Item story") {
+                        ForEach(history.indices, id: \.self) { i in Text(history[i]).font(.caption) }
+                    }
+                }
+
                 if let trait = item.trait {
                     Text(trait)
                         .font(.caption2)

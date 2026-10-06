@@ -2,6 +2,7 @@ import http from "node:http";
 import {readFile} from "node:fs/promises";
 import {Pool} from "pg";
 import {randomUUID,randomBytes,createHash} from "node:crypto";
+import {createGuildService} from "./guilds.mjs";
 
 const PORT=Number(process.env.PORT||8787);
 const DB=process.env.DATABASE_URL||"";
@@ -424,6 +425,7 @@ function fight(p,type){
  c.stamina??=100;c.focus??=0;c.phase??=1;c.flow??=0;c.lastAction??="";
  const allowed=new Set(["attack","skill","guard","dodge","potion","retreat","idle"]);
  if(!allowed.has(type)){c.lastResult="Unknown combat command.";return;}
+ if(type==="retreat"&&c.bountyId){p.hp=c.returnHp;p.failedBounty=c.bountyId;p.combat=null;addFeed(p,"ECHO ARENA — you withdrew without a world penalty.");return;}
  if(type==="retreat"){const rift=!!c.rift;p.combat=null;if(rift)p.riftRun=null;p.region.threat=Math.min(100,p.region.threat+1);addFeed(p,rift?"RIFT RUN FAILED — you escaped before the breach closed.":"WITHDRAWAL — You escaped the encounter. The threat remains in the region.");return;}
  const profile=combatProfile(p);
  if(type==="skill"&&c.focus<profile.skillCost){c.lastResult="Build Focus before using "+p.skill+".";return;}
@@ -470,8 +472,10 @@ function fight(p,type){
  let staggered=false;if(c.break>=100){c.break=0;c.exposed=1;staggered=true;c.lastResult+=" STAGGER — defense broken; next damaging action is empowered.";addFeed(p,c.name+" was STAGGERED.");}
  if(dmg)c.hp=Math.max(0,c.hp-dmg);
  if(c.hp<=Math.ceil(c.maxHp*.45)&&c.phase===1){c.phase=2;c.lastResult+=" The enemy enters a desperate second phase.";addFeed(p,c.name+" entered PHASE II.");}
+ if(c.hp<=0&&c.bountyId){p.hp=c.returnHp;p.bountyVictory=c.bountyId;p.combat=null;addFeed(p,"ECHO ARENA — verified victory. Bounty secured.");return;}
  if(c.hp<=0){
   const enemy=c.name,nemesisKill=c.nemesisPower>0,apexKill=!!c.apex,riftKill=!!c.rift,riftWave=c.riftWave||0;ensureProgress(p);p.stats.kills++;if(c.elite)p.stats.elites++;p.codex.enemies[enemy]=(p.codex.enemies[enemy]||0)+1;checkFeats(p);p.combat=null;p.gold+=24+p.level*3+(nemesisKill?c.nemesisPower*18:0);level(p,42+(nemesisKill?20:0));p.reputation+=2+(nemesisKill?2:0);if(nemesisKill){p.region.history.unshift(p.name+" ended the Nemesis "+enemy+" after "+p.region.nemesis.victories+" recorded victory.");p.region.nemesis=null;}
+  const relic=p.inventory.find(i=>i.id===p.equipment.weapon);if(relic){relic.history??=[];relic.history.unshift("Carried by "+p.name+" in victory against "+enemy+".");relic.history=relic.history.slice(0,12);}
   let rare=(hash(p.key+enemy+p.region.day)%100)<18+regionRules(p.region).rare+Math.min(5,Math.floor((ensureActivity(p).momentum||0)/10));
   if(apexKill)apexVictory(p,enemy);
   p.pendingChoice=null;p.region.history.unshift(p.name+" defeated "+enemy+".");journeyAction(p,"hunt",2);regionContribution(p,"hunt",c.elite?2:1);
@@ -490,6 +494,7 @@ function fight(p,type){
  if(!heavy&&p.hp===0&&incoming<p.maxHp*.55)p.hp=1;
  c.stamina=Math.min(100,c.stamina+6);
  c.turn++;c.intent=enemyIntent(c);if(c.phase===2&&!/HEAVY/.test(c.intent))c.intent+=" Phase II pressure is rising.";
+ if(p.hp<=0&&c.bountyId){p.hp=c.returnHp;p.failedBounty=c.bountyId;p.combat=null;addFeed(p,"ECHO ARENA — defeat. Your field character returns unharmed.");return;}
  if(p.hp<=0){
   const killer=c.name,n=p.region.nemesis;
   const victories=n&&n.name===killer?n.victories+1:1,identity=nemesisIdentity(killer,victories);p.region.nemesis={name:killer,power:n&&n.name===killer?n.power+1:1,victories,lastDefeated:p.name,title:identity.title,mutation:identity.mutation};
@@ -525,6 +530,7 @@ function enemyLoot(enemy,rare,level){
 }
 function claimLoot(p){
  if(!p.pendingLoot)return;
+ p.pendingLoot.history=["Recovered by "+p.name+" from "+p.pendingLoot.source+" in "+p.region.name+"."];
  p.inventory.push(p.pendingLoot);ensureProgress(p);p.stats.relics++;addFeed(p,"RELIC ACQUIRED — "+p.pendingLoot.name+".");p.pendingLoot=null;p.pendingChoice="glass-shrine";
 }
 function shrine(p,choice){
@@ -568,12 +574,47 @@ function propagateRegion(region){
  regions.set(region.key,region);
  for(const other of sessions.values())if(other.region?.key===region.key)other.region=region;
 }
-function publicState(p){ensureJourney(p);ensureProgress(p);ensurePath(p);ensureKnowledge(p);checkFeats(p);ensureRegionObjective(p.region);ensureApex(p.region);const x=clone(p);x.field=fieldState(p);x.contractList=contractState(p);x.callingOptions=callings;x.ordinalRating=ordinalRating(p);x.regionRule=regionRules(p.region);x.playBalance={momentum:ensureActivity(p).momentum||0,restedCharges:ensureActivity(p).restedCharges||0};x.storyDecision=p.storyDecision||null;x.serverNow=Date.now();return x;}
+function ensureHome(p){
+ p.home??={investigations:0,nextInvestigationAt:0,npc:{name:"Sera, the Wayfall Keeper",trust:0,lastVisitDay:null,memories:[]}};
+ return p.home;
+}
+function homeAction(p,type){
+ if(p.combat||p.pendingEncounter||p.pendingLoot||p.pendingChoice)throw Error("Resolve your encounter before returning home.");
+ const h=ensureHome(p);
+ if(type==="rest"){
+  if(p.hp>=p.maxHp)throw Error("You are already fully rested.");
+  if(p.gold<10)throw Error("Rest costs 10 gold.");p.gold-=10;p.hp=p.maxHp;addFeed(p,"SANCTUARY — your wounds have healed.");
+ }else if(type==="craft"){
+  if(p.gold<15)throw Error("Crafting a tonic costs 15 gold.");
+  let tonic=p.inventory.find(i=>i.id==="potion");if((tonic?.qty||0)>=20)throw Error("Your tonic supplies are full.");
+  p.gold-=15;if(tonic)tonic.qty++;else p.inventory.push({id:"potion",name:"Wayfarer Tonic",rarity:"Uncommon",qty:1});addFeed(p,"WORKBENCH — crafted a Wayfarer Tonic.");
+ }else if(type==="investigate"){
+  if(Date.now()<h.nextInvestigationAt)throw Error("The archive is still tracing your last signal.");
+  h.nextInvestigationAt=Date.now()+120000;h.investigations++;level(p,6);journeyAction(p,"discover",1);addFeed(p,"REMOTE INVESTIGATION — a home archive signal advanced your personal thread. Field discoveries carry greater rewards.");
+ }else throw Error("Unknown home activity.");
+}
+function visitKeeper(p,choice){
+ if(p.combat||p.pendingEncounter||p.pendingLoot||p.pendingChoice)throw Error("Resolve your encounter before visiting the Keeper.");
+ const npc=ensureHome(p).npc;if(npc.lastVisitDay===utcDay())throw Error("Sera remembers today's conversation. Return tomorrow for another request.");
+ if(!["help","refuse","threaten"].includes(choice))throw Error("Choose how to respond to Sera.");
+ if(choice==="help"){
+  if(p.gold<10)throw Error("Helping repair the sanctuary requires 10 gold.");p.gold-=10;npc.trust=Math.min(10,npc.trust+1);p.reputation+=1;
+ }else npc.trust=Math.max(-10,npc.trust-(choice==="threaten"?2:1));
+ npc.lastVisitDay=utcDay();npc.memories.unshift(choice==="help"?"You helped repair the sanctuary.":choice==="threaten"?"You threatened the Keeper when she asked for help.":"You declined the Keeper's request.");npc.memories=npc.memories.slice(0,12);
+ addFeed(p,"SERA — "+(npc.trust>0?"I remember what you did for us. The Wayfall doors remain open.":npc.trust<0?"I remember your answer. Trust is earned here.":"We will see what kind of Wayfarer you become."));
+}
+function publicState(p){ensureHome(p);ensureJourney(p);ensureProgress(p);ensurePath(p);ensureKnowledge(p);checkFeats(p);ensureRegionObjective(p.region);ensureApex(p.region);const x=clone(p);x.field=fieldState(p);x.contractList=contractState(p);x.callingOptions=callings;x.ordinalRating=ordinalRating(p);x.regionRule=regionRules(p.region);x.playBalance={momentum:ensureActivity(p).momentum||0,restedCharges:ensureActivity(p).restedCharges||0};x.storyDecision=p.storyDecision||null;x.serverNow=Date.now();return x;}
 function json(res,status,data){res.writeHead(status,{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"});res.end(JSON.stringify(data));}
 function recoveryHash(code){return createHash("sha256").update(String(code).replace(/[^a-zA-Z0-9]/g,"").toUpperCase()).digest("hex")}
 function newRecoveryCode(){return randomBytes(16).toString("hex").toUpperCase().match(/.{1,4}/g).join("-")}
 async function body(req){let s="";for await(const c of req){s+=c;if(s.length>100000)throw Error("body_too_large");}return s?JSON.parse(s):{};}
 const sessions=new Map();
+const guildRequest=createGuildService(pool,{startDuel:(p,bounty)=>{
+ const returnHp=p.hp;startEncounter(p,bounty.name+"’s Wayfarer Echo");
+ p.combat.bountyId=bounty.id;p.combat.returnHp=returnHp;
+ p.combat.hp=p.combat.maxHp=Math.max(60,Math.min(250,bounty.maxHp));
+ p.combat.lastResult="VOLUNTARY ECHO ARENA — an asynchronous duel against a consenting Wayfarer's recorded echo.";
+}});
 const regionLocks=new Map();
 async function acquireRegionLock(key){
  const previous=regionLocks.get(key)||Promise.resolve();let release;
@@ -584,7 +625,7 @@ async function acquireRegionLock(key){
 const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
-  if(req.method==="GET"&&u.pathname==="/health")return json(res,200,{ok:true,name:"project-ordinal-alpha",version:"0.12.0",storage:pool?"postgres":"memory",databaseConfigured:!!DB,databaseStatus:pool?"connected":DB?"degraded":"not_configured",databaseError:dbError?"unavailable":null,persistenceProbe:pool?persistenceProbe:null});
+  if(req.method==="GET"&&u.pathname==="/health")return json(res,200,{ok:true,name:"project-ordinal-alpha",version:"0.13.0",storage:pool?"postgres":"memory",databaseConfigured:!!DB,databaseStatus:pool?"connected":DB?"degraded":"not_configured",databaseError:dbError?"unavailable":null,persistenceProbe:pool?persistenceProbe:null});
   if(req.method==="POST"&&u.pathname==="/api/recovery/create"){
    if(!pool)return json(res,503,{ok:false,error:"persistent_storage_required"});
    const b=await body(req),p=sessions.get(String(b.sessionId||""));if(!p)return json(res,404,{ok:false,error:"session_not_found"});
@@ -614,6 +655,8 @@ const server=http.createServer(async(req,res)=>{
   const m=u.pathname.match(/^\/api\/session\/([^/]+)(?:\/(.*))?$/);
   if(m){
    const p=sessions.get(m[1]),action=m[2]||"";if(!p)return json(res,404,{ok:false,error:"session_not_found"});
+   if(action==="guild"&&req.method==="GET")return json(res,200,{ok:true,...await guildRequest(p)});
+   if(action==="guild"&&req.method==="POST"){const b=await body(req),unlock=await acquireRegionLock(p.region.key);try{await refreshSharedRegion(p);const result=await guildRequest(p,String(b.action||""),b);if(["mystery","hunt-bounty","claim-bounty"].includes(b.action))await save(p);return json(res,200,{ok:true,...result,state:publicState(p)});}finally{unlock();}}
    if(req.method==="GET"&&!action){await refreshSharedRegion(p);return json(res,200,{ok:true,state:publicState(p)});}
    if(req.method==="GET"&&action==="presence")return json(res,200,{ok:true,players:[...sessions.values()].filter(x=>x!==p&&x.region.key===p.region.key).slice(0,25).map(x=>({name:x.name,origin:x.origin,level:x.level,rating:ordinalRating(x),title:x.titles[0]||null}))});
    if(req.method==="GET"&&action==="leaderboard"){
@@ -642,8 +685,12 @@ const server=http.createServer(async(req,res)=>{
     else if(action==="calling")chooseCalling(p,String(b.id||""));
     else if(action==="contract")claimContract(p,String(b.id||""));
     else if(action==="story")chooseStoryDecision(p,String(b.choice||""));
+    else if(action==="home")homeAction(p,String(b.type||""));
+    else if(action==="keeper")visitKeeper(p,String(b.choice||""));
     else if(action==="relocate")await relocate(p,b.lat,b.lon);
     else return json(res,404,{ok:false,error:"route_not_found"});
+    if(p.bountyVictory)await guildRequest(p,"claim-bounty");
+    if(p.failedBounty){await guildRequest(p,"fail-bounty",{bounty:p.failedBounty});p.failedBounty=null;}
     await save(p);propagateRegion(p.region);return json(res,200,{ok:true,state:publicState(p)});}finally{unlock();}
    }
   }
@@ -654,4 +701,4 @@ const server=http.createServer(async(req,res)=>{
   json(res,404,{ok:false,error:"route_not_found"});
  }catch(e){json(res,400,{ok:false,error:e.message||"bad_request"});}
 });
-server.listen(PORT,"0.0.0.0",()=>console.log("Project Ordinal v0.12 listening on "+PORT));
+server.listen(PORT,"0.0.0.0",()=>console.log("Project Ordinal v0.13 listening on "+PORT));

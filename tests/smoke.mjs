@@ -65,7 +65,54 @@ try{
  if(missingRecovery.status!==404)throw new Error("recover-only unexpectedly created a missing character");
  const peer=await fetch(base+"/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerKey:"smoke-peer",playerName:"Peer",origin:"Vanguard"})}).then(r=>r.json());
  if(!peer.sessionId)throw new Error("peer session create failed");
+
+ const homeCall=async(action,body)=>{const r=await fetch(base+'/api/session/'+sid+'/'+action,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});return {status:r.status,data:await r.json()};};
+ const crafted=await homeCall('home',{type:'craft'});
+ if(crafted.status!==200||crafted.data.state.gold!==20||crafted.data.state.inventory.find(i=>i.id==='potion').qty!==3)throw Error('home crafting charge or reward failed');
+ const helped=await homeCall('keeper',{choice:'help'});
+ if(helped.data.state.gold!==10||helped.data.state.home.npc.trust!==1)throw Error('Keeper memory failed');
+ if((await homeCall('keeper',{choice:'threaten'})).status!==400)throw Error('repeated Keeper rewards accepted');
+ const traced=await homeCall('home',{type:'investigate'});
+ if(traced.data.state.home.investigations!==1)throw Error('remote investigation missing');
+ if((await homeCall('home',{type:'investigate'})).status!==400)throw Error('remote investigation cooldown bypassed');
+ const returned=await fetch(base+'/api/session/'+recovered.sessionId).then(r=>r.json());
+ // Existing sessions share character identity; a new recovered session must see saved home memory.
+ const homeRecovered=await fetch(base+'/api/session',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({playerKey:'smoke-player',recoverOnly:true})}).then(r=>r.json());
+ if(homeRecovered.state.home.npc.trust!==1||homeRecovered.state.home.investigations!==1)throw Error('home or NPC persistence failed');
  const peerSid=peer.sessionId;
+ const guildCall=async(sessionId,body)=>{
+  const r=await fetch(base+'/api/session/'+sessionId+'/guild',body?{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}:{});
+  return {status:r.status,data:await r.json()};
+ };
+ const founded=await guildCall(sid,{action:'create',name:'Smoke Guild'});
+ if(founded.status!==200||founded.data.guild.role!=='Leader'||!founded.data.guild.invitation)throw Error('guild founding failed');
+ const invitation=founded.data.guild.invitation;
+ const duplicate=await Promise.all([guildCall(peerSid,{action:'join',code:invitation}),guildCall(peerSid,{action:'join',code:invitation})]);
+ if(duplicate.filter(x=>x.status===200).length!==1)throw Error('concurrent duplicate membership accepted');
+ const roster=await guildCall(sid);
+ if(roster.data.guild.members.length!==2)throw Error('guild roster duplicated');
+ const peerGuild=await guildCall(peerSid);
+ if(peerGuild.data.guild.invitation!==null||peerGuild.data.guild.members.some(m=>m.member))throw Error('member received leader-only controls');
+ if((await guildCall(peerSid,{action:'transfer',member:'smoke-player'})).status!==400)throw Error('member transferred leadership');
+ if((await guildCall(sid,{action:'leave'})).status!==400)throw Error('leader abandoned members');
+ const successor=roster.data.guild.members.find(m=>m.name==='Peer').member;
+ if((await guildCall(sid,{action:'transfer',member:successor})).data.guild.role!=='Member')throw Error('leadership transfer failed');
+ if(!(await guildCall(recovered.sessionId)).data.guild)throw Error('guild membership lost across sessions');
+ await guildCall(sid,{action:'leave'});
+ await guildCall(peerSid,{action:'leave'});
+ if((await guildCall(peerSid)).data.guild!==null)throw Error('last-member guild cleanup failed');
+ const offered=await guildCall(peerSid,{action:'create-bounty'});
+ if(offered.status!==200||!offered.data.bounties.some(b=>b.own))throw Error('voluntary bounty creation failed');
+ const echo=offered.data.bounties.find(b=>b.own).bounty;
+ if((await guildCall(peerSid,{action:'hunt-bounty',bounty:echo})).status!==400)throw Error('self bounty accepted');
+ if((await guildCall(sid,{action:'claim-bounty'})).status!==400)throw Error('unverified victory claimed');
+ const challenge=await guildCall(sid,{action:'hunt-bounty',bounty:echo});
+ if(!challenge.data.state.combat?.bountyId)throw Error('Echo arena did not start');
+ const beforeEcho=challenge.data.state;
+ const echoWithdrawal=await fetch(base+'/api/session/'+sid+'/combat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:'retreat'})}).then(r=>r.json());
+ if(echoWithdrawal.state.combat||echoWithdrawal.state.hp!==beforeEcho.hp||echoWithdrawal.state.region.threat!==beforeEcho.region.threat)throw Error('arena withdrawal punished the field character');
+
+
  const presenceCheck=await fetch(base+"/api/session/"+sid+"/presence").then(r=>r.json());
  if(!presenceCheck.players.some(x=>x.name==="Peer"&&x.rating>=100))throw new Error("live Wayfarer presence rating missing");
  const apexPlayer=await fetch(base+"/api/session",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerKey:"apex-player",playerName:"ApexTester",origin:"Vanguard"})}).then(r=>r.json());
