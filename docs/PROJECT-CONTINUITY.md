@@ -53,3 +53,5 @@ The next solo/replayability milestone adds a server-authoritative adaptive direc
 ## v0.16 Living Halls
 
 Guild organizations now include Leader, Officer and Member permissions. Leaders control roles, alliances, leadership and specialization; officers can recruit and restore the Hall. Hall level 2 unlocks Pathfinders, Sentinels or Artisans, which reward different newly contributed activity. Specialty changes cost guild supplies. Browser and native iPhone share these controls. Secret organizations and deeper proposal/voting governance remain unfinished.
+
+Verification checkpoint: commit 0d3d4bd passes all four Node suites and both native compile targets (GitHub Actions run 37513385353). The live Render health endpoint still reports v0.12.0 with PostgreSQL connected. Deployment requires explicit confirmation to use Render workspace `Comp's workspace`; signed iPhone installation and physical AR testing still require the owner's Apple Developer setup and iPhone.
