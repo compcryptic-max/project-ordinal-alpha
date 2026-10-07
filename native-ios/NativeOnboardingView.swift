@@ -14,10 +14,10 @@ struct NativeOnboardingView: View {
     }
 
     private let origins = [
-        ("Vanguard", "shield.fill", "Endure pressure and break enemy rhythm."),
-        ("Ranger", "scope", "Precision and ranged pressure."),
-        ("Arcanist", "sparkles", "Resource-heavy burst and Veil control."),
-        ("Rogue", "bolt.fill", "Fast reactions and evasive pressure.")
+        ("Vanguard", "Endure pressure and break enemy rhythm."),
+        ("Ranger", "Precision and ranged pressure."),
+        ("Arcanist", "Resource-heavy burst and Veil control."),
+        ("Rogue", "Fast reactions and evasive pressure.")
     ]
 
     var body: some View {
@@ -89,12 +89,12 @@ struct NativeOnboardingView: View {
                         origin = item.0
                     } label: {
                         HStack(spacing: 12) {
-                            Image(systemName: item.1)
-                                .frame(width: 28)
+                            OrdinalWayfarerArt(origin: item.0)
+                                .frame(width: 54, height: 68)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(item.0.uppercased())
                                     .font(.caption.monospaced().bold())
-                                Text(item.2)
+                                Text(item.1)
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                             }

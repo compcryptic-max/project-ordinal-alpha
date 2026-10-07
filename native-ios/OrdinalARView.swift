@@ -136,17 +136,15 @@ struct OrdinalARView: UIViewRepresentable {
             let anchor = surface.map { AnchorEntity(world: $0.worldTransform) } ?? AnchorEntity(world: placement)
             anchor.name = "ordinal-field-\(node.id)"
 
-            let size: Float = node.kind == "signal" ? 0.14 : 0.085
-            let mesh = MeshResource.generateSphere(radius: size)
             let color: UIColor = node.kind == "signal"
                 ? UIColor(red: 0.88, green: 0.12, blue: 0.18, alpha: 0.92)
                 : UIColor(red: 0.20, green: 0.90, blue: 0.82, alpha: 0.84)
 
-            let entity = ModelEntity(mesh: mesh, materials: [SimpleMaterial(color: color, isMetallic: true)])
+            let entity = fieldEntity(for: node, color: color)
             entity.name = "ordinal-node:\(node.id)"
             entity.generateCollisionShapes(recursive: true)
 
-            let haloMesh = MeshResource.generateSphere(radius: size * 1.75)
+            let haloMesh = MeshResource.generateSphere(radius: node.kind == "signal" ? 0.42 : 0.16)
             let haloMaterial = UnlitMaterial(color: color.withAlphaComponent(0.10))
             let halo = ModelEntity(mesh: haloMesh, materials: [haloMaterial])
             halo.name = "ordinal-node:\(node.id)"
@@ -155,5 +153,48 @@ struct OrdinalARView: UIViewRepresentable {
             anchor.addChild(entity)
             view.scene.addAnchor(anchor)
         }
+    }
+
+    static func fieldEntity(for node: OrdinalAPI.FieldNode, color: UIColor) -> Entity {
+        let root = Entity()
+        if node.kind == "signal", let texture = try? TextureResource.load(named: "veil-stalker") {
+            let sprite = ModelEntity(
+                mesh: .generatePlane(width: 0.62, height: 0.82, cornerRadius: 0),
+                materials: [UnlitMaterial(texture: texture)]
+            )
+            sprite.position.y = 0.40
+            root.addChild(sprite)
+            return root
+        }
+
+        let material = SimpleMaterial(color: color, isMetallic: true)
+        switch node.kind {
+        case "cache":
+            let chest = ModelEntity(mesh: .generateBox(size: [0.24, 0.14, 0.18]), materials: [material])
+            chest.position.y = 0.08
+            root.addChild(chest)
+            let lid = ModelEntity(mesh: .generateBox(size: [0.25, 0.06, 0.19]), materials: [material])
+            lid.position.y = 0.18
+            lid.orientation = simd_quatf(angle: -0.18, axis: [1, 0, 0])
+            root.addChild(lid)
+        case "resource":
+            for (x, height) in [(-0.07 as Float, 0.26 as Float), (0, 0.38), (0.08, 0.22)] {
+                let shard = ModelEntity(mesh: .generateBox(size: [0.055, height, 0.055]), materials: [material])
+                shard.position = [x, height / 2, 0]
+                shard.orientation = simd_quatf(angle: x * 2, axis: [0, 0, 1])
+                root.addChild(shard)
+            }
+        case "echo":
+            let core = ModelEntity(mesh: .generateSphere(radius: 0.10), materials: [UnlitMaterial(color: color)])
+            root.addChild(core)
+            let memory = ModelEntity(mesh: .generateBox(size: [0.03, 0.34, 0.03]), materials: [material])
+            memory.orientation = simd_quatf(angle: .pi / 4, axis: [0, 0, 1])
+            root.addChild(memory)
+        default:
+            let marker = ModelEntity(mesh: .generateBox(size: [0.16, 0.16, 0.16]), materials: [material])
+            marker.orientation = simd_quatf(angle: .pi / 4, axis: [0, 1, 0])
+            root.addChild(marker)
+        }
+        return root
     }
 }

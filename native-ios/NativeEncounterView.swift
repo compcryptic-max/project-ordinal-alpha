@@ -36,15 +36,14 @@ struct NativeEncounterView: View {
                 Spacer()
 
                 ZStack {
-                    Circle()
-                        .stroke(.red.opacity(0.28), lineWidth: 1)
-                        .frame(width: 250, height: 250)
-                    Circle()
-                        .fill(.red.opacity(0.05))
-                        .frame(width: 210, height: 210)
-                    Image(systemName: "eye.trianglebadge.exclamationmark.fill")
-                        .font(.system(size: 86, weight: .ultraLight))
-                        .foregroundStyle(.red.opacity(0.88))
+                    Ellipse()
+                        .fill(.black.opacity(0.7))
+                        .frame(width: 215, height: 45)
+                        .blur(radius: 8)
+                        .offset(y: 104)
+                    OrdinalEnemyArt(name: encounter?.name ?? "Glass Warden")
+                        .frame(width: 290, height: 290)
+                        .shadow(color: .red.opacity(0.36), radius: 18)
                 }
 
                 VStack(spacing: 6) {

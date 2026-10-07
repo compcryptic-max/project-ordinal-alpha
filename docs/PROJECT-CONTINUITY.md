@@ -2,6 +2,12 @@
 
 Updated 2026-10-06. This records recovered decisions, not a claim that every prior message was recovered.
 
+## Camera presentation correction — 2026-10-07
+
+The owner rejected the live browser Veil screenshot. Audit confirmed hashed screen positions, a fixed compass and camera-overlay icons; this is not spatial AR. Browser fallback now labels itself Camera Preview, puts interactions in an orderly HUD panel, and removes the false compass, rating, contact count and F-labels. This correction is local and not deployed yet. It does not implement spatial browser AR.
+
+Native ARKit has world anchors but currently renders placeholder spheres. Real environment-integrated encounter visuals, tracked physical-device placement and native AR combat presentation remain unfinished. Compilation is not evidence of a completed AR experience. Do not present either client as the intended finished AR gameplay.
+
 ## Verified source baseline
 
 - Repository: https://github.com/compcryptic-max/project-ordinal-alpha
@@ -55,3 +61,9 @@ The next solo/replayability milestone adds a server-authoritative adaptive direc
 Guild organizations now include Leader, Officer and Member permissions. Leaders control roles, alliances, leadership and specialization; officers can recruit and restore the Hall. Hall level 2 unlocks Pathfinders, Sentinels or Artisans, which reward different newly contributed activity. Specialty changes cost guild supplies. Browser and native iPhone share these controls. Secret organizations and deeper proposal/voting governance remain unfinished.
 
 Verification checkpoint: commit 0d3d4bd passes all four Node suites and both native compile targets (GitHub Actions run 37513385353). The live Render health endpoint still reports v0.12.0 with PostgreSQL connected. Deployment requires explicit confirmation to use Render workspace `Comp's workspace`; signed iPhone installation and physical AR testing still require the owner's Apple Developer setup and iPhone.
+
+## v0.17 Honest Veil and original creatures
+
+The visual quality pass replaces generic diagrams and silhouettes with eight original monsters and four original Wayfarer class designs across browser and native screens. Live PvP now shows both fighters. The browser camera experience is explicitly labeled Camera Preview, uses a HUD list, removes fake fixed contacts and no longer opens fixed camera-overlay combat. Serial-looking `F-###` presentation is replaced by qualitative range language.
+
+Native ARKit now uses distinct Field forms and creature textures for hostile anchors while retaining world tracking. Physical iPhone tracking, scale, orientation and touch acceptance are still required; compile success does not prove the physical AR experience. See V017-RELEASE.md.

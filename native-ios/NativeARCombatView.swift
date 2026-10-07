@@ -99,13 +99,9 @@ struct NativeARCombatView: View {
 
     private var gestureSurface: some View {
         ZStack {
-            Circle()
-                .stroke(isHeavy ? .red.opacity(0.54) : .cyan.opacity(0.20), lineWidth: 1)
-                .frame(width: 240, height: 240)
-
-            Circle()
-                .fill(.clear)
-                .frame(width: 230, height: 230)
+            OrdinalEnemyArt(name: combat?.name ?? "Glass Warden")
+                .frame(width: 260, height: 260)
+                .shadow(color: isHeavy ? .red.opacity(0.65) : .cyan.opacity(0.24), radius: isHeavy ? 22 : 10)
 
             if isHeavy {
                 VStack(spacing: 3) {
@@ -118,7 +114,7 @@ struct NativeARCombatView: View {
                 .allowsHitTesting(false)
             }
         }
-        .contentShape(Circle())
+        .contentShape(Rectangle())
         .gesture(
             LongPressGesture(minimumDuration: 0.45)
                 .exclusively(before: TapGesture())
@@ -267,6 +263,18 @@ private struct ARCombatScene: UIViewRepresentable {
 
         let root = Entity()
         root.name = "ordinal-ar-enemy"
+
+        if let texture = try? TextureResource.load(named: OrdinalArt.enemyAsset(for: enemyName)) {
+            let sprite = ModelEntity(
+                mesh: .generatePlane(width: 1.02, height: 1.32, cornerRadius: 0),
+                materials: [UnlitMaterial(texture: texture)]
+            )
+            sprite.position = [0, 0.66, 0]
+            root.addChild(sprite)
+            anchor.addChild(root)
+            view.scene.addAnchor(anchor)
+            return
+        }
 
         let dark = SimpleMaterial(color: UIColor(red: 0.07, green: 0.075, blue: 0.08, alpha: 0.96), isMetallic: true)
         let vein = SimpleMaterial(color: UIColor(red: 0.72, green: 0.08, blue: 0.12, alpha: 0.90), isMetallic: true)

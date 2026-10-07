@@ -65,15 +65,14 @@ struct NativeCombatView: View {
     private var enemy: some View {
         VStack(spacing: 12) {
             ZStack {
-                Circle()
-                    .stroke(isHeavy ? .red.opacity(0.5) : .white.opacity(0.18), lineWidth: 1)
-                    .frame(width: 235, height: 235)
-                Circle()
-                    .fill(.black.opacity(0.42))
-                    .frame(width: 192, height: 192)
-                Image(systemName: isHeavy ? "exclamationmark.triangle.fill" : "eye.fill")
-                    .font(.system(size: 70, weight: .thin))
-                    .foregroundStyle(isHeavy ? .red : .white.opacity(0.84))
+                Ellipse()
+                    .fill(.black.opacity(0.62))
+                    .frame(width: 210, height: 44)
+                    .blur(radius: 9)
+                    .offset(y: 100)
+                OrdinalEnemyArt(name: combat?.name ?? "Glass Warden")
+                    .frame(width: 280, height: 280)
+                    .shadow(color: isHeavy ? .red.opacity(0.55) : .purple.opacity(0.24), radius: isHeavy ? 20 : 10)
 
                 VStack {
                     Spacer()
@@ -87,7 +86,7 @@ struct NativeCombatView: View {
                 }
                 .frame(height: 270)
             }
-            .contentShape(Circle())
+            .contentShape(Rectangle())
             .gesture(
                 LongPressGesture(minimumDuration: 0.45)
                     .exclusively(before: TapGesture())

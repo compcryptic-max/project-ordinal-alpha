@@ -170,15 +170,9 @@ struct NativeFieldView: View {
             } label: {
                 VStack(spacing: 4) {
                     ZStack {
-                        Circle()
-                            .stroke(.purple.opacity(0.45), lineWidth: 1)
-                            .frame(width: 86, height: 86)
-                        Circle()
-                            .stroke(.purple.opacity(0.20), style: StrokeStyle(lineWidth: 1, dash: [3, 5]))
-                            .frame(width: 68, height: 68)
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.title2)
-                            .foregroundStyle(.purple)
+                        OrdinalEnemyArt(name: apex.name)
+                            .frame(width: 110, height: 110)
+                            .shadow(color: .purple.opacity(0.42), radius: 12)
                     }
                     Text("REGIONAL APEX")
                         .font(.system(size: 7, weight: .bold, design: .monospaced))
@@ -194,12 +188,12 @@ struct NativeFieldView: View {
 
         VStack(spacing: 4) {
             ZStack {
-                Circle()
-                    .stroke(.cyan.opacity(0.30), lineWidth: 1)
-                    .frame(width: 62, height: 28)
-                Image(systemName: "location.north.fill")
-                    .font(.title2)
-                    .foregroundStyle(.white)
+                Ellipse()
+                    .fill(.black.opacity(0.55))
+                    .frame(width: 54, height: 15)
+                    .offset(y: 28)
+                OrdinalWayfarerArt(origin: world.state?.origin ?? "Rogue")
+                    .frame(width: 66, height: 82)
             }
             Text(world.state?.name.uppercased() ?? "WAYFARER")
                 .font(.system(size: 8, weight: .bold, design: .monospaced))

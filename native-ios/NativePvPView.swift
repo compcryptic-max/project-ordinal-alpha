@@ -23,6 +23,19 @@ struct NativePvPView: View {
                     }
                 } else if let match = arena?.match, match.status == "active" {
                     Section("Live arena") {
+                        HStack(alignment: .bottom, spacing: 4) {
+                            OrdinalWayfarerArt(origin: match.you.origin)
+                                .frame(maxWidth: .infinity, minHeight: 170, maxHeight: 170)
+                            Text("VS")
+                                .font(.headline.monospaced().bold())
+                                .foregroundStyle(.red.opacity(0.75))
+                                .padding(.bottom, 40)
+                            if let foe = match.opponent {
+                                OrdinalWayfarerArt(origin: foe.origin)
+                                    .scaleEffect(x: -1, y: 1)
+                                    .frame(maxWidth: .infinity, minHeight: 170, maxHeight: 170)
+                            }
+                        }
                         Text("You: \(match.you.hp) HP · \(match.you.focus) Focus · \(match.you.stamina) stamina")
                         if let foe = match.opponent { Text("\(foe.name): \(foe.hp) HP") }
                         Text((match.yourTurn ? "Your turn" : "Opponent's turn") + " · \(match.secondsLeft) seconds")
