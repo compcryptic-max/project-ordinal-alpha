@@ -158,9 +158,11 @@ struct OrdinalARView: UIViewRepresentable {
     static func fieldEntity(for node: OrdinalAPI.FieldNode, color: UIColor) -> Entity {
         let root = Entity()
         if node.kind == "signal", let texture = try? TextureResource.load(named: "veil-stalker") {
+            var spriteMaterial = UnlitMaterial()
+            spriteMaterial.color = .init(tint: .white, texture: .init(texture))
             let sprite = ModelEntity(
                 mesh: .generatePlane(width: 0.62, height: 0.82, cornerRadius: 0),
-                materials: [UnlitMaterial(texture: texture)]
+                materials: [spriteMaterial]
             )
             sprite.position.y = 0.40
             root.addChild(sprite)

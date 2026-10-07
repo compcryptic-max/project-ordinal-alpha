@@ -265,9 +265,11 @@ private struct ARCombatScene: UIViewRepresentable {
         root.name = "ordinal-ar-enemy"
 
         if let texture = try? TextureResource.load(named: OrdinalArt.enemyAsset(for: enemyName)) {
+            var spriteMaterial = UnlitMaterial()
+            spriteMaterial.color = .init(tint: .white, texture: .init(texture))
             let sprite = ModelEntity(
                 mesh: .generatePlane(width: 1.02, height: 1.32, cornerRadius: 0),
-                materials: [UnlitMaterial(texture: texture)]
+                materials: [spriteMaterial]
             )
             sprite.position = [0, 0.66, 0]
             root.addChild(sprite)
