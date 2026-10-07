@@ -381,7 +381,7 @@ actor OrdinalAPI {
     }
     struct ArenaEnvelope: Decodable { let record: ArenaRecord; let match: ArenaMatch? }
     struct ArenaRecord: Decodable { let wins: Int; let losses: Int; let draws: Int }
-    struct ArenaFighter: Decodable { let name: String; let hp: Int; let focus: Int; let stamina: Int }
+    struct ArenaFighter: Decodable { let name: String; let origin: String; let hp: Int; let focus: Int; let stamina: Int }
     struct ArenaMatch: Decodable {
         let status: String
         let invitation: String?
