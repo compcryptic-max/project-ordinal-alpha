@@ -6,6 +6,7 @@ This pass improves systems already in the game and removes presentation that imp
 
 - Replaces generic enemy diagrams with eight original creature designs: Pale Hound, Veil Stalker, Hollow Marauder, Glass Warden, Mirehorn, Ash Revenant, Choirless Knight and Riftweaver.
 - Replaces the generic player silhouette with unique Vanguard, Ranger, Arcanist and Rogue designs.
+- Adds a custom fractured compass-and-veil app icon for iPhone and the installable browser game.
 - Uses the new art in browser onboarding, Field exploration, encounters, combat and live PvP.
 - Uses the same character and creature identity across native onboarding, Field, encounters, standard combat, AR combat and live PvP.
 - Replaces numeric `F-###` presentation with Close, Nearby and Distant range language.
