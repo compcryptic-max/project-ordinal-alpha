@@ -4,6 +4,7 @@ import {Pool} from "pg";
 import {randomUUID,randomBytes,createHash} from "node:crypto";
 import {createGuildService} from "./guilds.mjs";
 import {createArenaService} from "./pvp.mjs";
+import {createAccountService} from "./accounts.mjs";
 
 const PORT=Number(process.env.PORT||8787);
 const DB=process.env.DATABASE_URL||"";
@@ -652,6 +653,7 @@ function recoveryHash(code){return createHash("sha256").update(String(code).repl
 function newRecoveryCode(){return randomBytes(16).toString("hex").toUpperCase().match(/.{1,4}/g).join("-")}
 async function body(req){let s="";for await(const c of req){s+=c;if(s.length>100000)throw Error("body_too_large");}return s?JSON.parse(s):{};}
 const sessions=new Map();
+const accountRequest=await createAccountService(pool);
 const arenaRequest=createArenaService(pool);
 function syncEconomy(p){
  if(!pool)memory.set(p.key,clone(p));
@@ -673,7 +675,16 @@ async function acquireRegionLock(key){
 const server=http.createServer(async(req,res)=>{
  try{
   const u=new URL(req.url,"http://localhost");
-  if(req.method==="GET"&&u.pathname==="/health")return json(res,200,{ok:true,name:"project-ordinal-alpha",version:"0.16.0",storage:pool?"postgres":"memory",databaseConfigured:!!DB,databaseStatus:pool?"connected":DB?"degraded":"not_configured",databaseError:dbError?"unavailable":null,persistenceProbe:pool?persistenceProbe:null});
+  if(req.method==='GET'&&(/^\/assets\/(characters|monsters)\/[a-z-]+\.webp$/.test(u.pathname)||u.pathname==='/ordinal-icon.png')){
+   const data=await readFile(new URL('./public'+u.pathname,import.meta.url));res.writeHead(200,{'content-type':u.pathname.endsWith('.webp')?'image/webp':'image/png','cache-control':'no-cache'});return res.end(data);
+  }
+  if(req.method==="POST"&&/^\/api\/account\/(signup|signin|recover)$/.test(u.pathname)){
+   const unlock=await acquireRegionLock("account-mutations");try{
+    const account=await accountRequest(u.pathname.split('/').pop(),await body(req));
+    return json(res,200,{ok:true,account});
+   }finally{unlock();}
+  }
+  if(req.method==="GET"&&u.pathname==="/health")return json(res,200,{ok:true,name:"project-ordinal-alpha",version:"0.18.0",storage:pool?"postgres":"memory",databaseConfigured:!!DB,databaseStatus:pool?"connected":DB?"degraded":"not_configured",databaseError:dbError?"unavailable":null,persistenceProbe:pool?persistenceProbe:null});
   if(req.method==="POST"&&u.pathname==="/api/recovery/create"){
    if(!pool)return json(res,503,{ok:false,error:"persistent_storage_required"});
    const b=await body(req),p=sessions.get(String(b.sessionId||""));if(!p)return json(res,404,{ok:false,error:"session_not_found"});
@@ -756,4 +767,4 @@ const server=http.createServer(async(req,res)=>{
   json(res,404,{ok:false,error:"route_not_found"});
  }catch(e){json(res,400,{ok:false,error:e.message||"bad_request"});}
 });
-server.listen(PORT,"0.0.0.0",()=>console.log("Project Ordinal v0.13 listening on "+PORT));
+server.listen(PORT,"0.0.0.0",()=>console.log("Project Ordinal v0.18 listening on "+PORT));

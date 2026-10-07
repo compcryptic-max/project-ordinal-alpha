@@ -288,6 +288,30 @@ actor OrdinalAPI {
         return try decoder.decode(Health.self, from: data)
     }
 
+    struct AccountEnvelope: Decodable { let account: TestAccount }
+    struct TestAccount: Decodable {
+        let login: String
+        let displayName: String
+        let playerKey: String
+        let persistent: Bool
+        let recoveryCode: String?
+    }
+    struct AccountInput: Encodable {
+        let login: String
+        let password: String
+        let displayName: String
+        let recoveryCode: String
+    }
+    func account(action: String, input: AccountInput) async throws -> TestAccount {
+        var request = URLRequest(url: baseURL.appending(path: "api/account/\(action)"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try encoder.encode(input)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try validate(response)
+        return try decoder.decode(AccountEnvelope.self, from: data).account
+    }
+
     func createSession(playerKey: String, playerName: String, origin: String, lat: Double? = nil, lon: Double? = nil, recoverOnly: Bool = false) async throws -> SessionEnvelope {
         var request = URLRequest(url: baseURL.appending(path: "api/session"))
         request.httpMethod = "POST"

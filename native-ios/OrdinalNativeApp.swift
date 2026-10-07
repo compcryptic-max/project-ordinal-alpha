@@ -24,10 +24,13 @@ struct NativeBridgeView: View {
     @State private var arCombatMode = false
     @State private var encounterCameFromAR = false
     @State private var selectedARNode: OrdinalAPI.FieldNode?
+    @State private var accountGate = true
 
     var body: some View {
         ZStack {
-            if let node = selectedARNode {
+            if accountGate {
+                NativeAccountView(world: world) { accountGate = false }
+            } else if let node = selectedARNode {
                 NativeFieldInteractionView(
                     world: world,
                     node: node,
@@ -96,7 +99,8 @@ struct NativeBridgeView: View {
                 NativeOnboardingView(world: world)
             }
         }
-        .task {
+        .task(id: accountGate) {
+            guard !accountGate else { return }
             if world.state == nil {
                 let coarse = await location.acquire()
                 world.setLocation(lat: coarse?.latitude, lon: coarse?.longitude)

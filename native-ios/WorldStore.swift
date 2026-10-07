@@ -15,6 +15,7 @@ final class WorldStore: ObservableObject {
 
     private(set) var sessionID: String?
     private var playerKey: String?
+    private var accountPlayerKey: String?
     private var lastLat: Double?
     private var lastLon: Double?
 
@@ -70,7 +71,7 @@ final class WorldStore: ObservableObject {
         busy = true
         defer { busy = false }
         do {
-            let key = UUID().uuidString.replacingOccurrences(of: "-", with: "")
+            let key = accountPlayerKey ?? UUID().uuidString.replacingOccurrences(of: "-", with: "")
             let session = try await OrdinalAPI.shared.createSession(
                 playerKey: key,
                 playerName: cleanName,
@@ -101,6 +102,24 @@ final class WorldStore: ObservableObject {
             adopt(session)
         } catch {
             lastError = "Recovery code was not accepted."
+        }
+    }
+
+    func useAccount(_ account: OrdinalAPI.TestAccount, restore: Bool) async {
+        accountPlayerKey = account.playerKey
+        playerKey = nil
+        sessionID = nil
+        state = nil
+        lastError = nil
+        UserDefaults.standard.removeObject(forKey: "ordinal.playerKey")
+        if restore {
+            do {
+                let session = try await OrdinalAPI.shared.createSession(playerKey: account.playerKey, playerName: "Wayfarer", origin: "Rogue", lat: lastLat, lon: lastLon, recoverOnly: true)
+                persistIdentity(session.playerKey)
+                adopt(session)
+            } catch {
+                status = "CHOOSE YOUR WAYFARER"
+            }
         }
     }
 

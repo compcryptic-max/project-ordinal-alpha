@@ -1,5 +1,11 @@
 # Project Ordinal continuity
 
+## v0.18 First Journey — 2026-10-07
+
+Owner requested first-launch account onboarding with relaxed alpha information validity. Browser and native open Welcome, offer account signup/signin/recovery, then character creation/world entry; saved characters can be continued. Account service accepts invented emails/identifiers and any non-empty password without email/identity/strength checks. Password authentication and private recovery-code checks remain real. PostgreSQL persists accounts; memory mode is temporary. Account recovery code is distinct from legacy character recovery. Release authentication hardening and email verification remain unfinished.
+
+Fixed the v0.17 static server omission: creature WebP and icon PNG assets are served. All five Node suites pass including arbitrary alpha details, signin, code rotation, character continuity and HTTP image delivery. Native compilation is checked after source publication.
+
 Updated 2026-10-06. This records recovered decisions, not a claim that every prior message was recovered.
 
 ## Camera presentation correction — 2026-10-07

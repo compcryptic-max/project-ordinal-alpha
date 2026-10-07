@@ -1,4 +1,4 @@
-const CACHE="ordinal-shell-v0170";
+const CACHE="ordinal-shell-v0180";
 const ART=["pale-hound","veil-stalker","hollow-marauder","glass-warden","mirehorn","ash-revenant","choirless-knight","riftweaver"].map(x=>"/assets/monsters/"+x+".webp").concat(["vanguard","ranger","arcanist","rogue"].map(x=>"/assets/characters/"+x+".webp"));
 const SHELL=["/","/styles.css","/game.js","/effects.js","/manifest.webmanifest","/ordinal-icon.png",...ART];
 self.addEventListener("install",event=>event.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting())));
