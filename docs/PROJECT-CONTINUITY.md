@@ -1,5 +1,9 @@
 # Project Ordinal continuity
 
+## v0.19 Spatial Field — 2026-10-07
+
+Native Field follows real GPS position and compass heading on Apple Maps; simulated joystick travel is no longer the primary movement path. Exact location remains on-device and only rounded coarse coordinates reach the server for region selection. Walking proximity automatically opens Field contacts. ARKit re-anchors contacts to detected surfaces and supports aim-and-hold selection. AR combat accepts phone thrust, sideways movement and raise gestures for strike, dodge and guard. See `docs/V019-SPATIAL-FIELD.md`.
+
 ## v0.18 First Journey — 2026-10-07
 
 Owner requested first-launch account onboarding with relaxed alpha information validity. Browser and native open Welcome, offer account signup/signin/recovery, then character creation/world entry; saved characters can be continued. Account service accepts invented emails/identifiers and any non-empty password without email/identity/strength checks. Password authentication and private recovery-code checks remain real. PostgreSQL persists accounts; memory mode is temporary. Account recovery code is distinct from legacy character recovery. Release authentication hardening and email verification remain unfinished.

@@ -23,7 +23,7 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Project Ordinal
         INFOPLIST_KEY_NSCameraUsageDescription: Project Ordinal uses the camera only when you open the Veil Lens to place game encounters in your surroundings.
-        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: Project Ordinal uses location while you play to select your persistent world region and nearby game activity.
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: Project Ordinal uses location while you play to align the Field with real streets, measure walking distance to contacts, and select your persistent world region. Exact position stays on this iPhone; only a coarse region is sent to the game server.
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         SUPPORTS_MACCATALYST: NO

@@ -21,7 +21,10 @@ struct NativeARCombatView: View {
                 enemyName: combat?.name ?? "Hostile",
                 healthFraction: Double(combat?.hp ?? 0) / Double(max(1, combat?.maxHp ?? 1)),
                 urgent: isHeavy,
-                onTracking: { ready, status in trackingReady = ready; trackingStatus = status }
+                onTracking: { ready, status in trackingReady = ready; trackingStatus = status },
+                onMotion: { type in
+                    combatAction(type, style: type == "attack" ? .heavy : type == "dodge" ? .light : .rigid)
+                }
             )
             .ignoresSafeArea()
 
@@ -92,9 +95,9 @@ struct NativeARCombatView: View {
 
     private var reactionPrompt: String {
         let intent = combat?.intent ?? ""
-        if intent.localizedCaseInsensitiveContains("EVADE") { return "↔ SWIPE TO EVADE" }
-        if intent.localizedCaseInsensitiveContains("GUARD") { return "◇ HOLD TO GUARD" }
-        return isHeavy ? "! REACT" : "TAP TO STRIKE"
+        if intent.localizedCaseInsensitiveContains("EVADE") { return "↔ STEP PHONE SIDEWAYS" }
+        if intent.localizedCaseInsensitiveContains("GUARD") { return "◇ RAISE PHONE TO GUARD" }
+        return isHeavy ? "! REACT" : "THRUST PHONE TO STRIKE"
     }
 
     private var gestureSurface: some View {
@@ -184,11 +187,15 @@ private struct ARCombatScene: UIViewRepresentable {
     let healthFraction: Double
     let urgent: Bool
     let onTracking: (Bool, String) -> Void
+    let onMotion: (String) -> Void
 
     @MainActor final class Coordinator: NSObject, @preconcurrency ARSessionDelegate {
         weak var view: ARView?
         var scene: ARCombatScene?
         var lastEnemy = ""
+        var motionBaseline: simd_float4x4?
+        var motionBaselineAt: TimeInterval = 0
+        var lastMotionAt: TimeInterval = 0
         func session(_ session: ARSession, cameraDidChangeTrackingState camera: ARCamera) {
             switch camera.trackingState {
             case .normal: scene?.onTracking(true, "Tracking ready")
@@ -198,6 +205,37 @@ private struct ARCombatScene: UIViewRepresentable {
         }
         func session(_ session: ARSession, didFailWithError error: Error) { scene?.onTracking(false, "Camera failed. Use standard combat to continue.") }
         func sessionWasInterrupted(_ session: ARSession) { scene?.onTracking(false, "Camera interrupted. Combat paused.") }
+        func session(_ session: ARSession, didUpdate frame: ARFrame) {
+            guard case .normal = frame.camera.trackingState else { return }
+            let now = frame.timestamp
+            guard let baseline = motionBaseline else {
+                motionBaseline = frame.camera.transform
+                motionBaselineAt = now
+                return
+            }
+            guard now - motionBaselineAt >= 0.18 else { return }
+
+            let delta = simd_mul(simd_inverse(baseline), frame.camera.transform).columns.3
+            motionBaseline = frame.camera.transform
+            motionBaselineAt = now
+            guard now - lastMotionAt >= 0.72 else { return }
+
+            let action: String?
+            if abs(delta.x) > 0.13 {
+                action = "dodge"
+            } else if delta.y > 0.13 {
+                action = "guard"
+            } else if delta.z < -0.11 {
+                action = "attack"
+            } else {
+                action = nil
+            }
+
+            if let action {
+                lastMotionAt = now
+                scene?.onMotion(action)
+            }
+        }
         func sessionInterruptionEnded(_ session: ARSession) {
             guard let view, let scene else { return }
             OrdinalARView.runTracking(on: view, reset: true)

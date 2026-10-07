@@ -4,23 +4,31 @@ import Combine
 
 @MainActor
 final class CoarseLocationService: NSObject, ObservableObject, @preconcurrency CLLocationManagerDelegate {
+    /// Precise position is kept on-device for the live map and walking proximity.
     @Published private(set) var coordinate: CLLocationCoordinate2D?
+    @Published private(set) var heading: CLLocationDirection?
+    @Published private(set) var horizontalAccuracy: CLLocationAccuracy?
+    @Published private(set) var sampleToken = 0
     @Published private(set) var rapidTravel = false
     @Published private(set) var relocationToken = ""
+
+    var serverCoordinate: CLLocationCoordinate2D? { coarseCoordinate }
 
     private let manager = CLLocationManager()
     private var waiter: CheckedContinuation<CLLocationCoordinate2D?, Never>?
     private var monitoringRequested = false
     private var fastSamples = 0
+    private var coarseCoordinate: CLLocationCoordinate2D?
 
     override init() {
         super.init()
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyKilometer
+        manager.headingFilter = 4
     }
 
     func acquire() async -> CLLocationCoordinate2D? {
-        if let coordinate { return coordinate }
+        if let coarseCoordinate { return coarseCoordinate }
         return await withCheckedContinuation { continuation in
             waiter = continuation
             requestPermissionOrLocation()
@@ -29,13 +37,14 @@ final class CoarseLocationService: NSObject, ObservableObject, @preconcurrency C
 
     func startSafetyMonitoring() {
         monitoringRequested = true
-        manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
-        manager.distanceFilter = 30
-        manager.activityType = .otherNavigation
+        manager.desiredAccuracy = kCLLocationAccuracyBest
+        manager.distanceFilter = 3
+        manager.activityType = .fitness
 
         switch manager.authorizationStatus {
         case .authorizedAlways, .authorizedWhenInUse:
             manager.startUpdatingLocation()
+            if CLLocationManager.headingAvailable() { manager.startUpdatingHeading() }
         case .notDetermined:
             manager.requestWhenInUseAuthorization()
         default:
@@ -46,6 +55,7 @@ final class CoarseLocationService: NSObject, ObservableObject, @preconcurrency C
     func stopSafetyMonitoring() {
         monitoringRequested = false
         manager.stopUpdatingLocation()
+        manager.stopUpdatingHeading()
         fastSamples = 0
         rapidTravel = false
         manager.desiredAccuracy = kCLLocationAccuracyKilometer
@@ -67,7 +77,10 @@ final class CoarseLocationService: NSObject, ObservableObject, @preconcurrency C
         switch manager.authorizationStatus {
         case .authorizedAlways, .authorizedWhenInUse:
             if waiter != nil { manager.requestLocation() }
-            if monitoringRequested { manager.startUpdatingLocation() }
+            if monitoringRequested {
+                manager.startUpdatingLocation()
+                if CLLocationManager.headingAvailable() { manager.startUpdatingHeading() }
+            }
         case .denied, .restricted:
             finish(nil)
             stopSafetyMonitoring()
@@ -92,12 +105,17 @@ final class CoarseLocationService: NSObject, ObservableObject, @preconcurrency C
             rapidTravel = fastSamples >= 2
         }
 
-        // Quantize before the coordinate leaves the device. The server only needs a coarse region.
+        // Exact location powers the local spatial map and never leaves this service.
+        coordinate = raw.coordinate
+        horizontalAccuracy = raw.horizontalAccuracy >= 0 ? raw.horizontalAccuracy : nil
+        sampleToken &+= 1
+
+        // Quantize anything returned to the world server. It only needs a coarse region.
         let coarse = CLLocationCoordinate2D(
             latitude: (raw.coordinate.latitude * 100).rounded() / 100,
             longitude: (raw.coordinate.longitude * 100).rounded() / 100
         )
-        coordinate = coarse
+        coarseCoordinate = coarse
         let token = String(format: "%.2f,%.2f", coarse.latitude, coarse.longitude)
         if token != relocationToken {
             relocationToken = token
@@ -106,6 +124,12 @@ final class CoarseLocationService: NSObject, ObservableObject, @preconcurrency C
         if waiter != nil {
             finish(coarse)
         }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
+        guard newHeading.headingAccuracy >= 0 else { return }
+        let value = newHeading.trueHeading >= 0 ? newHeading.trueHeading : newHeading.magneticHeading
+        heading = value
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {

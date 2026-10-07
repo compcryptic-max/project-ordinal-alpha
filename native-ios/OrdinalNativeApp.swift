@@ -69,6 +69,16 @@ struct NativeBridgeView: View {
                 }
                 .ignoresSafeArea()
 
+                ZStack {
+                    Circle()
+                        .stroke(.cyan.opacity(0.55), style: StrokeStyle(lineWidth: 1, dash: [4, 6]))
+                        .frame(width: 76, height: 76)
+                    Circle()
+                        .fill(.cyan.opacity(0.82))
+                        .frame(width: 5, height: 5)
+                }
+                .allowsHitTesting(false)
+
                 VStack {
                     HStack {
                         Text("ORDINAL // NATIVE VEIL")
@@ -125,7 +135,7 @@ struct NativeBridgeView: View {
         }
         .onChange(of: location.relocationToken) { _, token in
             guard !token.isEmpty,
-                  let coordinate = location.coordinate,
+                  let coordinate = location.serverCoordinate,
                   world.state != nil else { return }
             Task {
                 await world.relocateIfNeeded(lat: coordinate.latitude, lon: coordinate.longitude)

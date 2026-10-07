@@ -7,6 +7,7 @@ struct NativeFieldView: View {
     @ObservedObject var world: WorldStore
     @Binding var arOpen: Bool
     @EnvironmentObject private var location: CoarseLocationService
+    @StateObject private var spatial = SpatialFieldService()
     @State private var showProfile = false
     @State private var showGuild = false
     @State private var selectedNode: OrdinalAPI.FieldNode?
@@ -15,13 +16,24 @@ struct NativeFieldView: View {
     @State private var playerX = 0.50
     @State private var playerY = 0.68
     @State private var proximityLocked = false
+    @State private var nearestStatus = "ACQUIRING POSITION"
+    @State private var lastActivatedNode: String?
 
     var body: some View {
         GeometryReader { proxy in
             ZStack {
-                worldBackground
-                projectedWorld(size: proxy.size)
-                    .allowsHitTesting(!location.rapidTravel)
+                NativeWorldMapView(contacts: spatial.contacts, heading: location.heading)
+                    .ignoresSafeArea()
+                    .saturation(0.45)
+                    .brightness(-0.18)
+
+                LinearGradient(
+                    colors: [.black.opacity(0.52), .clear, .black.opacity(0.72)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
 
                 VStack(spacing: 10) {
                     header
@@ -75,6 +87,14 @@ struct NativeFieldView: View {
                 moveVector = .zero
                 selectedNode = nil
             }
+        }
+        .task(id: location.sampleToken) {
+            synchronizeSpatialField()
+            await checkPhysicalProximity()
+        }
+        .task(id: spatialContentID) {
+            synchronizeSpatialField()
+            await checkPhysicalProximity()
         }
         .task(id: movementTaskID) {
             guard roamMode else { return }
@@ -269,40 +289,22 @@ struct NativeFieldView: View {
 
     @ViewBuilder
     private var actionBar: some View {
-        if roamMode {
-            HStack(alignment: .bottom, spacing: 14) {
-                NativeFieldJoystick(vector: $moveVector)
-
+        VStack(spacing: 8) {
+            HStack {
+                Image(systemName: "location.fill")
+                    .foregroundStyle(.cyan)
+                Text(nearestStatus)
+                    .font(.system(size: 8, weight: .bold, design: .monospaced))
                 Spacer()
-
-                VStack(spacing: 8) {
-                    Button {
-                        Task { await world.act("roam") }
-                    } label: {
-                        Label("PULSE", systemImage: "scope")
-                            .frame(width: 104, height: 42)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.cyan.opacity(0.22))
-
-                    Button {
-                        roamMode = false
-                        moveVector = .zero
-                    } label: {
-                        Text("EXIT ROAM")
-                            .font(.system(size: 8, weight: .bold, design: .monospaced))
-                            .frame(width: 104, height: 32)
-                    }
-                    .buttonStyle(.bordered)
+                if let accuracy = location.horizontalAccuracy {
+                    Text("±\(Int(accuracy.rounded()))M")
+                        .font(.system(size: 7, design: .monospaced))
+                        .foregroundStyle(.secondary)
                 }
             }
-            .disabled(world.busy || location.rapidTravel)
-        } else {
-            HStack(spacing: 9) {
-                action("ROAM", "location.north.line") {
-                    roamMode = true
-                }
+            .padding(.horizontal, 4)
 
+            HStack(spacing: 9) {
                 action("VEIL", "viewfinder") {
                     Task { await openVeil() }
                 }
@@ -311,8 +313,10 @@ struct NativeFieldView: View {
                     Task { await world.act("rift") }
                 }
             }
-            .disabled(world.busy || location.rapidTravel)
         }
+        .padding(10)
+        .background(.black.opacity(0.68), in: RoundedRectangle(cornerRadius: 14))
+        .disabled(world.busy || location.rapidTravel)
     }
 
     @MainActor private func openVeil() async {
@@ -329,6 +333,48 @@ struct NativeFieldView: View {
 
     private var movementTaskID: String {
         "\(roamMode)-\(Int(moveVector.width * 100))-\(Int(moveVector.height * 100))"
+    }
+
+    private var spatialContentID: String {
+        let region = world.state?.region.key ?? "none"
+        let nodes = world.state?.field?.map { "\($0.id):\($0.collected)" }.joined(separator: "|") ?? ""
+        return region + nodes
+    }
+
+    private func synchronizeSpatialField() {
+        guard let coordinate = location.coordinate,
+              let state = world.state else { return }
+        spatial.synchronize(nodes: state.field ?? [], regionKey: state.region.key, around: coordinate)
+    }
+
+    @MainActor
+    private func checkPhysicalProximity() async {
+        guard !location.rapidTravel,
+              !world.busy,
+              selectedNode == nil,
+              let coordinate = location.coordinate,
+              let nearest = spatial.nearest(to: coordinate) else {
+            nearestStatus = location.coordinate == nil ? "ACQUIRING POSITION" : "NO LIVE CONTACTS"
+            return
+        }
+
+        let meters = Int(nearest.1.rounded())
+        nearestStatus = "\(nearest.0.node.label.uppercased()) · \(meters)M"
+
+        if nearest.1 > 30, lastActivatedNode == nearest.0.id {
+            lastActivatedNode = nil
+        }
+
+        let accuracy = location.horizontalAccuracy ?? 100
+        guard accuracy <= 35, nearest.1 <= max(14, accuracy * 0.72), lastActivatedNode != nearest.0.id else { return }
+        lastActivatedNode = nearest.0.id
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+
+        if nearest.0.node.kind == "signal" {
+            await world.act("investigate")
+        } else {
+            selectedNode = nearest.0.node
+        }
     }
 
     @MainActor

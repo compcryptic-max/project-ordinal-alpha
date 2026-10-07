@@ -14,6 +14,10 @@ struct OrdinalARView: UIViewRepresentable {
         var nodesByID: [String: OrdinalAPI.FieldNode] = [:]
         var onSelect: ((OrdinalAPI.FieldNode) -> Void)?
         var onStatus: ((String) -> Void)?
+        var aimedNodeID: String?
+        var aimStartedAt: TimeInterval = 0
+        var lastSelectedNodeID: String?
+        var placedOnDetectedSurface = false
 
         @objc func tapped(_ recognizer: UITapGestureRecognizer) {
             guard let view,
@@ -33,13 +37,67 @@ struct OrdinalARView: UIViewRepresentable {
             }
         }
 
+        func session(_ session: ARSession, didUpdate frame: ARFrame) {
+            guard let view else { return }
+            let center = CGPoint(x: view.bounds.midX, y: view.bounds.midY)
+            let points = [
+                center,
+                CGPoint(x: center.x - 24, y: center.y), CGPoint(x: center.x + 24, y: center.y),
+                CGPoint(x: center.x, y: center.y - 24), CGPoint(x: center.x, y: center.y + 24)
+            ]
+            var nodeID: String?
+            for point in points {
+                var entity = view.entity(at: point)
+                while let candidate = entity {
+                    if candidate.name.hasPrefix("ordinal-node:") {
+                        nodeID = String(candidate.name.dropFirst("ordinal-node:".count))
+                        break
+                    }
+                    entity = candidate.parent
+                }
+                if nodeID != nil { break }
+            }
+
+            guard let nodeID, nodeID != lastSelectedNodeID else {
+                aimedNodeID = nil
+                aimStartedAt = 0
+                return
+            }
+
+            if aimedNodeID != nodeID {
+                aimedNodeID = nodeID
+                aimStartedAt = frame.timestamp
+                onStatus?("Contact acquired. Hold it in the center to lock.")
+                UISelectionFeedbackGenerator().selectionChanged()
+                return
+            }
+
+            guard frame.timestamp - aimStartedAt >= 1.15, let node = nodesByID[nodeID] else { return }
+            lastSelectedNodeID = nodeID
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            onStatus?("Spatial lock confirmed.")
+            onSelect?(node)
+        }
+
+        func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
+            guard !placedOnDetectedSurface,
+                  anchors.contains(where: { $0 is ARPlaneAnchor }),
+                  let view else { return }
+            placedOnDetectedSurface = true
+            for anchor in view.scene.anchors where anchor.name.hasPrefix("ordinal-field-") {
+                view.scene.removeAnchor(anchor)
+            }
+            OrdinalARView.installFieldNodes(Array(nodesByID.values).sorted { $0.id < $1.id }, in: view)
+            onStatus?("Surfaces mapped. Aim at a contact and hold to lock.")
+        }
+
         func session(_ session: ARSession, didFailWithError error: Error) {
             onStatus?("Tracking failed. Close Veil and reopen it: " + error.localizedDescription)
         }
 
         func session(_ session: ARSession, cameraDidChangeTrackingState camera: ARCamera) {
             switch camera.trackingState {
-            case .normal: onStatus?("Tracking ready. Tap a contact to interact.")
+            case .normal: onStatus?("Tracking ready. Aim at a contact and hold it in the center.")
             case .limited: onStatus?("Move slowly in a well-lit area to improve tracking.")
             case .notAvailable: onStatus?("Tracking unavailable. Keep the camera clear.")
             }
@@ -49,6 +107,7 @@ struct OrdinalARView: UIViewRepresentable {
 
         func sessionInterruptionEnded(_ session: ARSession) {
             guard let view else { return }
+            placedOnDetectedSurface = false
             for anchor in view.scene.anchors where anchor.name.hasPrefix("ordinal-field-") { view.scene.removeAnchor(anchor) }
             OrdinalARView.runTracking(on: view, reset: true)
             OrdinalARView.installFieldNodes(Array(nodesByID.values).sorted { $0.id < $1.id }, in: view)
