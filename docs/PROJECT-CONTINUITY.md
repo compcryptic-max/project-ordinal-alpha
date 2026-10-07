@@ -67,3 +67,5 @@ Verification checkpoint: commit 0d3d4bd passes all four Node suites and both nat
 The visual quality pass replaces generic diagrams and silhouettes with eight original monsters and four original Wayfarer class designs across browser and native screens. Live PvP now shows both fighters. The browser camera experience is explicitly labeled Camera Preview, uses a HUD list, removes fake fixed contacts and no longer opens fixed camera-overlay combat. Serial-looking `F-###` presentation is replaced by qualitative range language.
 
 Native ARKit now uses distinct Field forms and creature textures for hostile anchors while retaining world tracking. Physical iPhone tracking, scale, orientation and touch acceptance are still required; compile success does not prove the physical AR experience. See V017-RELEASE.md.
+
+Verification checkpoint: commit d6ef543 passes the GitHub Actions Simulator and unsigned physical-iPhone compile targets in run 37632344174. All four Node suites pass locally. The v0.17 source is on main; the live Render service still requires deployment before the browser receives these changes.

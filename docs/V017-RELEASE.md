@@ -22,6 +22,6 @@ This pass improves systems already in the game and removes presentation that imp
 
 - All four Node test suites pass after the presentation and range-label changes.
 - JavaScript syntax and repository diff checks pass.
-- Native Simulator and unsigned device compilation are checked by the GitHub Actions native compile gate after publication.
+- Native Simulator and unsigned device compilation passed in GitHub Actions run 37632344174.
 
 The generated art was produced specifically for Project Ordinal as transparent, full-body dark-fantasy game assets, then cropped, optimized and installed into the browser and native asset catalogs.
