@@ -3,9 +3,11 @@ import MapKit
 
 struct NativeWorldMapView: UIViewRepresentable {
     let contacts: [SpatialFieldService.Contact]
+    var recenterToken = 0
 
     @MainActor
     final class Coordinator: NSObject, @preconcurrency MKMapViewDelegate {
+        var recenterToken = 0
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
             guard let contact = annotation as? SpatialContactAnnotation else { return nil }
             let identifier = "ordinal-contact"
@@ -37,10 +39,19 @@ struct NativeWorldMapView: UIViewRepresentable {
     }
 
     func updateUIView(_ map: MKMapView, context: Context) {
+        if context.coordinator.recenterToken != recenterToken {
+            context.coordinator.recenterToken = recenterToken
+            map.setUserTrackingMode(.followWithHeading, animated: true)
+        }
         let existing = map.annotations.compactMap { $0 as? SpatialContactAnnotation }
-        let existingIDs = Set(existing.map(\.nodeID))
-        let wantedIDs = Set(contacts.map(\.id))
-        map.removeAnnotations(existing.filter { !wantedIDs.contains($0.nodeID) })
+        let wanted = Dictionary(uniqueKeysWithValues: contacts.map { ($0.id, $0) })
+        let obsolete = existing.filter { annotation in
+            guard let contact = wanted[annotation.nodeID] else { return true }
+            return !annotation.matches(contact)
+        }
+        map.removeAnnotations(obsolete)
+        let obsoleteIDs = Set(obsolete.map(\.nodeID))
+        let existingIDs = Set(existing.filter { !obsoleteIDs.contains($0.nodeID) }.map(\.nodeID))
 
         for contact in contacts where !existingIDs.contains(contact.id) {
             map.addAnnotation(SpatialContactAnnotation(contact: contact))
@@ -62,5 +73,11 @@ private final class SpatialContactAnnotation: NSObject, MKAnnotation {
         coordinate = contact.coordinate
         title = contact.node.label + " · " + contact.landmark
         subtitle = "Use public paths; check access before approaching"
+    }
+
+    func matches(_ contact: SpatialFieldService.Contact) -> Bool {
+        kind == contact.node.kind && title == contact.node.label + " · " + contact.landmark
+            && coordinate.latitude == contact.coordinate.latitude
+            && coordinate.longitude == contact.coordinate.longitude
     }
 }

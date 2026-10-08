@@ -129,6 +129,13 @@ struct NativeBridgeView: View {
                 }
             }
         }
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(8)) } catch { break }
+                if world.requiresResync { await world.refresh() }
+            }
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active && !accountGate {
                 location.startSafetyMonitoring()
@@ -180,7 +187,12 @@ struct NativeBridgeView: View {
     }
 
     private func synchronizeSpatialField() async {
-        guard let state = world.state, let coordinate = location.coordinate,
+        guard let state = world.state else {
+            spatial.updateNodes(nodes: [], regionKey: "")
+            return
+        }
+        spatial.updateNodes(nodes: state.field ?? [], regionKey: state.region.key)
+        guard let coordinate = location.coordinate,
               let accuracy = location.horizontalAccuracy, accuracy <= 35 else { return }
         await spatial.synchronize(nodes: state.field ?? [], regionKey: state.region.key, around: coordinate)
     }

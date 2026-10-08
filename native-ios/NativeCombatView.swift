@@ -4,6 +4,7 @@ import UIKit
 struct NativeCombatView: View {
     @ObservedObject var world: WorldStore
     @EnvironmentObject private var location: CoarseLocationService
+    @Environment(\.scenePhase) private var scenePhase
 
     private var combat: OrdinalAPI.Combat? { world.state?.combat }
     private var isHeavy: Bool { combat?.intent.localizedCaseInsensitiveContains("HEAVY") == true }
@@ -25,12 +26,13 @@ struct NativeCombatView: View {
             .padding()
         }
         .foregroundStyle(.white)
-        .task(id: "\(combat?.turn ?? -1)-\(location.rapidTravel)") {
-            guard !location.rapidTravel, let turn = combat?.turn else { return }
+        .task(id: "\(combat?.turn ?? -1)-\(location.rapidTravel)-\(scenePhase)-\(world.busy)-\(world.requiresResync)") {
+            guard scenePhase == .active, !world.requiresResync, !world.busy,
+                  !location.rapidTravel, let turn = combat?.turn else { return }
             try? await Task.sleep(for: .seconds(reactionSeconds))
             guard !Task.isCancelled,
                   world.state?.combat?.turn == turn,
-                  !location.rapidTravel else { return }
+                  !location.rapidTravel, scenePhase == .active, !world.requiresResync else { return }
             await world.act("combat", type: "idle")
         }
     }
@@ -46,8 +48,12 @@ struct NativeCombatView: View {
                     .foregroundStyle(.secondary)
             }
 
-            ReactionBar(seconds: reactionSeconds, urgent: isHeavy)
-                .id(combat?.turn)
+            if scenePhase == .active && !world.busy && !world.requiresResync && !location.rapidTravel {
+                ReactionBar(seconds: reactionSeconds, urgent: isHeavy)
+                    .id(combat?.turn)
+            } else {
+                Text("REACTION PAUSED").font(.caption2.monospaced()).foregroundStyle(.secondary)
+            }
 
             Text(reactionPrompt)
                 .font(.caption.monospaced().bold())
@@ -155,11 +161,11 @@ struct NativeCombatView: View {
             .frame(height: 54)
         }
         .buttonStyle(.bordered)
-        .disabled(world.busy || location.rapidTravel)
+        .disabled(world.busy || world.requiresResync || location.rapidTravel || scenePhase != .active)
     }
 
     private func combatAction(_ type: String, impact: UIImpactFeedbackGenerator.FeedbackStyle) {
-        guard !world.busy, !location.rapidTravel else { return }
+        guard !world.busy, !world.requiresResync, scenePhase == .active, !location.rapidTravel else { return }
         UIImpactFeedbackGenerator(style: impact).impactOccurred()
         Task { await world.act("combat", type: type) }
     }

@@ -15,7 +15,10 @@ final class CoarseLocationService: NSObject, ObservableObject, @preconcurrency C
     var serverCoordinate: CLLocationCoordinate2D? { coarseCoordinate }
 
     private let manager = CLLocationManager()
-    private var waiter: CheckedContinuation<CLLocationCoordinate2D?, Never>?
+    private var waiters: [CheckedContinuation<CLLocationCoordinate2D?, Never>] = []
+    private var acquisitionTimeout: Task<Void, Never>?
+    private var freshnessTimeout: Task<Void, Never>?
+    private var lastFixAt: Date?
     private var monitoringRequested = false
     private var fastSamples = 0
     private var coarseCoordinate: CLLocationCoordinate2D?
@@ -28,9 +31,15 @@ final class CoarseLocationService: NSObject, ObservableObject, @preconcurrency C
     }
 
     func acquire() async -> CLLocationCoordinate2D? {
-        if let coarseCoordinate { return coarseCoordinate }
+        if let lastFixAt, Date().timeIntervalSince(lastFixAt) <= 15,
+           let coarseCoordinate { return coarseCoordinate }
         return await withCheckedContinuation { continuation in
-            waiter = continuation
+            waiters.append(continuation)
+            guard waiters.count == 1 else { return }
+            acquisitionTimeout = Task { [weak self] in
+                do { try await Task.sleep(for: .seconds(12)) } catch { return }
+                self?.finish(nil)
+            }
             requestPermissionOrLocation()
         }
     }
@@ -38,7 +47,8 @@ final class CoarseLocationService: NSObject, ObservableObject, @preconcurrency C
     func startSafetyMonitoring() {
         monitoringRequested = true
         manager.desiredAccuracy = kCLLocationAccuracyBest
-        manager.distanceFilter = 3
+        // Keep fixes fresh while standing still to aim at a contact.
+        manager.distanceFilter = kCLDistanceFilterNone
         manager.activityType = .fitness
 
         switch manager.authorizationStatus {
@@ -60,6 +70,8 @@ final class CoarseLocationService: NSObject, ObservableObject, @preconcurrency C
         rapidTravel = false
         manager.desiredAccuracy = kCLLocationAccuracyKilometer
         manager.distanceFilter = kCLDistanceFilterNone
+        invalidatePosition()
+        finish(nil)
     }
 
     private func requestPermissionOrLocation() {
@@ -76,18 +88,12 @@ final class CoarseLocationService: NSObject, ObservableObject, @preconcurrency C
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         switch manager.authorizationStatus {
         case .authorizedAlways, .authorizedWhenInUse:
-            if waiter != nil { manager.requestLocation() }
+            if !waiters.isEmpty { manager.requestLocation() }
             if monitoringRequested {
                 manager.startUpdatingLocation()
                 if CLLocationManager.headingAvailable() { manager.startUpdatingHeading() }
             }
         case .denied, .restricted:
-            coordinate = nil
-            coarseCoordinate = nil
-            horizontalAccuracy = nil
-            heading = nil
-            sampleToken &+= 1
-            finish(nil)
             stopSafetyMonitoring()
         default:
             break
@@ -95,10 +101,11 @@ final class CoarseLocationService: NSObject, ObservableObject, @preconcurrency C
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard monitoringRequested || !waiters.isEmpty else { return }
         guard let raw = locations.last,
               abs(raw.timestamp.timeIntervalSinceNow) <= 15,
               raw.horizontalAccuracy >= 0 else {
-            if waiter != nil { finish(nil) }
+            if !waiters.isEmpty { finish(nil) }
             return
         }
 
@@ -114,8 +121,15 @@ final class CoarseLocationService: NSObject, ObservableObject, @preconcurrency C
 
         // Exact location powers Maps locally and is never included in the Ordinal server API.
         coordinate = raw.coordinate
+        lastFixAt = raw.timestamp
         horizontalAccuracy = raw.horizontalAccuracy >= 0 ? raw.horizontalAccuracy : nil
         sampleToken &+= 1
+        freshnessTimeout?.cancel()
+        let remaining = max(0, 15 - Date().timeIntervalSince(raw.timestamp))
+        freshnessTimeout = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(remaining)) } catch { return }
+            self?.invalidatePosition()
+        }
 
         // Quantize anything returned to the world server. It only needs a coarse region.
         let coarse = CLLocationCoordinate2D(
@@ -128,24 +142,38 @@ final class CoarseLocationService: NSObject, ObservableObject, @preconcurrency C
             relocationToken = token
         }
 
-        if waiter != nil {
+        if !waiters.isEmpty {
             finish(coarse)
         }
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
-        guard newHeading.headingAccuracy >= 0 else { return }
+        guard monitoringRequested, newHeading.headingAccuracy >= 0 else { return }
         let value = newHeading.trueHeading >= 0 ? newHeading.trueHeading : newHeading.magneticHeading
         heading = value
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        if waiter != nil { finish(nil) }
+        if !waiters.isEmpty { finish(nil) }
+    }
+
+    private func invalidatePosition() {
+        freshnessTimeout?.cancel()
+        freshnessTimeout = nil
+        coordinate = nil
+        coarseCoordinate = nil
+        lastFixAt = nil
+        horizontalAccuracy = nil
+        heading = nil
+        relocationToken = ""
+        sampleToken &+= 1
     }
 
     private func finish(_ value: CLLocationCoordinate2D?) {
-        let current = waiter
-        waiter = nil
-        current?.resume(returning: value)
+        acquisitionTimeout?.cancel()
+        acquisitionTimeout = nil
+        let current = waiters
+        waiters.removeAll()
+        for waiter in current { waiter.resume(returning: value) }
     }
 }

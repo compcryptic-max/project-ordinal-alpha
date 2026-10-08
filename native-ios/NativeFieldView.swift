@@ -13,11 +13,12 @@ struct NativeFieldView: View {
     @State private var showGuild = false
     @State private var nearestStatus = "ACQUIRING POSITION"
     @State private var lastActivatedNode: String?
+    @State private var recenterToken = 0
 
     var body: some View {
         GeometryReader { _ in
             ZStack {
-                NativeWorldMapView(contacts: spatial.contacts)
+                NativeWorldMapView(contacts: spatial.contacts, recenterToken: recenterToken)
                     .ignoresSafeArea()
                     .saturation(0.45)
                     .brightness(-0.18)
@@ -157,8 +158,13 @@ struct NativeFieldView: View {
     private var actionBar: some View {
         VStack(spacing: 8) {
             HStack {
-                Image(systemName: "location.fill")
-                    .foregroundStyle(.cyan)
+                Button {
+                    recenterToken &+= 1
+                } label: {
+                    Image(systemName: "location.fill").foregroundStyle(.cyan)
+                        .frame(width: 44, height: 44)
+                }
+                .accessibilityLabel("Recenter map on my location")
                 Text(nearestStatus)
                     .font(.system(size: 8, weight: .bold, design: .monospaced))
                 Spacer()
@@ -209,8 +215,9 @@ struct NativeFieldView: View {
     }
 
     private func synchronizeSpatialField() async {
+        guard let state = world.state else { return }
+        spatial.updateNodes(nodes: state.field ?? [], regionKey: state.region.key)
         guard let coordinate = location.coordinate,
-              let state = world.state,
               let accuracy = location.horizontalAccuracy, accuracy <= 35 else { return }
         await spatial.synchronize(nodes: state.field ?? [], regionKey: state.region.key, around: coordinate)
     }

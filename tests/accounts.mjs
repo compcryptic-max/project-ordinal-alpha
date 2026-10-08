@@ -19,7 +19,7 @@ const child=spawn(process.execPath,['server.mjs'],{env:{...process.env,PORT:'879
 const base='http://127.0.0.1:8794';
 try{
  for(let i=0;i<60;i++){try{await fetch(base+'/health');break}catch{await new Promise(r=>setTimeout(r,50))}}
- for(const [path,type] of [['/assets/monsters/pale-hound.webp','image/webp'],['/assets/characters/rogue.webp','image/webp'],['/ordinal-icon.png','image/png']]){
+ for(const [path,type] of [['/assets/monsters/pale-hound.webp','image/webp'],['/assets/characters/rogue.webp','image/webp'],['/ordinal-icon.png','image/png'],['/client-network.js','text/javascript; charset=utf-8']]){
   const response=await fetch(base+path);assert.equal(response.status,200);assert.equal(response.headers.get('content-type'),type);assert.ok((await response.arrayBuffer()).byteLength>1000);
  }
  const post=async(path,data)=>{const r=await fetch(base+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(data)});return {status:r.status,data:await r.json()}};

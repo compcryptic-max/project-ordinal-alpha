@@ -3,10 +3,13 @@ import Combine
 
 @MainActor
 final class WorldStore: ObservableObject {
-    @Published var state: OrdinalAPI.PlayerState?
+    @Published var state: OrdinalAPI.PlayerState? {
+        didSet { stateRevision &+= 1 }
+    }
     @Published var status = "WORLD LINK // READY"
     @Published var busy = false
     @Published var lastError: String?
+    @Published private(set) var requiresResync = false
     @Published var presence: [OrdinalAPI.Presence] = []
     @Published var leaders: [OrdinalAPI.Leader] = []
     @Published var worldRank: Int?
@@ -18,6 +21,8 @@ final class WorldStore: ObservableObject {
     private var accountPlayerKey: String?
     private var lastLat: Double?
     private var lastLon: Double?
+    private var stateRevision = 0
+    private var refreshing = false
 
     var hasSavedIdentity: Bool { playerKey != nil }
 
@@ -53,10 +58,15 @@ final class WorldStore: ObservableObject {
             )
             adopt(session)
         } catch {
-            status = "WORLD LINK // RECOVERY REQUIRED"
-            lastError = "This saved device identity could not be restored. Use your recovery code or create a Wayfarer."
-            self.playerKey = nil
-            UserDefaults.standard.removeObject(forKey: "ordinal.playerKey")
+            if OrdinalAPI.isMissingIdentity(error) {
+                status = "WORLD LINK // RECOVERY REQUIRED"
+                lastError = "No saved Wayfarer was found. Use your recovery code or create a Wayfarer."
+                self.playerKey = nil
+                UserDefaults.standard.removeObject(forKey: "ordinal.playerKey")
+            } else {
+                status = "WORLD LINK // RECONNECTING"
+                lastError = "Could not connect. Your saved identity is still on this device. Try reconnecting."
+            }
         }
     }
 
@@ -106,6 +116,7 @@ final class WorldStore: ObservableObject {
     }
 
     func useAccount(_ account: OrdinalAPI.TestAccount, restore: Bool) async {
+        stateRevision &+= 1
         accountPlayerKey = account.playerKey
         playerKey = nil
         sessionID = nil
@@ -118,7 +129,13 @@ final class WorldStore: ObservableObject {
                 persistIdentity(session.playerKey)
                 adopt(session)
             } catch {
-                status = "CHOOSE YOUR WAYFARER"
+                if OrdinalAPI.isMissingIdentity(error) {
+                    status = "CHOOSE YOUR WAYFARER"
+                } else {
+                    persistIdentity(account.playerKey)
+                    status = "WORLD LINK // RECONNECTING"
+                    lastError = "Your account signed in, but its Wayfarer could not load. Try reconnecting."
+                }
             }
         }
     }
@@ -145,6 +162,7 @@ final class WorldStore: ObservableObject {
         guard currentCell != cell else { return }
 
         busy = true
+        stateRevision &+= 1
         defer { busy = false }
         do {
             state = try await OrdinalAPI.shared.action(
@@ -160,20 +178,32 @@ final class WorldStore: ObservableObject {
     }
 
     func refresh() async {
-        guard let sessionID, !busy else { return }
+        guard let sessionID, !busy, !refreshing else { return }
+        let revision = stateRevision
+        refreshing = true
+        defer { refreshing = false }
         do {
-            state = try await OrdinalAPI.shared.state(sessionID: sessionID)
+            let next = try await OrdinalAPI.shared.state(sessionID: sessionID)
+            guard self.sessionID == sessionID, stateRevision == revision, !busy else { return }
+            state = next
+            requiresResync = false
             status = "WORLD LINK // ONLINE"
             await syncSocial()
         } catch {
+            guard self.sessionID == sessionID, stateRevision == revision, !busy else { return }
             status = "WORLD LINK // RECONNECTING"
-            await connect(lat: lastLat, lon: lastLon)
+            if OrdinalAPI.isMissingIdentity(error) { await connect(lat: lastLat, lon: lastLon) }
         }
     }
 
     func act(_ name: String, type: String? = nil, id: String? = nil, choice: String? = nil) async {
         guard let sessionID, !busy else { return }
+        guard !requiresResync else {
+            lastError = "Reconnecting to confirm your last action before continuing."
+            return
+        }
         busy = true
+        stateRevision &+= 1
         defer { busy = false }
         do {
             state = try await OrdinalAPI.shared.action(
@@ -184,6 +214,7 @@ final class WorldStore: ObservableObject {
             lastError = nil
             await syncSocial()
         } catch {
+            requiresResync = true
             lastError = error.localizedDescription
         }
     }
@@ -194,8 +225,10 @@ final class WorldStore: ObservableObject {
     }
 
     private func adopt(_ session: OrdinalAPI.SessionEnvelope) {
+        stateRevision &+= 1
         sessionID = session.sessionId
         state = session.state
+        requiresResync = false
         status = "WORLD LINK // ONLINE"
         lastError = nil
         Task { await syncSocial() }
@@ -207,6 +240,7 @@ final class WorldStore: ObservableObject {
         async let board = OrdinalAPI.shared.leaderboard(sessionID: sessionID)
         do {
             let (players, ranking) = try await (nearby, board)
+            guard self.sessionID == sessionID else { return }
             presence = players
             leaders = ranking.leaders
             worldRank = ranking.rank

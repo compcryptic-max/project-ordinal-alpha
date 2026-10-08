@@ -1,5 +1,11 @@
 # Project Ordinal continuity
 
+## v0.19.1 local reliability checkpoint — 2026-10-08
+
+While the owner prepares Windows/iPhone installation, development continues independently. Saved-identity recovery, bounded network/GPS requests, stale location/contact cleanup, map recentering, delayed-response protection for world/Hall/PvP, cache safety and reduced-motion/background graphics behavior are improved. Six Node suites pass, including the new client-resilience regressions; 22 Swift files pass syntax parsing. See `docs/V0191-RESILIENCE.md`.
+
+This batch is local only. Native Apple-SDK compilation and physical acceptance are still pending. The earlier IPA from run 37807283203 remains unchanged. The owner's latest Autopilot instruction requires explicit authority before public publication; ask for approval before pushing this new batch or deploying it, without requiring phone setup first.
+
 ## Spatial repair and Windows install — 2026-10-08
 
 Spatial repairs are published in commit e8fc2f9a8d61ea512476c8d3e0c4f9c3c38c2237. Commit 7b349400fb34ef7afbcc0b4f69b8a7ce7f921174 adds an unsigned arm64 iPhone IPA artifact and a Windows/free-account installation guide. The owner has Windows and a free Apple account; use AltStore Classic for personal testing before considering paid TestFlight distribution. No credentials are stored in the project.

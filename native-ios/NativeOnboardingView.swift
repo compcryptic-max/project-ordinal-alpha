@@ -48,6 +48,16 @@ struct NativeOnboardingView: View {
                     }
                     .pickerStyle(.segmented)
 
+                    if world.hasSavedIdentity {
+                        Button("RECONNECT SAVED WAYFARER") {
+                            Task { await world.connect() }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(world.busy)
+                        Text("A connection failure does not erase your saved identity.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+
                     if mode == .create {
                         createForm
                     } else {

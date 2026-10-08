@@ -49,12 +49,12 @@ struct NativeARCombatView: View {
             .padding(14)
         }
         .foregroundStyle(.white)
-        .task(id: "\(combat?.turn ?? -1)-\(location.rapidTravel)-\(scenePhase)-\(trackingReady)-\(world.busy)") {
-            guard scenePhase == .active, trackingReady, !location.rapidTravel, !world.busy, let turn = combat?.turn else { return }
+        .task(id: "\(combat?.turn ?? -1)-\(location.rapidTravel)-\(scenePhase)-\(trackingReady)-\(world.busy)-\(world.requiresResync)") {
+            guard scenePhase == .active, trackingReady, !world.requiresResync, !location.rapidTravel, !world.busy, let turn = combat?.turn else { return }
             try? await Task.sleep(for: .seconds(reactionSeconds))
             guard !Task.isCancelled,
                   world.state?.combat?.turn == turn,
-                  !location.rapidTravel, scenePhase == .active, trackingReady else { return }
+                  !location.rapidTravel, scenePhase == .active, trackingReady, !world.requiresResync else { return }
             await world.act("combat", type: "idle")
         }
     }
@@ -76,7 +76,7 @@ struct NativeARCombatView: View {
                     .font(.caption2.monospaced().bold())
             }
 
-            if trackingReady && scenePhase == .active && !world.busy && !location.rapidTravel {
+            if trackingReady && scenePhase == .active && !world.busy && !world.requiresResync && !location.rapidTravel {
                 ARReactionBar(seconds: reactionSeconds, urgent: isHeavy)
                     .id(combat?.turn)
             } else {
@@ -178,11 +178,11 @@ struct NativeARCombatView: View {
         }
         .buttonStyle(.borderedProminent)
         .tint(.black.opacity(0.56))
-        .disabled(world.busy || location.rapidTravel || !trackingReady || scenePhase != .active)
+        .disabled(world.busy || world.requiresResync || location.rapidTravel || !trackingReady || scenePhase != .active)
     }
 
     private func combatAction(_ type: String, style: UIImpactFeedbackGenerator.FeedbackStyle) {
-        guard !world.busy, !location.rapidTravel, scenePhase == .active, trackingReady else { return }
+        guard !world.busy, !world.requiresResync, !location.rapidTravel, scenePhase == .active, trackingReady else { return }
         UIImpactFeedbackGenerator(style: style).impactOccurred()
         Task { await world.act("combat", type: type) }
     }

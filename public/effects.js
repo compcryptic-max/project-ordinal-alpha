@@ -2,6 +2,8 @@
 // Canvas is decorative only: gameplay remains server-authoritative.
 const DPR=()=>Math.min(2,window.devicePixelRatio||1);
 let worldRAF=0,fieldRAF=0,combatRAF=0,worldSeed=1337;
+const motionPreference=matchMedia('(prefers-reduced-motion: reduce)');
+function stopEffects(){cancelAnimationFrame(worldRAF);cancelAnimationFrame(fieldRAF);cancelAnimationFrame(combatRAF);worldRAF=fieldRAF=combatRAF=0;bursts=[]}
 const hash=s=>{let h=2166136261;for(const c of s){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0};
 const rng=seed=>()=>((seed=Math.imul(seed^seed>>>15,1|seed),seed^=seed+Math.imul(seed^seed>>>7,61|seed),((seed^seed>>>14)>>>0)/4294967296));
 function canvasFor(host,cls){
@@ -33,8 +35,10 @@ function drawWorld(){
  const region=document.querySelector(".region")?.textContent||"Ordinal";
  worldSeed=hash(region);
  const P=palette(),particles=Array.from({length:42},(_,i)=>({x:(hash(region+i)%1000)/1000,y:(hash(i+region)%997)/997,s:1+(i%3),v:.08+(i%5)*.025,p:i*.77}));
+ let lastFrame=-Infinity;
  const loop=t=>{
-  if(!host.isConnected)return;
+  if(!host.isConnected||document.hidden)return;
+  if(t-lastFrame<1000/30){worldRAF=requestAnimationFrame(loop);return}lastFrame=t;
   const {ctx,w,h,d}=canvasFor(host,"world-canvas");ctx.clearRect(0,0,w,h);
   const grad=ctx.createLinearGradient(0,0,0,h);grad.addColorStop(0,P.sky);grad.addColorStop(.72,"rgba(0,0,0,0)");ctx.fillStyle=grad;ctx.fillRect(0,0,w,h);
   ridge(ctx,w,h,h*.56,h*.23,12,P.far,worldSeed+7);ridge(ctx,w,h,h*.68,h*.16,18,P.near,worldSeed+19);
@@ -50,33 +54,37 @@ function drawWorld(){
   }
   // moving veil scan around the active signal
   const sig=host.querySelector(".worldnode.signal");if(sig){const sr=sig.getBoundingClientRect(),hr=host.getBoundingClientRect(),x=(sr.left-hr.left+sr.width/2)*d,y=(sr.top-hr.top+sr.height/2)*d,r=(34+((t*.035)%36))*d;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.strokeStyle=P.accent+"35";ctx.lineWidth=d;ctx.stroke()}
-  worldRAF=requestAnimationFrame(loop);
+  if(!motionPreference.matches)worldRAF=requestAnimationFrame(loop);
  };worldRAF=requestAnimationFrame(loop);
 }
 function drawFieldStage(){
  cancelAnimationFrame(fieldRAF);const host=document.querySelector(".world-stage");if(!host)return;
  const P=palette(),seed=hash(document.querySelector(".world-identity b")?.textContent||"Ordinal"),r=rng(seed),pts=Array.from({length:55},(_,i)=>({x:r(),y:r(),s:.5+r()*1.8,p:r()*6.28,v:.3+r()}));
- const loop=t=>{if(!host.isConnected)return;const {ctx,w,h,d}=canvasFor(host,"field-canvas");ctx.clearRect(0,0,w,h);
+ let lastFrame=-Infinity;
+ const loop=t=>{if(!host.isConnected||document.hidden)return;if(t-lastFrame<1000/30){fieldRAF=requestAnimationFrame(loop);return}lastFrame=t;const {ctx,w,h,d}=canvasFor(host,"field-canvas");ctx.clearRect(0,0,w,h);
   for(let i=0;i<pts.length;i++){const q=pts[i],x=(q.x*w+Math.sin(t*.0003*q.v+q.p)*18*d),y=(q.y*h+t*.015*q.v)%(h*1.08);ctx.beginPath();ctx.arc(x,y,q.s*d,0,Math.PI*2);ctx.fillStyle=P.accent+(i%7===0?"65":"28");ctx.fill()}
   const sweep=(t*.06)%(w*1.5)-w*.25;ctx.save();ctx.globalAlpha=.08;const g=ctx.createLinearGradient(sweep-70*d,0,sweep+70*d,0);g.addColorStop(0,"transparent");g.addColorStop(.5,P.accent);g.addColorStop(1,"transparent");ctx.fillStyle=g;ctx.fillRect(0,h*.42,w,h*.58);ctx.restore();
-  fieldRAF=requestAnimationFrame(loop);
+  if(!motionPreference.matches)fieldRAF=requestAnimationFrame(loop);
  };fieldRAF=requestAnimationFrame(loop);
 }
 let bursts=[];
 function burst(kind,x,y){
+ if(document.hidden||motionPreference.matches)return;
  const n=kind==="skill"?34:kind==="attack"?20:kind==="guard"?16:12;
  for(let i=0;i<n;i++){const a=Math.PI*2*i/n+(Math.random()-.5)*.4,sp=1.5+Math.random()*4;bursts.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,size:1+Math.random()*3,kind})}
 }
 function drawCombat(){
  cancelAnimationFrame(combatRAF);const host=document.querySelector(".encounter");if(!host)return;
- const loop=()=>{
-  if(!host.isConnected)return;
+ let lastFrame=-Infinity;
+ const loop=t=>{
+  if(!host.isConnected||document.hidden)return;
+  if(t-lastFrame<1000/30){combatRAF=requestAnimationFrame(loop);return}lastFrame=t;
   const {ctx,w,h,d}=canvasFor(host,"combat-fx");ctx.clearRect(0,0,w,h);
   // subtle floor haze
   const g=ctx.createRadialGradient(w*.5,h*.72,0,w*.5,h*.72,w*.42);g.addColorStop(0,"rgba(126,190,177,.10)");g.addColorStop(1,"rgba(0,0,0,0)");ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
   bursts=bursts.filter(p=>p.life>0);
-  for(const p of bursts){p.x+=p.vx*d;p.y+=p.vy*d;p.vy+=.035;p.life-=.025;ctx.globalAlpha=Math.max(0,p.life);ctx.beginPath();ctx.arc(p.x,p.y,p.size*d,0,Math.PI*2);ctx.fillStyle=p.kind==="skill"?"#9ff8ef":p.kind==="guard"?"#d6e5ef":p.kind==="potion"?"#dc83a2":"#f1d7aa";ctx.fill()}
-  ctx.globalAlpha=1;combatRAF=requestAnimationFrame(loop);
+  for(const p of bursts){p.x+=p.vx*d*2;p.y+=p.vy*d*2;p.vy+=.07;p.life-=.05;ctx.globalAlpha=Math.max(0,p.life);ctx.beginPath();ctx.arc(p.x,p.y,p.size*d,0,Math.PI*2);ctx.fillStyle=p.kind==="skill"?"#9ff8ef":p.kind==="guard"?"#d6e5ef":p.kind==="potion"?"#dc83a2":"#f1d7aa";ctx.fill()}
+  ctx.globalAlpha=1;if(!motionPreference.matches)combatRAF=requestAnimationFrame(loop);
  };combatRAF=requestAnimationFrame(loop);
 }
 function applyLayout(){
@@ -92,9 +100,11 @@ function applyTime(){
  g.classList.add("time-"+mode);
  const moon=g.querySelector(".moon");if(moon)moon.setAttribute("data-time",mode.toUpperCase());
 }
-function refresh(){applyTime();applyLayout();if(document.querySelector(".viewport"))drawWorld();else cancelAnimationFrame(worldRAF);if(document.querySelector(".world-stage"))drawFieldStage();else cancelAnimationFrame(fieldRAF);if(document.querySelector(".encounter"))drawCombat();else cancelAnimationFrame(combatRAF)}
+function refresh(){if(document.hidden){stopEffects();return}applyTime();applyLayout();if(document.querySelector(".viewport"))drawWorld();else cancelAnimationFrame(worldRAF);if(document.querySelector(".world-stage"))drawFieldStage();else cancelAnimationFrame(fieldRAF);if(document.querySelector(".encounter"))drawCombat();else cancelAnimationFrame(combatRAF)}
 let scheduled=false;new MutationObserver(()=>{if(scheduled)return;scheduled=true;requestAnimationFrame(()=>{scheduled=false;refresh()})}).observe(document.getElementById("app"),{childList:true,subtree:true});
 addEventListener("resize",refresh,{passive:true});
+document.addEventListener("visibilitychange",refresh);
+motionPreference.addEventListener("change",()=>{stopEffects();refresh()});
 document.addEventListener("pointerdown",e=>{
  const b=e.target.closest(".skill");if(!b)return;const host=document.querySelector(".encounter");if(!host)return;
  const r=host.getBoundingClientRect(),enemy=host.querySelector(".enemy-art")?.getBoundingClientRect(),kind=b.dataset.type||"attack";
