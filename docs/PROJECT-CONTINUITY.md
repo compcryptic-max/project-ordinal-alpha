@@ -1,12 +1,14 @@
 # Project Ordinal continuity
 
-## Spatial repair prepared — 2026-10-07
+## Spatial repair and Windows install — 2026-10-08
 
-v0.19 simulator and unsigned device compilation succeeded (run 37639097363). Subsequent local repairs replace random map coordinates with Apple Maps park results, share Field/Veil proximity, add explicit Local Veil, remove floating fallback anchors and screen-fixed combat art, collect through aim-and-hold, and repair location lifecycle. These changes are locally committed only until publishing is authorized under the owner’s latest Autopilot instruction. See `docs/SPATIAL-REPAIR-REVIEW.md` for validation and remaining limitations.
+Spatial repairs are published in commit e8fc2f9a8d61ea512476c8d3e0c4f9c3c38c2237. Commit 7b349400fb34ef7afbcc0b4f69b8a7ce7f921174 adds an unsigned arm64 iPhone IPA artifact and a Windows/free-account installation guide. The owner has Windows and a free Apple account; use AltStore Classic for personal testing before considering paid TestFlight distribution. No credentials are stored in the project.
+
+The fresh native compile/package run must be checked on GitHub Actions before claiming a usable build. Local packaging fixtures verify ZIP structure, assets, symlinks, checksum and simulator rejection; they do not prove installation. The browser remains v0.18.0 and does not gain native AR from source publication. Physical iPhone installation, tracking and motion acceptance remain required. See `native-ios/FREE-WINDOWS-INSTALL.md` and `docs/SPATIAL-REPAIR-REVIEW.md`.
 
 ## v0.19 Spatial Field — 2026-10-07
 
-Native Field follows real GPS position and compass heading on Apple Maps; simulated joystick travel is no longer the primary movement path. Exact location remains on-device and only rounded coarse coordinates reach the server for region selection. Walking proximity automatically opens Field contacts. ARKit re-anchors contacts to detected surfaces and supports aim-and-hold selection. AR combat accepts phone thrust, sideways movement and raise gestures for strike, dodge and guard. See `docs/V019-SPATIAL-FIELD.md`.
+Native Field follows real GPS position and compass heading on Apple Maps; simulated joystick travel is no longer the primary movement path. Only rounded coarse coordinates reach the Ordinal server for region selection; Apple Maps receives location for map and park lookup. Walking proximity automatically opens Field contacts. ARKit re-anchors contacts to detected surfaces and supports aim-and-hold selection. AR combat accepts phone thrust, sideways movement and raise gestures for strike, dodge and guard. See `docs/V019-SPATIAL-FIELD.md`.
 
 ## v0.18 First Journey — 2026-10-07
 

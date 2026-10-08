@@ -4,7 +4,7 @@
 
 GitHub run 37639097363 compiled commit 0c88d9337b6a67a7bd44594ab85094b001906067 successfully for simulator and unsigned iPhone on October 7. That proves compilation of the previous v0.19 source, not physical AR quality.
 
-## Prepared changes (not published)
+## Published changes (commit e8fc2f9, October 8)
 
 - Replace random coordinates with nearby Apple Maps park results within 1.5 km; stable per-session contact assignments share one store between Field and Veil.
 - Landmark Veil checks the same proximity range as Field. Physical arrival gives a haptic cue; discovery uses aiming and holding on the detected surface.
@@ -20,7 +20,7 @@ GitHub run 37639097363 compiled commit 0c88d9337b6a67a7bd44594ab85094b001906067 
 
 ## Validation
 
-All five Node suites pass. All native Swift files parse without syntax errors using tree-sitter-swift. Xcode type checking of this repair is still required; there is no local Apple SDK in this environment.
+All five Node suites pass. All native Swift files parse without syntax errors using tree-sitter-swift. Fresh Xcode type checking and IPA packaging are running in the latest GitHub Actions Native iOS Compile Gate run. There is no local Apple SDK in this environment. Do not claim success until that run completes.
 
 ## Remaining limits
 

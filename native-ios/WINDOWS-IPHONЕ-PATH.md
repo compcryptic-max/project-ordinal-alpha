@@ -1,37 +1,19 @@
-# Project Ordinal — Windows + iPhone Development Path
+# Project Ordinal — Windows and iPhone testing
 
-The project does not require the developer to own a Mac during the current build phase.
+You can develop and personally test this project using Windows and a free Apple account. A paid Apple Developer Program membership is needed for the TestFlight distribution route, not for the personal signing route described below.
 
-## Current workflow
-Windows 10 -> GitHub repository -> GitHub Actions macOS runner -> XcodeGen -> Xcode compile gate.
+## Free personal testing
 
-The iPhone remains the physical AR/TestFlight target. The production Node/Postgres server remains authoritative.
+GitHub Actions compiles the simulator and arm64 iPhone app on a macOS runner. It packages the unsigned device app as `ProjectOrdinal.ipa` in the `ProjectOrdinal-iPhone-unsigned` artifact. On Windows, AltServer/AltStore Classic signs that IPA using your own account and installs it on your connected iPhone.
 
-## Phase A — no paid Apple membership
-- Author Swift/SwiftUI/RealityKit/ARKit source in GitHub.
-- Generate the Xcode project from project.yml on a hosted macOS runner.
-- Compile against the iOS Simulator SDK with code signing disabled.
-- Keep the currently deployed browser build available for real-device gameplay and camera UX testing.
-- Do not spend money yet.
+Follow [the installation guide](FREE-WINDOWS-INSTALL.md). Free-account sideloaded apps expire after seven days and need refreshing. Keep account credentials in the signing software on your own computer; never send them to this project or chat.
 
-## Phase B — physical iPhone / TestFlight
-Requires Apple Developer Program distribution credentials.
-- Enroll using the Apple Developer app on the iPhone if desired.
-- Create the App ID / App Store Connect record.
-- Store signing material and App Store Connect API credentials only as encrypted CI secrets; never commit them.
-- Build an archive on a hosted macOS runner.
-- Sign/export the IPA.
-- Upload to App Store Connect.
-- Install through TestFlight on the iPhone 15.
+The browser build remains available, but camera preview is not native spatial AR. Native AR requires installing the native app.
 
-## Security rules
-Never commit:
-- Apple ID password
-- app-specific password
-- signing certificate private key
-- .p12 password
-- App Store Connect private key
-- recovery codes
+## Optional TestFlight distribution
 
-## Physical AR validation
-A cloud Mac can compile ARKit code but cannot validate the real camera/world-tracking experience. TestFlight on the physical iPhone is the device validation loop once distribution signing is configured.
+After choosing paid distribution, configure the App ID and App Store Connect record, store signing/API material only in encrypted CI secrets, archive/sign/export on the hosted macOS runner, and upload to TestFlight. No enrollment, purchase or distribution has been performed as part of the free testing route.
+
+## Physical acceptance
+
+Cloud compilation cannot verify camera tracking, real surface anchoring or phone gestures. After installing on the iPhone, use the physical checklist in `../docs/SPATIAL-REPAIR-REVIEW.md`. Report installation errors without credentials, and tracking or gesture behavior observed on the phone.

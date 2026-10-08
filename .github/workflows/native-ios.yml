@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "native-ios/**"
+      - "!native-ios/**/*.md"
       - "project.yml"
       - "scripts/package-ios.py"
       - ".github/workflows/native-ios.yml"
