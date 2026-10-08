@@ -5,15 +5,15 @@ Owner requested this complete scope on October 8, 2026. This ledger describes im
 | Requirement | Existing foundation | Work still required |
 |---|---|---|
 | Real biome spawns | Coarse regions, native map/park lookup | Verified desert, vegetation, water and coastal classifications; server-owned elemental encounters/materials |
-| Local weather/time | Local Open-Meteo regional model integration, cache, geographic timezone, stale/unavailable handling, Arcanist rain conduction; live provider sample returns HTTP 200 | Native compile/deployment, authored local-time night bosses and elemental spell roster |
+| Local weather/time | Local Open-Meteo regional model integration, cache, geographic timezone, stale/unavailable handling, Arcanist rain conduction; live provider sample returns HTTP 200 | Physical acceptance, authored local-time night bosses and elemental spell roster |
 | Structural POI hubs | Nearby park contacts | Curated public-access locations, durable hub IDs, dungeon/market/city roles, shared placements |
 | Spatial occlusion | ARKit detected surfaces | Capability-gated depth/segmentation, scene occlusion and animated 3D creatures; physical tests |
 | Action combat | Native aim/hold and phone-motion combat | Spell gestures, aimed ranged attacks, measured physical response; accessible alternatives |
 | Nearby shared raids | Shared regional state; private turn-based PvP | Verified presence, shared spatial coordinates/anchors, authoritative raid encounter, roles and reconnect protection |
 | Regional economy | Escrow market and funded contracts | Biome-specific resources and crafting; scarcity and economy balancing |
-| Passive progression | Local companion implementation: level-2 Mossling, two-hour server-timed expedition, collect tonic + 12 gold | Native compile, release/deployment, wider pet roster/resource economy and balancing |
+| Passive progression | Local companion implementation: level-2 Mossling, two-hour server-timed expedition, collect tonic + 12 gold | Physical acceptance, wider pet roster/resource economy and balancing |
 | Territorial warfare | Guilds, alliances, roles and Hall upgrades | Real geographic territory definitions, contest rules and visit rewards |
-| Transit protection | Native GPS rapid-travel combat pause; local threshold now 15 mph | Compile/physical verification, browser equivalent, complete asynchronous transit experience and server coordination |
+| Transit protection | Native GPS rapid-travel combat pause; local threshold now 15 mph | Physical verification, browser equivalent, complete asynchronous transit experience and server coordination |
 | Safe spawning | Park lookup and range checks | Public-access restrictions, hazard/road exclusions, curated safe boundaries and reporting; no absolute safety guarantee |
 | Low-power play | 30fps effects, hidden-app pause, Reduce Motion | User-selectable saver, native background exploration/notification permissions, event vibrations and measured battery/data usage |
 

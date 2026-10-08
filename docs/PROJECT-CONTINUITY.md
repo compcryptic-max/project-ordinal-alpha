@@ -1,5 +1,9 @@
 # Project Ordinal continuity
 
+## v0.20.0 verified tester release — 2026-10-08
+
+Owner authorized all tester-preparation work and deployment. Browser/server is live at v0.20.0 with PostgreSQL connected, diagnostics module served, and no deployment-window errors (Render dep-db3uggnf3r2c73dl0mpg, server source 0033c76). Final native source 21fa631 passes Simulator/device compile, packaging and artifact upload in run 37829074303. Download artifact 11572419410, ProjectOrdinal-iPhone-unsigned; it includes IPA/checksum, Windows guide, tester checklist and source revision. Eleven Node suites pass. Version/build are 0.20.0/20. First-journey Field guidance, privacy-safe manual bug reports and explicit denied-location/home-play messaging are included. Physical Windows/AltStore installation, permissions, AR tracking/gestures and battery acceptance are NOT verified and require the tester. See V020-TESTER-RELEASE.md and TESTER-HANDOFF.md; earlier local/pending checkpoints below are historical.
+
 ## All playability recommendations approved — 2026-10-08
 
 Owner approved all seven proposals; track PLAYABILITY-ROADMAP.md. Local objective guide prioritizes unresolved encounters and derives the opening path from persisted Keeper/kill/relic/equipment/archive progress. Local Sanctuary weapon reinforcement adds +2 power for 25/50/75 gold, capped at three upgrades, with item history and server validation. Browser and native Journey/Sanctuary controls are integrated. Ten Node suites pass; new native compilation and publication/deployment remain pending. Friend lists/parties/shared quests, rematches, richer combat feedback and battery controls are still unfinished. Do not claim all seven finished.
