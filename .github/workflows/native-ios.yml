@@ -65,6 +65,8 @@ jobs:
           python3 scripts/package-ios.py \
             --app 'build-device/Build/Products/Debug-iphoneos/Project Ordinal.app' \
             --output 'dist/ProjectOrdinal.ipa'
+          cp docs/TESTER-HANDOFF.md dist/TESTER-HANDOFF.md
+          cp native-ios/FREE-WINDOWS-INSTALL.md dist/FREE-WINDOWS-INSTALL.md
 
       - name: Upload iPhone testing package
         uses: actions/upload-artifact@v4
@@ -73,6 +75,8 @@ jobs:
           path: |
             dist/ProjectOrdinal.ipa
             dist/ProjectOrdinal.ipa.sha256
+            dist/TESTER-HANDOFF.md
+            dist/FREE-WINDOWS-INSTALL.md
           if-no-files-found: error
 
       - name: Preserve build log
