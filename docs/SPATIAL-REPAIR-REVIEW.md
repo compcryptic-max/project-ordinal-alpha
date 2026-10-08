@@ -20,7 +20,10 @@ GitHub run 37639097363 compiled commit 0c88d9337b6a67a7bd44594ab85094b001906067 
 
 ## Validation
 
-All five Node suites pass. All native Swift files parse without syntax errors using tree-sitter-swift. Fresh Xcode type checking and IPA packaging are running in the latest GitHub Actions Native iOS Compile Gate run. There is no local Apple SDK in this environment. Do not claim success until that run completes.
+All five Node suites pass. All native Swift files parse without syntax errors using tree-sitter-swift. GitHub Actions run 37807283203 passed simulator compilation, unsigned arm64 iPhone compilation, IPA packaging and artifact upload for commit abc400f84c57c98ca83ee1928d17127d0c97a7e8 on October 8. The earlier lipo argument-order failure is fixed. The packager checks the iPhoneOS platform, arm64 executable, ZIP integrity and required bundle files and writes a SHA-256 checksum. Local fixtures cover structure, symlinks, checksum, simulator rejection and corrected command ordering.
+
+Download: https://github.com/compcryptic-max/project-ordinal-alpha/actions/runs/37807283203/artifacts/11562884664 . Artifact name: `ProjectOrdinal-iPhone-unsigned`; IPA size: 6,874,352 bytes. The ZIP expires January 6, 2027 and can be rebuilt. Downloading the connector's temporary file URL for additional local inspection returned HTTP 403; no claim of an independent local artifact inspection is made. AltStore installation and physical camera/motion behavior remain unverified.
+
 
 ## Remaining limits
 

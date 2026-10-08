@@ -4,7 +4,7 @@
 
 Spatial repairs are published in commit e8fc2f9a8d61ea512476c8d3e0c4f9c3c38c2237. Commit 7b349400fb34ef7afbcc0b4f69b8a7ce7f921174 adds an unsigned arm64 iPhone IPA artifact and a Windows/free-account installation guide. The owner has Windows and a free Apple account; use AltStore Classic for personal testing before considering paid TestFlight distribution. No credentials are stored in the project.
 
-The fresh native compile/package run must be checked on GitHub Actions before claiming a usable build. Local packaging fixtures verify ZIP structure, assets, symlinks, checksum and simulator rejection; they do not prove installation. The browser remains v0.18.0 and does not gain native AR from source publication. Physical iPhone installation, tracking and motion acceptance remain required. See `native-ios/FREE-WINDOWS-INSTALL.md` and `docs/SPATIAL-REPAIR-REVIEW.md`.
+Run 37807283203 passed both native compile targets and IPA packaging for commit abc400f on October 8. Download artifact 11562884664 (`ProjectOrdinal-iPhone-unsigned`) from that run; the IPA is unsigned and needs personal signing through AltStore. The workflow uses the standard Intel macOS 26 runner after GitHub reported ARM capacity delays. Local packaging fixtures verify ZIP structure, assets, symlinks, checksum and simulator rejection; they do not prove installation. The browser remains v0.18.0 and does not gain native AR from source publication. Physical iPhone installation, tracking and motion acceptance remain required. See `native-ios/FREE-WINDOWS-INSTALL.md` and `docs/SPATIAL-REPAIR-REVIEW.md`.
 
 ## v0.19 Spatial Field — 2026-10-07
 

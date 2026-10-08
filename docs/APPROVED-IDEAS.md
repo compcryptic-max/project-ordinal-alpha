@@ -1,15 +1,15 @@
 # Approved idea implementation ledger
 
-v0.16 Living Halls. This is a playable foundation ledger, not a declaration that the finished MMO has shipped. The current twenty-system scope is preserved below. Later identification/UI constraints override prominent serial-number concepts.
+v0.19 native spatial repairs; browser/server v0.18. This is a playable foundation ledger, not a declaration that the finished MMO has shipped. The current twenty-system scope is preserved below. Later identification/UI constraints override prominent serial-number concepts.
 
 | Approved idea | Working foundation | Remaining depth / verification |
 |---|---|---|
-| Ordinal Identity | Persistent character, name, titles, progression, recovery | Stronger account authentication; keep technical IDs off normal screens |
-| Living Location World | Coarse-location regions, shared state, Field movement | Verified real-world biome data and authored safe landmarks |
+| Ordinal Identity | Persistent test account with signup/signin/private-code recovery, character, name, titles and progression | Release verification and authentication hardening; keep technical IDs off normal screens |
+| Living Location World | Coarse-location regions, shared state, native Apple Maps GPS/heading, nearby park contacts and walking proximity | Shared persistent exact landmark assignments, verified real-world biomes and authored accessible landmarks |
 | World Memory | Regional consequences, discoveries, history; persistent First Door opening | Durable long-term historical archive beyond bounded recent logs |
 | Personal Story Engine | Personal threads, branching decisions, chapter progression and adaptive regional/Calling-aware directives | More authored story arcs and consequences |
 | Nemesis 2.0 | Defeating enemies remember losses, evolve mutations and titles | More differentiated behavior and narratives |
-| Hidden World Layers | Veil Lens, hidden trails, discoveries and Rift Runs | Physical AR tracking acceptance tests and more spatial content |
+| Hidden World Layers | Native detected-surface anchors, aim-and-hold collection, motion combat, Local/Landmark Veil, hidden trails and Rift Runs | Personal iPhone installation/physical AR acceptance, rigged 3D creatures and richer spatial content |
 | Organic Classes | Combat habits reveal specializations; Callings advance through play | Additional class combinations and balance testing |
 | Globally Limited Items | First 100 First Door solvers receive a unique equippable founding relic | Custody transfer now follows trades; additional limited collections remain |
 | Item History | Acquisition and equipped-item victories; history behind a disclosure | Additional authored item stories |
