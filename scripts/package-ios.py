@@ -18,7 +18,7 @@ def package(app: Path, output: Path):
     executable = app / info['CFBundleExecutable']
     if not executable.is_file():
         raise ValueError('The app executable is missing')
-    subprocess.run(['lipo', '-verify_arch', 'arm64', str(executable)], check=True)
+    subprocess.run(['lipo', str(executable), '-verify_arch', 'arm64'], check=True)
     output.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED) as archive:
         for file in sorted(app.rglob('*')):
