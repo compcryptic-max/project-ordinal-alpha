@@ -1,10 +1,10 @@
 # Project Ordinal continuity
 
-## v0.19.1 local reliability checkpoint — 2026-10-08
+## v0.19.1 published reliability release — 2026-10-08
 
 While the owner prepares Windows/iPhone installation, development continues independently. Saved-identity recovery, bounded network/GPS requests, stale location/contact cleanup, map recentering, delayed-response protection for world/Hall/PvP, cache safety and reduced-motion/background graphics behavior are improved. Six Node suites pass, including the new client-resilience regressions; 22 Swift files pass syntax parsing. See `docs/V0191-RESILIENCE.md`.
 
-This batch is local only. Native Apple-SDK compilation and physical acceptance are still pending. The earlier IPA from run 37807283203 remains unchanged. The owner's latest Autopilot instruction requires explicit authority before public publication; ask for approval before pushing this new batch or deploying it, without requiring phone setup first.
+The owner authorized publication by saying continue after the publication gate. Source cbd0b3b is published; 33b1788 corrects the health version. All six Node suites pass. Cloud run 37820736151 passed Simulator and unsigned physical-iPhone compilation and packaging; use artifact 11569900005 (ProjectOrdinal-iPhone-unsigned). Render deployment dep-db3tljc9v7es738ccul0 is live with PostgreSQL connected. Physical installation and AR acceptance remain pending, and the browser is Camera Preview rather than spatial AR. Continue against APPROVED-IDEAS.md; do not repeat these completed repairs or require phone setup before independent development.
 
 ## Spatial repair and Windows install — 2026-10-08
 

@@ -1,6 +1,6 @@
 # v0.19.1 — reconnect and spatial reliability
 
-Prepared locally on October 8, 2026. This checkpoint is not a deployed release or a newly compiled iPhone package.
+Published and deployed on October 8, 2026. Source batch: cbd0b3b; health-label correction: 33b1788. The owner authorized publication by instructing continuation after the reviewed batch's publication gate.
 
 ## Implemented
 
@@ -19,8 +19,10 @@ Prepared locally on October 8, 2026. This checkpoint is not a deployed release o
 
 All six Node suites pass: smoke, community, exchange, live arena, accounts and client resilience. The new suite exercises actual browser functions with controlled delayed world/Hall/PvP responses, uncertain-combat pause/resync, network timeouts, saved-key retention, cache failures, hidden-app effects and Reduce Motion. The local HTTP test also verifies that the new imported client module is served.
 
-All 22 native Swift files parse without syntax errors. There is no Apple SDK in the local environment: parsing is not Xcode type checking, and native runtime behavior is not established by these tests. A fresh cloud iOS build and physical acceptance are required before replacing the previous successful IPA.
+All 22 native Swift files parse without syntax errors. GitHub run 37820736151 also passed Apple-SDK compilation for both Simulator and unsigned physical iPhone, IPA packaging and artifact upload. Artifact 11569900005 (`ProjectOrdinal-iPhone-unsigned`) replaces the earlier package for personal testing: https://github.com/compcryptic-max/project-ordinal-alpha/actions/runs/37820736151/artifacts/11569900005 . The outer artifact ZIP SHA-256 is 64fb7a961282c9f292a9b186737fd02c2301107ec1ff2b02c6626e3063941f68. CI verifies device platform, arm64 executable and IPA contents. Compilation does not establish physical runtime behavior.
+
+Render deployment dep-db3tljc9v7es738ccul0 is live for 33b1788 on the existing free service. The browser client module returns HTTP 200 with a JavaScript content type. PostgreSQL is connected, and the deployment-window error-log query returns no errors.
 
 ## Remaining gates
 
-The prior downloadable IPA remains the one from GitHub run 37807283203 (commit abc400f). This local checkpoint has not been publicly pushed or deployed. Publishing it to the public repository needs approval under the owner's no-public-publication-without-authorization instruction. After approval, run the compile/package gate, fix any type/build failures and produce an updated IPA. Physical iPhone AR acceptance remains pending separately; Windows/AltStore setup can wait while development continues.
+Physical iPhone installation and AR acceptance remain pending separately; Windows/AltStore setup can wait while development continues. Use native-ios/FREE-WINDOWS-INSTALL.md with the new artifact above. The IPA is unsigned and requires personal signing. Shared exact landmark placements, rigged 3D monsters and the remaining depth in APPROVED-IDEAS.md are still unfinished; this release does not claim those systems complete.
