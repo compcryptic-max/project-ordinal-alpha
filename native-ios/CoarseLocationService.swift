@@ -11,6 +11,7 @@ final class CoarseLocationService: NSObject, ObservableObject, @preconcurrency C
     @Published private(set) var sampleToken = 0
     @Published private(set) var rapidTravel = false
     @Published private(set) var relocationToken = ""
+    @Published private(set) var permissionDenied = false
 
     var serverCoordinate: CLLocationCoordinate2D? { coarseCoordinate }
 
@@ -45,6 +46,7 @@ final class CoarseLocationService: NSObject, ObservableObject, @preconcurrency C
     }
 
     func startSafetyMonitoring() {
+        permissionDenied = manager.authorizationStatus == .denied || manager.authorizationStatus == .restricted
         monitoringRequested = true
         manager.desiredAccuracy = kCLLocationAccuracyBest
         // Keep fixes fresh while standing still to aim at a contact.
@@ -86,6 +88,7 @@ final class CoarseLocationService: NSObject, ObservableObject, @preconcurrency C
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        permissionDenied = manager.authorizationStatus == .denied || manager.authorizationStatus == .restricted
         switch manager.authorizationStatus {
         case .authorizedAlways, .authorizedWhenInUse:
             if !waiters.isEmpty { manager.requestLocation() }

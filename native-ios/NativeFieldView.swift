@@ -33,6 +33,12 @@ struct NativeFieldView: View {
 
                 VStack(spacing: 10) {
                     header
+                    if location.permissionDenied {
+                        Text("Location is disabled. Enable it in Settings for nearby contacts, or use Guild → Sanctuary for home play.")
+                            .font(.caption)
+                            .padding(8)
+                            .background(.black.opacity(0.78), in: RoundedRectangle(cornerRadius: 10))
+                    }
                     if let environment = world.state?.environment {
                         Text(environment.status == "current" ? (environment.rainBoost ? "REGIONAL RAIN · RIFT SPARK +10%" : "REGIONAL WEATHER · NO RAIN BONUS") : "REGIONAL WEATHER UNAVAILABLE · NO BONUS")
                             .font(.caption2.monospaced())
@@ -237,7 +243,7 @@ struct NativeFieldView: View {
               !world.busy,
               let coordinate = location.coordinate,
               let nearest = spatial.nearest(to: coordinate) else {
-            nearestStatus = location.coordinate == nil ? "ACQUIRING POSITION" : spatial.status.uppercased()
+            nearestStatus = location.permissionDenied ? "LOCATION DISABLED · HOME PLAY AVAILABLE" : location.coordinate == nil ? "ACQUIRING POSITION" : spatial.status.uppercased()
             return
         }
 
