@@ -1,5 +1,15 @@
 # Project Ordinal continuity
 
+## All playability recommendations approved — 2026-10-08
+
+Owner approved all seven proposals; track PLAYABILITY-ROADMAP.md. Local objective guide prioritizes unresolved encounters and derives the opening path from persisted Keeper/kill/relic/equipment/archive progress. Local Sanctuary weapon reinforcement adds +2 power for 25/50/75 gold, capped at three upgrades, with item history and server validation. Browser and native Journey/Sanctuary controls are integrated. Ten Node suites pass; new native compilation and publication/deployment remain pending. Friend lists/parties/shared quests, rematches, richer combat feedback and battery controls are still unfinished. Do not claim all seven finished.
+
+## Expanded real-world MMO scope — 2026-10-08
+
+Next local batch adds environment.mjs: background coarse-cell Open-Meteo modeled rain/daylight/timezone, bounded cache/concurrency, stale expiry, failure backoff and disable switch. Server-owned Arcanist Rift Spark receives +10% in current rain outside recorded Echo duels; native Field/browser Hall display truthful weather status. Eight Node suites pass. This integration is not yet published/deployed or native compiled; real-provider connectivity is checked separately. Local-time bosses, biome spawns and shared AR raids remain unfinished.
+
+The owner explicitly requested implementation/improvement of all systems listed in AR-MMO-REQUIREMENTS.md. First local batch implements level-2 companion gathering (one two-hour server-timed expedition, offline progress, explicit capacity-safe claim, tonic + 12 gold, replay protection) in browser and native Sanctuary. Seven Node suites pass including companion unlock/timing/save-reload/capacity/replay tests. Native rapid-travel threshold changes from 8.5 m/s to 6.7056 m/s (15 mph), pausing immediately and retaining resume hysteresis below 4 m/s. This batch is not yet deployed or Apple-SDK compiled. The published v0.19.1 IPA remains the preceding release. Continue geographic/environment work and full checklist; do not claim complete biome mapping, real weather, shared 3D raids, safe spawning or screen-off exploration.
+
 ## v0.19.1 published reliability release — 2026-10-08
 
 While the owner prepares Windows/iPhone installation, development continues independently. Saved-identity recovery, bounded network/GPS requests, stale location/contact cleanup, map recentering, delayed-response protection for world/Hall/PvP, cache safety and reduced-motion/background graphics behavior are improved. Six Node suites pass, including the new client-resilience regressions; 22 Swift files pass syntax parsing. See `docs/V0191-RESILIENCE.md`.

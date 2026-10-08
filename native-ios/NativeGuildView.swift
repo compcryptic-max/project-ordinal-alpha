@@ -121,7 +121,21 @@ struct NativeGuildView: View {
                     Text("Gold: \(world.state?.gold ?? 0)")
                     Button("Rest · 10 gold") { Task { await world.act("home", type: "rest") } }
                     Button("Craft tonic · 15 gold") { Task { await world.act("home", type: "craft") } }
+                    Button("Reinforce equipped weapon") { Task { await world.act("home", type: "reinforce") } }
+                    Text("+2 weapon power per reinforcement; costs 25, 50, then 75 gold. Maximum three per weapon.").font(.caption)
                     Button("Trace archive signal") { Task { await world.act("home", type: "investigate") } }
+                    if let companion = world.state?.companion {
+                        Text("Mossling companion").font(.headline)
+                        if !companion.unlocked {
+                            Text("Reach level 2 to befriend a Mossling.")
+                        } else if let expedition = companion.expedition {
+                            Text(companion.ready ? "Your Mossling brought back a tonic and 12 gold." : "Gathering until \(Date(timeIntervalSince1970: expedition.returnAt / 1000).formatted(date: .omitted, time: .shortened)).")
+                            Button(companion.ready ? "Collect supplies" : "Check return") { Task { await world.act("home", type: "companion-claim") } }
+                        } else {
+                            Button("Send Mossling to gather · 2 hours") { Task { await world.act("home", type: "companion-dispatch") } }
+                        }
+                        Text("Progress continues while the app is closed.").font(.caption)
+                    }
                     if let home = world.state?.home {
                         Text(home.npc.name).font(.headline)
                         Text(home.npc.trust > 0 ? "Sera remembers your help." : home.npc.trust < 0 ? "Sera remains wary of you." : "Sera asks for help repairing the sanctuary.")

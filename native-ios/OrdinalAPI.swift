@@ -95,6 +95,9 @@ actor OrdinalAPI {
         let maxHp: Int
         let gold: Int
         let home: Home?
+        let companion: Companion?
+        let environment: Environment?
+        let nextObjective: NextObjective?
         let inventory: [Item]
         let equipment: Equipment
         let mastery: Mastery
@@ -123,6 +126,26 @@ actor OrdinalAPI {
         let history: [String]?
     }
 
+    struct NextObjective: Decodable {
+        let title: String
+        let detail: String
+        let action: String
+        let choice: String?
+        let type: String?
+    }
+    struct Environment: Decodable {
+        let status: String
+        let rainBoost: Bool
+        let isDay: Bool?
+        let timezone: String?
+    }
+    struct Companion: Decodable {
+        let name: String
+        let unlocked: Bool
+        let ready: Bool
+        let expedition: Expedition?
+        struct Expedition: Decodable { let returnAt: Double }
+    }
     struct Home: Decodable {
         let investigations: Int
         let nextInvestigationAt: Double

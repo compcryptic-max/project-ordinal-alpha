@@ -5,6 +5,11 @@ import {randomUUID,randomBytes,createHash} from "node:crypto";
 import {createGuildService} from "./guilds.mjs";
 import {createArenaService} from "./pvp.mjs";
 import {createAccountService} from "./accounts.mjs";
+import {companionState,companionAction} from "./companions.mjs";
+import {createEnvironmentService} from "./environment.mjs";
+import {nextObjective} from "./objectives.mjs";
+import {reinforceWeapon} from "./crafting.mjs";
+const environmentService=createEnvironmentService({enabled:process.env.ORDINAL_WEATHER!=="off"});
 
 const PORT=Number(process.env.PORT||8787);
 const DB=process.env.DATABASE_URL||"";
@@ -500,6 +505,8 @@ function fight(p,type){
   addFeed(p,c.lastResult);
  } else if(type==="skill"){
   c.focus-=profile.skillCost;c.stamina-=12;dmg=Math.round(profile.skill*flowMult*(p.origin==="Arcanist"?1.1:1)*profile.skillMult);breakGain+=22+(c.weakness==="skill"?12:0);addMastery(p,3);
+  const weather=environmentService.read(p.region.key);
+  if(p.origin==="Arcanist"&&weather.rainBoost&&!c.bountyId){dmg=Math.round(dmg*1.1);addFeed(p,"RAIN CONDUCTION — Rift Spark gains 10% damage.");}
   c.lastResult=p.skill+" breaks through for "+dmg+" damage.";addFeed(p,c.lastResult);
  } else {
   c.stamina-=8;c.focus=Math.min(100,c.focus+16+profile.focusGain);dmg=Math.round(profile.attack*flowMult);breakGain+=10+(c.weakness==="attack"?10:0);
@@ -625,7 +632,11 @@ function ensureHome(p){
 function homeAction(p,type){
  if(p.combat||p.pendingEncounter||p.pendingLoot||p.pendingChoice)throw Error("Resolve your encounter before returning home.");
  const h=ensureHome(p);
- if(type==="rest"){
+ if(type==="reinforce"){
+  addFeed(p,reinforceWeapon(p));
+ }else if(type==="companion-dispatch"||type==="companion-claim"){
+  addFeed(p,companionAction(p,type==="companion-dispatch"?"dispatch":"claim"));
+ }else if(type==="rest"){
   if(p.hp>=p.maxHp)throw Error("You are already fully rested.");
   if(p.gold<10)throw Error("Rest costs 10 gold.");p.gold-=10;p.hp=p.maxHp;addFeed(p,"SANCTUARY — your wounds have healed.");
  }else if(type==="craft"){
@@ -647,7 +658,7 @@ function visitKeeper(p,choice){
  npc.lastVisitDay=utcDay();npc.memories.unshift(choice==="help"?"You helped repair the sanctuary.":choice==="threaten"?"You threatened the Keeper when she asked for help.":"You declined the Keeper's request.");npc.memories=npc.memories.slice(0,12);
  addFeed(p,"SERA — "+(npc.trust>0?"I remember what you did for us. The Wayfall doors remain open.":npc.trust<0?"I remember your answer. Trust is earned here.":"We will see what kind of Wayfarer you become."));
 }
-function publicState(p){ensureHome(p);ensureJourney(p);ensureProgress(p);ensurePath(p);ensureKnowledge(p);checkFeats(p);ensureRegionObjective(p.region);ensureApex(p.region);const x=clone(p);x.field=fieldState(p);x.contractList=contractState(p);x.callingOptions=callings;x.directive=directiveState(p);x.ordinalRating=ordinalRating(p);x.regionRule=regionRules(p.region);x.playBalance={momentum:ensureActivity(p).momentum||0,restedCharges:ensureActivity(p).restedCharges||0};x.storyDecision=p.storyDecision||null;x.serverNow=Date.now();return x;}
+function publicState(p){ensureHome(p);ensureJourney(p);ensureProgress(p);ensurePath(p);ensureKnowledge(p);checkFeats(p);ensureRegionObjective(p.region);ensureApex(p.region);const companion=companionState(p);const x=clone(p);x.companion=companion;x.nextObjective=nextObjective(p);x.environment=environmentService.read(p.region.key);x.field=fieldState(p);x.contractList=contractState(p);x.callingOptions=callings;x.directive=directiveState(p);x.ordinalRating=ordinalRating(p);x.regionRule=regionRules(p.region);x.playBalance={momentum:ensureActivity(p).momentum||0,restedCharges:ensureActivity(p).restedCharges||0};x.storyDecision=p.storyDecision||null;x.serverNow=Date.now();return x;}
 function json(res,status,data){res.writeHead(status,{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"});res.end(JSON.stringify(data));}
 function recoveryHash(code){return createHash("sha256").update(String(code).replace(/[^a-zA-Z0-9]/g,"").toUpperCase()).digest("hex")}
 function newRecoveryCode(){return randomBytes(16).toString("hex").toUpperCase().match(/.{1,4}/g).join("-")}
@@ -684,7 +695,7 @@ const server=http.createServer(async(req,res)=>{
     return json(res,200,{ok:true,account});
    }finally{unlock();}
   }
-  if(req.method==="GET"&&u.pathname==="/health")return json(res,200,{ok:true,name:"project-ordinal-alpha",version:"0.19.1",storage:pool?"postgres":"memory",databaseConfigured:!!DB,databaseStatus:pool?"connected":DB?"degraded":"not_configured",databaseError:dbError?"unavailable":null,persistenceProbe:pool?persistenceProbe:null});
+  if(req.method==="GET"&&u.pathname==="/health")return json(res,200,{ok:true,name:"project-ordinal-alpha",version:"0.20.0",storage:pool?"postgres":"memory",databaseConfigured:!!DB,databaseStatus:pool?"connected":DB?"degraded":"not_configured",databaseError:dbError?"unavailable":null,persistenceProbe:pool?persistenceProbe:null});
   if(req.method==="POST"&&u.pathname==="/api/recovery/create"){
    if(!pool)return json(res,503,{ok:false,error:"persistent_storage_required"});
    const b=await body(req),p=sessions.get(String(b.sessionId||""));if(!p)return json(res,404,{ok:false,error:"session_not_found"});
@@ -762,7 +773,7 @@ const server=http.createServer(async(req,res)=>{
   }
   if(req.method==="GET"){
    const path=u.pathname==="/"?"/index.html":u.pathname;
-   if(["/index.html","/manifest.webmanifest","/styles.css","/game.js","/client-network.js","/effects.js","/ordinal-icon.svg","/sw.js"].includes(path)){const data=await readFile(new URL("./public"+path,import.meta.url));const type=path.endsWith(".webmanifest")?"application/manifest+json":path.endsWith(".css")?"text/css; charset=utf-8":path.endsWith(".js")?"text/javascript; charset=utf-8":path.endsWith(".svg")?"image/svg+xml":"text/html; charset=utf-8";res.writeHead(200,{"content-type":type,"cache-control":"no-cache"});return res.end(data);}
+   if(["/index.html","/manifest.webmanifest","/styles.css","/game.js","/client-network.js","/diagnostics.js","/effects.js","/ordinal-icon.svg","/sw.js"].includes(path)){const data=await readFile(new URL("./public"+path,import.meta.url));const type=path.endsWith(".webmanifest")?"application/manifest+json":path.endsWith(".css")?"text/css; charset=utf-8":path.endsWith(".js")?"text/javascript; charset=utf-8":path.endsWith(".svg")?"image/svg+xml":"text/html; charset=utf-8";res.writeHead(200,{"content-type":type,"cache-control":"no-cache"});return res.end(data);}
   }
   json(res,404,{ok:false,error:"route_not_found"});
  }catch(e){json(res,400,{ok:false,error:e.message||"bad_request"});}

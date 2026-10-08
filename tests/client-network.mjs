@@ -25,7 +25,7 @@ await assert.rejects(slow('/world'),error=>error.code==='request_timeout');
 
 // Exercise the actual browser functions with controlled out-of-order responses.
 const game=await readFile(new URL('../public/game.js',import.meta.url),'utf8');
-const code=game.replace(/^import .*\n/,'').split('await restore();draw();setInterval')[0];
+const code=game.replace(/^import .*\n/gm,'').split('await restore();draw();setInterval')[0];
 function client(handler, overrides = {}){
  const saved=new Map([['ordinal-session','session'],['ordinal-player','player']]);
  const context=vm.createContext({

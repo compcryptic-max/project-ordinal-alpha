@@ -33,6 +33,12 @@ struct NativeFieldView: View {
 
                 VStack(spacing: 10) {
                     header
+                    if let environment = world.state?.environment {
+                        Text(environment.status == "current" ? (environment.rainBoost ? "REGIONAL RAIN · RIFT SPARK +10%" : "REGIONAL WEATHER · NO RAIN BONUS") : "REGIONAL WEATHER UNAVAILABLE · NO BONUS")
+                            .font(.caption2.monospaced())
+                            .padding(6)
+                            .background(.black.opacity(0.72), in: Capsule())
+                    }
                     Spacer()
                     objective
                     actionBar
@@ -142,8 +148,11 @@ struct NativeFieldView: View {
                 .font(.system(size: 7, weight: .bold, design: .monospaced))
                 .foregroundStyle(.secondary)
 
-                Text(item.title)
+                Text(world.state?.nextObjective?.title ?? item.title)
                     .font(.caption.bold())
+                if let next = world.state?.nextObjective {
+                    Text(next.detail).font(.caption2)
+                }
 
                 ProgressView(value: Double(item.progress), total: Double(max(1, item.next)))
                     .tint(.cyan)

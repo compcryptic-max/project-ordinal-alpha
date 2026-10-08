@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {nextObjective} from '../objectives.mjs';
+const p={home:{npc:{}},stats:{},equipment:{weapon:'starter'}};
+assert.equal(nextObjective(p).id,'keeper');p.home.npc.lastVisitDay='2026-10-08';
+assert.equal(nextObjective(p).id,'first-hunt');p.stats.kills=1;
+assert.equal(nextObjective(p).id,'first-relic');p.pendingLoot={};assert.equal(nextObjective(p).id,'loot');p.pendingLoot=null;
+p.stats.relics=1;assert.equal(nextObjective(p).id,'equip');p.equipment.weapon='relic';
+assert.equal(nextObjective(p).id,'archive');p.home.investigations=1;assert.equal(nextObjective(p).id,'journey');
+p.combat={};assert.equal(nextObjective(p).id,'fight');
+console.log('Objectives passed: first-journey sequence and encounter priority.');

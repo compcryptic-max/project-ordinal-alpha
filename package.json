@@ -1,6 +1,6 @@
 {
   "name": "project-ordinal-alpha",
-  "version": "0.19.1",
+  "version": "0.20.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -8,7 +8,7 @@
   },
   "scripts": {
     "start": "node server.mjs",
-    "test": "node tests/smoke.mjs && node tests/community.mjs && node tests/exchange.mjs && node tests/live-arena.mjs && node tests/accounts.mjs && node tests/client-network.mjs",
+    "test": "node tests/smoke.mjs && node tests/community.mjs && node tests/exchange.mjs && node tests/live-arena.mjs && node tests/accounts.mjs && node tests/client-network.mjs && node tests/companions.mjs && node tests/environment.mjs && node tests/objectives.mjs && node tests/crafting.mjs && node tests/diagnostics.mjs",
     "postinstall": "npm test"
   },
   "dependencies": {

@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {reinforceWeapon} from '../crafting.mjs';
+const p={name:'Tester',gold:150,equipment:{weapon:'sword'},inventory:[{id:'sword',name:'Sword',power:2}]};
+reinforceWeapon(p);assert.equal(p.gold,125);assert.equal(p.inventory[0].power,4);
+reinforceWeapon(p);reinforceWeapon(p);assert.equal(p.gold,0);assert.equal(p.inventory[0].power,8);
+assert.throws(()=>reinforceWeapon(p),/limit/);assert.equal(p.inventory[0].power,8);
+const poor={name:'Tester',gold:24,equipment:{weapon:'sword'},inventory:[{id:'sword',power:2}]};
+assert.throws(()=>reinforceWeapon(poor),/25 gold/);assert.equal(poor.gold,24);assert.equal(poor.inventory[0].power,2);
+assert.throws(()=>reinforceWeapon({...poor,equipment:{weapon:'missing'}}),/Equip/);
+console.log('Crafting passed: escalating costs, power gains, cap and atomic failure.');

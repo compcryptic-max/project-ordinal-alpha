@@ -109,10 +109,11 @@ final class CoarseLocationService: NSObject, ObservableObject, @preconcurrency C
             return
         }
 
-        // Speed is evaluated only on-device. Two sustained vehicle-speed samples pause interaction.
+        // Speed stays on-device. Above 15 mph pauses interaction immediately;
+        // resume only below 4 m/s to avoid threshold flicker.
         if monitoringRequested, raw.speed >= 0 {
-            if raw.speed > 8.5 {
-                fastSamples = min(3, fastSamples + 1)
+            if raw.speed > 6.7056 {
+                fastSamples = 2
             } else if raw.speed < 4 {
                 fastSamples = 0
             }

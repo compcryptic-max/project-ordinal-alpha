@@ -1,0 +1,3 @@
+export function diagnosticReport(state, {version='0.20.0', online=true, client='browser'}={}) {
+  return ['Project Ordinal tester report',`Version: ${version}`,`Client: ${client}`,`Network online: ${!!online}`,`Character loaded: ${!!state}`,`Combat active: ${!!state?.combat}`,`Encounter pending: ${!!state?.pendingEncounter}`,`Loot pending: ${!!state?.pendingLoot}`,`Travel mode: ${state?.travel?.mode==='transit'?'transit':'explore'}`,`Weather: ${['current','stale'].includes(state?.environment?.status)?state.environment.status:'unavailable'}`,'','Bug title:','Steps to reproduce:','Expected:','Actual:','Frequency:','Device model / OS:','Attachments:'].join('\n');
+}

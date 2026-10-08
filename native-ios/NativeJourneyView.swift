@@ -1,14 +1,38 @@
 import SwiftUI
+import UIKit
 
 struct NativeJourneyView: View {
     @ObservedObject var world: WorldStore
 
     private var journey: OrdinalAPI.Journey? { world.state?.journey }
     private var path: OrdinalAPI.CombatPath? { world.state?.path }
+    private var testerReport: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
+        return "Project Ordinal tester report\nVersion: \(version) (\(build))\niOS: \(UIDevice.current.systemVersion)\nCharacter loaded: \(world.state != nil)\nCombat active: \(world.state?.combat != nil)\nResync required: \(world.requiresResync)\n\nBug title:\nSteps to reproduce:\nExpected:\nActual:\nFrequency:\nDevice model:\nAttachments:"
+    }
 
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
+                DisclosureGroup("First journey · how to play") {
+                    Text("Meet Sera in Guild → Sanctuary. Track a signal, inspect the creature, then fight. Guard heavy attacks, build Focus and use your skill. Recover loot, resolve its shrine and equip the weapon in Gear. Follow the next objective for your archive investigation.")
+                    Text("Home play works without GPS. Veil is optional: allow Camera, scan a well-lit floor, then aim and hold. Use standard combat if tracking or gestures are unreliable. Permission settings can be changed in iPhone Settings. Reconnect after a lost response before repeating an action.")
+                }.padding()
+                if let objective = world.state?.nextObjective {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("NEXT OBJECTIVE").font(.caption.monospaced())
+                        Text(objective.title).font(.headline)
+                        Text(objective.detail)
+                        if objective.action == "investigate" {
+                            Button("Track signal") { Task { await world.act("investigate") } }
+                        } else if objective.action == "home" {
+                            Button("Trace archive signal") { Task { await world.act("home", type: "investigate") } }
+                        }
+                    }
+                    .padding()
+                    .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
+                }
                 storyCard
                 if world.state?.storyDecision != nil {
                     storyDecisionCard
@@ -18,6 +42,11 @@ struct NativeJourneyView: View {
                 specializationCard
                 contracts
                 recentBeats
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Tester report").font(.headline)
+                    Text("Share build details and gameplay flags. Add steps and a recording. Credentials and location are excluded.").font(.caption)
+                    ShareLink(item: testerReport) { Label("Share bug report template", systemImage: "square.and.arrow.up") }
+                }.padding()
             }
             .padding()
         }
