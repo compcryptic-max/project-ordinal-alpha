@@ -6,6 +6,7 @@ on:
     paths:
       - "native-ios/**"
       - "project.yml"
+      - "scripts/package-ios.py"
       - ".github/workflows/native-ios.yml"
   workflow_dispatch:
 
@@ -53,9 +54,25 @@ jobs:
             -scheme ProjectOrdinal \
             -configuration Debug \
             -sdk iphoneos \
+            -derivedDataPath build-device \
             -destination 'generic/platform=iOS' \
             CODE_SIGNING_ALLOWED=NO \
             build | tee native-ios-device-build.log
+
+      - name: Package unsigned iPhone app for personal testing
+        run: |
+          python3 scripts/package-ios.py \
+            --app 'build-device/Build/Products/Debug-iphoneos/Project Ordinal.app' \
+            --output 'dist/ProjectOrdinal.ipa'
+
+      - name: Upload iPhone testing package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ProjectOrdinal-iPhone-unsigned
+          path: |
+            dist/ProjectOrdinal.ipa
+            dist/ProjectOrdinal.ipa.sha256
+          if-no-files-found: error
 
       - name: Preserve build log
         if: always()
