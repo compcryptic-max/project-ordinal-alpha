@@ -67,6 +67,7 @@ jobs:
             --output 'dist/ProjectOrdinal.ipa'
           cp docs/TESTER-HANDOFF.md dist/TESTER-HANDOFF.md
           cp native-ios/FREE-WINDOWS-INSTALL.md dist/FREE-WINDOWS-INSTALL.md
+          git rev-parse HEAD > dist/BUILD-COMMIT.txt
 
       - name: Upload iPhone testing package
         uses: actions/upload-artifact@v4
@@ -77,6 +78,7 @@ jobs:
             dist/ProjectOrdinal.ipa.sha256
             dist/TESTER-HANDOFF.md
             dist/FREE-WINDOWS-INSTALL.md
+            dist/BUILD-COMMIT.txt
           if-no-files-found: error
 
       - name: Preserve build log
