@@ -82,6 +82,11 @@ final class CoarseLocationService: NSObject, ObservableObject, @preconcurrency C
                 if CLLocationManager.headingAvailable() { manager.startUpdatingHeading() }
             }
         case .denied, .restricted:
+            coordinate = nil
+            coarseCoordinate = nil
+            horizontalAccuracy = nil
+            heading = nil
+            sampleToken &+= 1
             finish(nil)
             stopSafetyMonitoring()
         default:
@@ -90,7 +95,9 @@ final class CoarseLocationService: NSObject, ObservableObject, @preconcurrency C
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let raw = locations.last else {
+        guard let raw = locations.last,
+              abs(raw.timestamp.timeIntervalSinceNow) <= 15,
+              raw.horizontalAccuracy >= 0 else {
             if waiter != nil { finish(nil) }
             return
         }
@@ -105,7 +112,7 @@ final class CoarseLocationService: NSObject, ObservableObject, @preconcurrency C
             rapidTravel = fastSamples >= 2
         }
 
-        // Exact location powers the local spatial map and never leaves this service.
+        // Exact location powers Maps locally and is never included in the Ordinal server API.
         coordinate = raw.coordinate
         horizontalAccuracy = raw.horizontalAccuracy >= 0 ? raw.horizontalAccuracy : nil
         sampleToken &+= 1

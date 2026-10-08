@@ -1,5 +1,7 @@
 # Project Ordinal v0.19 — Spatial Field
 
+This describes the published v0.19 baseline. Subsequent unpublished repairs and corrected limitations are recorded in `SPATIAL-REPAIR-REVIEW.md`. The random-coordinate baseline is superseded locally by Apple Maps park lookup.
+
 ## What changed
 
 - The native Field now uses Apple Maps and follows the player's real position and heading.

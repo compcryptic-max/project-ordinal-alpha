@@ -1,22 +1,72 @@
 import Foundation
 import CoreLocation
+import MapKit
 import Combine
 
-/// Converts server-owned Field contacts into stable, walkable coordinates.
-/// Precise coordinates stay in UserDefaults on this iPhone and are never uploaded.
+/// Exact locations stay out of the Ordinal game API. Apple Maps handles landmark lookup.
 @MainActor
 final class SpatialFieldService: ObservableObject {
     struct Contact: Identifiable {
         let node: OrdinalAPI.FieldNode
         let coordinate: CLLocationCoordinate2D
+        let landmark: String
         var id: String { node.id }
     }
 
     @Published private(set) var contacts: [Contact] = []
+    @Published private(set) var status = "Looking for nearby parks"
+    private var landmarks: [(String, CLLocationCoordinate2D)] = []
+    private var searchedAt = Date.distantPast
+    private var searchOrigin: CLLocation?
+    private var searching = false
+    private var latestNodes: [OrdinalAPI.FieldNode] = []
+    private var latestRegion = ""
+    private var assignments: [String: (String, CLLocationCoordinate2D)] = [:]
 
-    func synchronize(nodes: [OrdinalAPI.FieldNode], regionKey: String, around origin: CLLocationCoordinate2D) {
-        contacts = nodes.filter { !$0.collected }.map { node in
-            Contact(node: node, coordinate: storedCoordinate(for: node, regionKey: regionKey, origin: origin))
+    func synchronize(nodes: [OrdinalAPI.FieldNode], regionKey: String, around origin: CLLocationCoordinate2D) async {
+        latestNodes = nodes
+        latestRegion = regionKey
+        let position = CLLocation(latitude: origin.latitude, longitude: origin.longitude)
+        let moved = searchOrigin.map { position.distance(from: $0) > 600 } ?? true
+        if !searching, moved || Date().timeIntervalSince(searchedAt) > 300 {
+            searching = true
+            searchedAt = Date()
+            searchOrigin = position
+            let request = MKLocalSearch.Request()
+            request.naturalLanguageQuery = "park"
+            request.resultTypes = .pointOfInterest
+            request.region = MKCoordinateRegion(center: origin, latitudinalMeters: 3000, longitudinalMeters: 3000)
+            request.pointOfInterestFilter = MKPointOfInterestFilter(including: [.park])
+            do {
+                let response = try await MKLocalSearch(request: request).start()
+                landmarks = response.mapItems.filter {
+                    $0.pointOfInterestCategory == .park && position.distance(from: $0.placemark.location ?? position) <= 1500
+                }.map { ($0.name ?? "Park", $0.placemark.coordinate) }
+                // Sort identically across lookups so movement does not reshuffle node assignments.
+                landmarks.sort {
+                    if $0.0 != $1.0 { return $0.0 < $1.0 }
+                    return $0.1.latitude < $1.1.latitude
+                }
+                status = landmarks.isEmpty ? "No nearby park locations found. Use Veil for local exploration." : "Park contacts · choose a public accessible area"
+            } catch {
+                status = "Maps unavailable. Use Veil for local exploration."
+                // Retry network failures sooner without querying on every GPS update.
+                searchedAt = Date().addingTimeInterval(-270)
+            }
+            searching = false
+        }
+        guard !landmarks.isEmpty else { contacts = []; return }
+        contacts = latestNodes.filter { !$0.collected }.map { node in
+            let key = latestRegion + ":" + node.id
+            let landmark: (String, CLLocationCoordinate2D)
+            if let existing = assignments[key] {
+                landmark = existing
+            } else {
+                let seed = stableHash(key)
+                landmark = landmarks[Int(seed % UInt64(landmarks.count))]
+                assignments[key] = landmark
+            }
+            return Contact(node: node, coordinate: landmark.1, landmark: landmark.0)
         }
     }
 
@@ -26,37 +76,7 @@ final class SpatialFieldService: ObservableObject {
     }
 
     func nearest(to player: CLLocationCoordinate2D) -> (Contact, CLLocationDistance)? {
-        contacts
-            .map { ($0, distance(to: $0, from: player)) }
-            .min { $0.1 < $1.1 }
-    }
-
-    private func storedCoordinate(for node: OrdinalAPI.FieldNode, regionKey: String, origin: CLLocationCoordinate2D) -> CLLocationCoordinate2D {
-        let key = "ordinal.spatial.\(regionKey).\(node.id)"
-        if let saved = UserDefaults.standard.array(forKey: key) as? [Double], saved.count == 2 {
-            return CLLocationCoordinate2D(latitude: saved[0], longitude: saved[1])
-        }
-
-        let seed = stableHash(regionKey + ":" + node.id)
-        let bearing = Double(seed % 360) * .pi / 180
-        // Contacts remain close enough for a short real walk, but never spawn on top of the player.
-        let meters = 45 + Double((seed >> 9) % 111)
-        let result = destination(from: origin, meters: meters, bearing: bearing)
-        UserDefaults.standard.set([result.latitude, result.longitude], forKey: key)
-        return result
-    }
-
-    private func destination(from origin: CLLocationCoordinate2D, meters: Double, bearing: Double) -> CLLocationCoordinate2D {
-        let radius = 6_371_000.0
-        let angular = meters / radius
-        let latitude = origin.latitude * .pi / 180
-        let longitude = origin.longitude * .pi / 180
-        let nextLatitude = asin(sin(latitude) * cos(angular) + cos(latitude) * sin(angular) * cos(bearing))
-        let nextLongitude = longitude + atan2(
-            sin(bearing) * sin(angular) * cos(latitude),
-            cos(angular) - sin(latitude) * sin(nextLatitude)
-        )
-        return CLLocationCoordinate2D(latitude: nextLatitude * 180 / .pi, longitude: nextLongitude * 180 / .pi)
+        contacts.map { ($0, distance(to: $0, from: player)) }.min { $0.1 < $1.1 }
     }
 
     private func stableHash(_ value: String) -> UInt64 {

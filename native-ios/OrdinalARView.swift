@@ -17,10 +17,11 @@ struct OrdinalARView: UIViewRepresentable {
         var aimedNodeID: String?
         var aimStartedAt: TimeInterval = 0
         var lastSelectedNodeID: String?
-        var placedOnDetectedSurface = false
+        var lastPlacementAt: TimeInterval = 0
 
         @objc func tapped(_ recognizer: UITapGestureRecognizer) {
-            guard let view,
+            guard let view, let frame = view.session.currentFrame,
+                  case .normal = frame.camera.trackingState,
                   let entity = view.entity(at: recognizer.location(in: view)) else { return }
 
             var current: Entity? = entity
@@ -38,7 +39,15 @@ struct OrdinalARView: UIViewRepresentable {
         }
 
         func session(_ session: ARSession, didUpdate frame: ARFrame) {
-            guard let view else { return }
+            guard let view, case .normal = frame.camera.trackingState else {
+                aimedNodeID = nil
+                aimStartedAt = 0
+                return
+            }
+            if frame.timestamp - lastPlacementAt >= 0.5 {
+                lastPlacementAt = frame.timestamp
+                OrdinalARView.installFieldNodes(Array(nodesByID.values).sorted { $0.id < $1.id }, in: view)
+            }
             let center = CGPoint(x: view.bounds.midX, y: view.bounds.midY)
             let points = [
                 center,
@@ -61,6 +70,7 @@ struct OrdinalARView: UIViewRepresentable {
             guard let nodeID, nodeID != lastSelectedNodeID else {
                 aimedNodeID = nil
                 aimStartedAt = 0
+                if nodeID == nil { lastSelectedNodeID = nil }
                 return
             }
 
@@ -79,25 +89,13 @@ struct OrdinalARView: UIViewRepresentable {
             onSelect?(node)
         }
 
-        func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
-            guard !placedOnDetectedSurface,
-                  anchors.contains(where: { $0 is ARPlaneAnchor }),
-                  let view else { return }
-            placedOnDetectedSurface = true
-            for anchor in view.scene.anchors where anchor.name.hasPrefix("ordinal-field-") {
-                view.scene.removeAnchor(anchor)
-            }
-            OrdinalARView.installFieldNodes(Array(nodesByID.values).sorted { $0.id < $1.id }, in: view)
-            onStatus?("Surfaces mapped. Aim at a contact and hold to lock.")
-        }
-
         func session(_ session: ARSession, didFailWithError error: Error) {
             onStatus?("Tracking failed. Close Veil and reopen it: " + error.localizedDescription)
         }
 
         func session(_ session: ARSession, cameraDidChangeTrackingState camera: ARCamera) {
             switch camera.trackingState {
-            case .normal: onStatus?("Tracking ready. Aim at a contact and hold it in the center.")
+            case .normal: onStatus?("Move the camera over the ground to place nearby contacts, then aim and hold.")
             case .limited: onStatus?("Move slowly in a well-lit area to improve tracking.")
             case .notAvailable: onStatus?("Tracking unavailable. Keep the camera clear.")
             }
@@ -107,7 +105,9 @@ struct OrdinalARView: UIViewRepresentable {
 
         func sessionInterruptionEnded(_ session: ARSession) {
             guard let view else { return }
-            placedOnDetectedSurface = false
+            aimedNodeID = nil
+            lastSelectedNodeID = nil
+            lastPlacementAt = 0
             for anchor in view.scene.anchors where anchor.name.hasPrefix("ordinal-field-") { view.scene.removeAnchor(anchor) }
             OrdinalARView.runTracking(on: view, reset: true)
             OrdinalARView.installFieldNodes(Array(nodesByID.values).sorted { $0.id < $1.id }, in: view)
@@ -173,10 +173,6 @@ struct OrdinalARView: UIViewRepresentable {
         let existing = Set(view.scene.anchors.map { $0.name })
         for (index, node) in live.enumerated() {
             if existing.contains("ordinal-field-" + node.id) { continue }
-            let angle = Float(index) / Float(max(1, live.count)) * .pi * 2
-            let radius: Float = node.kind == "signal" ? 1.65 : 2.2
-            let fallback = SIMD3<Float>(sin(angle) * radius, -0.35, -abs(cos(angle) * radius) - 0.8)
-
             let nx = 0.22 + (Double(index % 3) * 0.28)
             let ny = 0.38 + (Double((index / 3) % 2) * 0.24)
             let screenPoint = CGPoint(
@@ -185,14 +181,12 @@ struct OrdinalARView: UIViewRepresentable {
             )
             let surface = view.raycast(
                 from: screenPoint,
-                allowing: .estimatedPlane,
-                alignment: .any
+                allowing: .existingPlaneGeometry,
+                alignment: .horizontal
             ).first
 
-            var offset = matrix_identity_float4x4
-            offset.columns.3 = SIMD4<Float>(fallback.x, fallback.y, fallback.z, 1)
-            let placement = (view.session.currentFrame?.camera.transform ?? matrix_identity_float4x4) * offset
-            let anchor = surface.map { AnchorEntity(world: $0.worldTransform) } ?? AnchorEntity(world: placement)
+            guard let surface else { continue }
+            let anchor = AnchorEntity(world: surface.worldTransform)
             anchor.name = "ordinal-field-\(node.id)"
 
             let color: UIColor = node.kind == "signal"

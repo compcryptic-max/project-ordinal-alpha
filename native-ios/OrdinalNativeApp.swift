@@ -5,12 +5,14 @@ import ARKit
 struct OrdinalNativeApp: App {
     @StateObject private var world = WorldStore()
     @StateObject private var location = CoarseLocationService()
+    @StateObject private var spatial = SpatialFieldService()
 
     var body: some Scene {
         WindowGroup {
             NativeBridgeView()
                 .environmentObject(world)
                 .environmentObject(location)
+                .environmentObject(spatial)
         }
     }
 }
@@ -18,8 +20,10 @@ struct OrdinalNativeApp: App {
 struct NativeBridgeView: View {
     @EnvironmentObject private var world: WorldStore
     @EnvironmentObject private var location: CoarseLocationService
+    @EnvironmentObject private var spatial: SpatialFieldService
     @Environment(\.scenePhase) private var scenePhase
     @State private var arOpen = false
+    @State private var localVeil = false
     @State private var arStatus = "Move slowly to establish tracking."
     @State private var arCombatMode = false
     @State private var encounterCameFromAR = false
@@ -54,7 +58,8 @@ struct NativeBridgeView: View {
                     NativeCombatView(world: world)
                 }
             } else if arOpen && ARWorldTrackingConfiguration.isSupported {
-                OrdinalARView(nodes: world.state?.field ?? [], onStatus: { arStatus = $0 }) { node in
+                OrdinalARView(nodes: reachableNodes, onStatus: { arStatus = $0 }) { node in
+                    guard !world.busy, reachableNodes.contains(where: { $0.id == node.id }) else { return }
                     Task {
                         if node.kind == "signal" {
                             encounterCameFromAR = true
@@ -63,7 +68,7 @@ struct NativeBridgeView: View {
                                 arOpen = false
                             }
                         } else {
-                            selectedARNode = node
+                            await world.act("collect", id: node.id)
                         }
                     }
                 }
@@ -81,19 +86,23 @@ struct NativeBridgeView: View {
 
                 VStack {
                     HStack {
-                        Text("ORDINAL // NATIVE VEIL")
+                        Text(localVeil ? "ORDINAL // LOCAL VEIL" : "ORDINAL // LANDMARK VEIL")
                         Spacer()
                         Button("CLOSE") { arOpen = false }
                     }
                     .font(.caption.monospaced().bold())
                     .padding()
                     .background(.black.opacity(0.55))
-                    Text(arStatus).font(.caption).padding(8).background(.black.opacity(0.55))
+                    Text(reachableNodes.isEmpty ? "No contacts in range. Return to the map or use Local Veil." : arStatus)
+                        .font(.caption).padding(8).background(.black.opacity(0.55))
+                    if let error = world.lastError {
+                        Text(error).font(.caption).foregroundStyle(.red).padding(8).background(.black.opacity(0.55))
+                    }
                     Spacer()
                 }
                 .foregroundStyle(.white)
             } else if world.state != nil {
-                NativeFieldView(world: world, arOpen: $arOpen)
+                NativeFieldView(world: world, arOpen: $arOpen, localVeil: $localVeil)
             } else if world.hasSavedIdentity {
                 Color.black.ignoresSafeArea()
                 VStack(spacing: 14) {
@@ -111,17 +120,17 @@ struct NativeBridgeView: View {
         }
         .task(id: accountGate) {
             guard !accountGate else { return }
+            location.startSafetyMonitoring()
             if world.state == nil {
                 let coarse = await location.acquire()
                 world.setLocation(lat: coarse?.latitude, lon: coarse?.longitude)
                 if world.hasSavedIdentity {
                     await world.connect(lat: coarse?.latitude, lon: coarse?.longitude)
                 }
-                location.startSafetyMonitoring()
             }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active {
+            if phase == .active && !accountGate {
                 location.startSafetyMonitoring()
             } else {
                 location.stopSafetyMonitoring()
@@ -132,6 +141,12 @@ struct NativeBridgeView: View {
                 arOpen = false
                 selectedARNode = nil
             }
+        }
+        .onChange(of: location.sampleToken, initial: true) { _, _ in
+            Task { await synchronizeSpatialField() }
+        }
+        .task(id: spatialContentID) {
+            await synchronizeSpatialField()
         }
         .onChange(of: location.relocationToken) { _, token in
             guard !token.isEmpty,
@@ -148,4 +163,26 @@ struct NativeBridgeView: View {
             }
         }
     }
+    private var reachableNodes: [OrdinalAPI.FieldNode] {
+        guard !location.rapidTravel else { return [] }
+        if localVeil { return world.state?.field?.filter { !$0.collected } ?? [] }
+        guard let position = location.coordinate,
+              let accuracy = location.horizontalAccuracy, accuracy <= 35 else { return [] }
+        return spatial.contacts.filter {
+            spatial.distance(to: $0, from: position) <= max(14, accuracy * 0.72)
+        }.map { $0.node }
+    }
+
+    private var spatialContentID: String {
+        (world.state?.region.key ?? "") + (world.state?.field?.map {
+            "\($0.id):\($0.collected)"
+        }.joined(separator: "|") ?? "")
+    }
+
+    private func synchronizeSpatialField() async {
+        guard let state = world.state, let coordinate = location.coordinate,
+              let accuracy = location.horizontalAccuracy, accuracy <= 35 else { return }
+        await spatial.synchronize(nodes: state.field ?? [], regionKey: state.region.key, around: coordinate)
+    }
+
 }

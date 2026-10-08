@@ -284,7 +284,7 @@ actor OrdinalAPI {
 
     func health() async throws -> Health {
         let (data, response) = try await URLSession.shared.data(from: baseURL.appending(path: "health"))
-        try validate(response)
+        try validate(response, data: data)
         return try decoder.decode(Health.self, from: data)
     }
 
@@ -308,7 +308,7 @@ actor OrdinalAPI {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try encoder.encode(input)
         let (data, response) = try await URLSession.shared.data(for: request)
-        try validate(response)
+        try validate(response, data: data)
         return try decoder.decode(AccountEnvelope.self, from: data).account
     }
 
@@ -318,7 +318,7 @@ actor OrdinalAPI {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try encoder.encode(CreateSession(playerKey: playerKey, playerName: playerName, origin: origin, lat: lat, lon: lon, recoverOnly: recoverOnly))
         let (data, response) = try await URLSession.shared.data(for: request)
-        try validate(response)
+        try validate(response, data: data)
         return try decoder.decode(SessionEnvelope.self, from: data)
     }
 
@@ -328,7 +328,7 @@ actor OrdinalAPI {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try encoder.encode(RecoveryCreateRequest(sessionId: sessionID))
         let (data, response) = try await URLSession.shared.data(for: request)
-        try validate(response)
+        try validate(response, data: data)
         return try decoder.decode(RecoveryCreateResponse.self, from: data).code
     }
 
@@ -338,28 +338,28 @@ actor OrdinalAPI {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try encoder.encode(RecoveryRequest(code: code))
         let (data, response) = try await URLSession.shared.data(for: request)
-        try validate(response)
+        try validate(response, data: data)
         return try decoder.decode(SessionEnvelope.self, from: data)
     }
 
     func state(sessionID: String) async throws -> PlayerState {
         let url = baseURL.appending(path: "api/session/\(sessionID)")
         let (data, response) = try await URLSession.shared.data(from: url)
-        try validate(response)
+        try validate(response, data: data)
         return try decoder.decode(StateEnvelope.self, from: data).state
     }
 
     func presence(sessionID: String) async throws -> [Presence] {
         let url = baseURL.appending(path: "api/session/\(sessionID)/presence")
         let (data, response) = try await URLSession.shared.data(from: url)
-        try validate(response)
+        try validate(response, data: data)
         return try decoder.decode(PresenceEnvelope.self, from: data).players
     }
 
     func leaderboard(sessionID: String) async throws -> LeaderboardEnvelope {
         let url = baseURL.appending(path: "api/session/\(sessionID)/leaderboard")
         let (data, response) = try await URLSession.shared.data(from: url)
-        try validate(response)
+        try validate(response, data: data)
         return try decoder.decode(LeaderboardEnvelope.self, from: data)
     }
 
@@ -370,7 +370,7 @@ actor OrdinalAPI {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try encoder.encode(body)
         let (data, response) = try await URLSession.shared.data(for: request)
-        try validate(response)
+        try validate(response, data: data)
         return try decoder.decode(StateEnvelope.self, from: data).state
     }
 
@@ -435,7 +435,7 @@ actor OrdinalAPI {
             struct Failure: Decodable { let error: String }
             throw NSError(domain: "OrdinalArena", code: http.statusCode, userInfo: [NSLocalizedDescriptionKey: (try? decoder.decode(Failure.self, from: data).error) ?? "Arena unavailable"])
         }
-        try validate(response)
+        try validate(response, data: data)
         return try decoder.decode(ArenaEnvelope.self, from: data)
     }
     struct EchoBounty: Decodable, Identifiable {
@@ -507,13 +507,16 @@ actor OrdinalAPI {
             let message = (try? decoder.decode(Failure.self, from: data).error) ?? "Guild unavailable"
             throw NSError(domain: "OrdinalGuild", code: http.statusCode, userInfo: [NSLocalizedDescriptionKey: message])
         }
-        try validate(response)
+        try validate(response, data: data)
         return try decoder.decode(GuildEnvelope.self, from: data)
     }
 
-    private func validate(_ response: URLResponse) throws {
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw URLError(.badServerResponse)
+    private func validate(_ response: URLResponse, data: Data) throws {
+        guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
+        guard (200..<300).contains(http.statusCode) else {
+            struct Failure: Decodable { let error: String }
+            let message = (try? decoder.decode(Failure.self, from: data).error) ?? "The world server could not complete this request."
+            throw NSError(domain: "OrdinalAPI", code: http.statusCode, userInfo: [NSLocalizedDescriptionKey: message])
         }
     }
 }

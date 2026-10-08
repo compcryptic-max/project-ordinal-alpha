@@ -1,5 +1,9 @@
 # Project Ordinal continuity
 
+## Spatial repair prepared — 2026-10-07
+
+v0.19 simulator and unsigned device compilation succeeded (run 37639097363). Subsequent local repairs replace random map coordinates with Apple Maps park results, share Field/Veil proximity, add explicit Local Veil, remove floating fallback anchors and screen-fixed combat art, collect through aim-and-hold, and repair location lifecycle. These changes are locally committed only until publishing is authorized under the owner’s latest Autopilot instruction. See `docs/SPATIAL-REPAIR-REVIEW.md` for validation and remaining limitations.
+
 ## v0.19 Spatial Field — 2026-10-07
 
 Native Field follows real GPS position and compass heading on Apple Maps; simulated joystick travel is no longer the primary movement path. Exact location remains on-device and only rounded coarse coordinates reach the server for region selection. Walking proximity automatically opens Field contacts. ARKit re-anchors contacts to detected surfaces and supports aim-and-hold selection. AR combat accepts phone thrust, sideways movement and raise gestures for strike, dodge and guard. See `docs/V019-SPATIAL-FIELD.md`.

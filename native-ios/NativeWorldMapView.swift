@@ -3,7 +3,6 @@ import MapKit
 
 struct NativeWorldMapView: UIViewRepresentable {
     let contacts: [SpatialFieldService.Contact]
-    let heading: CLLocationDirection?
 
     @MainActor
     final class Coordinator: NSObject, @preconcurrency MKMapViewDelegate {
@@ -47,9 +46,6 @@ struct NativeWorldMapView: UIViewRepresentable {
             map.addAnnotation(SpatialContactAnnotation(contact: contact))
         }
 
-        if map.userTrackingMode == .none {
-            map.setUserTrackingMode(.followWithHeading, animated: true)
-        }
     }
 }
 
@@ -64,7 +60,7 @@ private final class SpatialContactAnnotation: NSObject, MKAnnotation {
         nodeID = contact.node.id
         kind = contact.node.kind
         coordinate = contact.coordinate
-        title = contact.node.label
-        subtitle = "Walk within range, then open the Veil"
+        title = contact.node.label + " · " + contact.landmark
+        subtitle = "Use public paths; check access before approaching"
     }
 }

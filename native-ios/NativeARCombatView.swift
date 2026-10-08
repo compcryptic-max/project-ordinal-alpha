@@ -49,8 +49,8 @@ struct NativeARCombatView: View {
             .padding(14)
         }
         .foregroundStyle(.white)
-        .task(id: "\(combat?.turn ?? -1)-\(location.rapidTravel)-\(scenePhase)-\(trackingReady)") {
-            guard scenePhase == .active, trackingReady, !location.rapidTravel, let turn = combat?.turn else { return }
+        .task(id: "\(combat?.turn ?? -1)-\(location.rapidTravel)-\(scenePhase)-\(trackingReady)-\(world.busy)") {
+            guard scenePhase == .active, trackingReady, !location.rapidTravel, !world.busy, let turn = combat?.turn else { return }
             try? await Task.sleep(for: .seconds(reactionSeconds))
             guard !Task.isCancelled,
                   world.state?.combat?.turn == turn,
@@ -76,8 +76,12 @@ struct NativeARCombatView: View {
                     .font(.caption2.monospaced().bold())
             }
 
-            ARReactionBar(seconds: reactionSeconds, urgent: isHeavy)
-                .id(combat?.turn)
+            if trackingReady && scenePhase == .active && !world.busy && !location.rapidTravel {
+                ARReactionBar(seconds: reactionSeconds, urgent: isHeavy)
+                    .id(combat?.turn)
+            } else {
+                Text("REACTION PAUSED").font(.caption2.monospaced()).foregroundStyle(.secondary)
+            }
 
             HStack {
                 Text(reactionPrompt)
@@ -102,9 +106,10 @@ struct NativeARCombatView: View {
 
     private var gestureSurface: some View {
         ZStack {
-            OrdinalEnemyArt(name: combat?.name ?? "Glass Warden")
-                .frame(width: 260, height: 260)
-                .shadow(color: isHeavy ? .red.opacity(0.65) : .cyan.opacity(0.24), radius: isHeavy ? 22 : 10)
+            Circle()
+                .stroke(.cyan.opacity(0.65), lineWidth: 1)
+                .frame(width: 64, height: 64)
+            Circle().fill(.cyan).frame(width: 4, height: 4)
 
             if isHeavy {
                 VStack(spacing: 3) {
@@ -117,6 +122,7 @@ struct NativeARCombatView: View {
                 .allowsHitTesting(false)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle())
         .gesture(
             LongPressGesture(minimumDuration: 0.45)
@@ -196,18 +202,41 @@ private struct ARCombatScene: UIViewRepresentable {
         var motionBaseline: simd_float4x4?
         var motionBaselineAt: TimeInterval = 0
         var lastMotionAt: TimeInterval = 0
+        var lastPlacementAt: TimeInterval = 0
+        var ready = false
+
+        func report(_ isReady: Bool, _ status: String) {
+            guard ready != isReady else { return }
+            ready = isReady
+            scene?.onTracking(isReady, status)
+        }
         func session(_ session: ARSession, cameraDidChangeTrackingState camera: ARCamera) {
             switch camera.trackingState {
-            case .normal: scene?.onTracking(true, "Tracking ready")
-            case .limited: scene?.onTracking(false, "Combat paused. Move slowly in a well-lit area.")
-            case .notAvailable: scene?.onTracking(false, "Tracking unavailable. Use standard combat to continue.")
+            case .normal: break
+            case .limited: report(false, "Combat paused. Move slowly in a well-lit area.")
+            case .notAvailable: report(false, "Tracking unavailable. Use standard combat to continue.")
             }
         }
-        func session(_ session: ARSession, didFailWithError error: Error) { scene?.onTracking(false, "Camera failed. Use standard combat to continue.") }
-        func sessionWasInterrupted(_ session: ARSession) { scene?.onTracking(false, "Camera interrupted. Combat paused.") }
+        func session(_ session: ARSession, didFailWithError error: Error) { report(false, "Camera failed. Use standard combat to continue.") }
+        func sessionWasInterrupted(_ session: ARSession) { report(false, "Camera interrupted. Combat paused.") }
         func session(_ session: ARSession, didUpdate frame: ARFrame) {
-            guard case .normal = frame.camera.trackingState else { return }
+            guard case .normal = frame.camera.trackingState else {
+                motionBaseline = nil
+                report(false, "Tracking limited. Combat paused.")
+                return
+            }
             let now = frame.timestamp
+            guard let view, let scene else { return }
+            if view.scene.findEntity(named: "ordinal-ar-enemy") == nil {
+                if now - lastPlacementAt >= 0.5 {
+                    lastPlacementAt = now
+                    scene.installEnemy(in: view)
+                }
+                motionBaseline = nil
+                report(false, "Scan the ground to place the enemy. Combat paused.")
+                return
+            }
+            report(true, "Enemy anchored. Aim at it, then use a small phone motion.")
             guard let baseline = motionBaseline else {
                 motionBaseline = frame.camera.transform
                 motionBaselineAt = now
@@ -225,7 +254,7 @@ private struct ARCombatScene: UIViewRepresentable {
                 action = "dodge"
             } else if delta.y > 0.13 {
                 action = "guard"
-            } else if delta.z < -0.11 {
+            } else if delta.z < -0.11, enemyIsAimedAt(in: view) {
                 action = "attack"
             } else {
                 action = nil
@@ -233,11 +262,23 @@ private struct ARCombatScene: UIViewRepresentable {
 
             if let action {
                 lastMotionAt = now
-                scene?.onMotion(action)
+                scene.onMotion(action)
             }
         }
+        private func enemyIsAimedAt(in view: ARView) -> Bool {
+            guard let enemy = view.scene.findEntity(named: "ordinal-ar-enemy"),
+                  let point = view.project(enemy.position(relativeTo: nil) + SIMD3<Float>(0, 0.66, 0)) else { return false }
+            return hypot(point.x - view.bounds.midX, point.y - view.bounds.midY) < min(view.bounds.width, view.bounds.height) * 0.25
+        }
+
         func sessionInterruptionEnded(_ session: ARSession) {
             guard let view, let scene else { return }
+            motionBaseline = nil
+            lastPlacementAt = 0
+            report(false, "Re-establish the ground surface. Combat paused.")
+            for anchor in view.scene.anchors where anchor.name == "ordinal-combat-anchor" {
+                view.scene.removeAnchor(anchor)
+            }
             OrdinalARView.runTracking(on: view, reset: true)
             scene.installEnemy(in: view)
         }
@@ -275,8 +316,8 @@ private struct ARCombatScene: UIViewRepresentable {
             return
         }
 
-        let fraction = Float(max(0.35, min(1, healthFraction)))
-        enemy.scale = SIMD3<Float>(repeating: fraction)
+        // Preserve creature scale instead of shrinking its body with health.
+        enemy.scale = SIMD3<Float>(repeating: 1)
         enemy.orientation = urgent
             ? simd_quatf(angle: 0.08, axis: SIMD3<Float>(0, 0, 1))
             : simd_quatf(angle: 0, axis: SIMD3<Float>(0, 1, 0))
@@ -289,14 +330,11 @@ private struct ARCombatScene: UIViewRepresentable {
 
         let floorHit = view.raycast(
             from: CGPoint(x: view.bounds.midX, y: view.bounds.height * 0.62),
-            allowing: .estimatedPlane,
+            allowing: .existingPlaneGeometry,
             alignment: .horizontal
         ).first
-        var offset = matrix_identity_float4x4
-        offset.columns.3 = SIMD4<Float>(0, -0.45, -1.7, 1)
-        let placement = (view.session.currentFrame?.camera.transform ?? matrix_identity_float4x4) * offset
-        let anchor = floorHit.map { AnchorEntity(world: $0.worldTransform) }
-            ?? AnchorEntity(world: placement)
+        guard let floorHit else { return }
+        let anchor = AnchorEntity(world: floorHit.worldTransform)
         anchor.name = "ordinal-combat-anchor"
 
         let root = Entity()
