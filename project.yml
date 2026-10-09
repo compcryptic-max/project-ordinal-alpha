@@ -20,8 +20,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.projectordinal.game
         PRODUCT_NAME: Project Ordinal
-        MARKETING_VERSION: "0.20.0"
-        CURRENT_PROJECT_VERSION: "20"
+        MARKETING_VERSION: "0.21.0"
+        CURRENT_PROJECT_VERSION: "21"
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Project Ordinal
         INFOPLIST_KEY_NSCameraUsageDescription: Project Ordinal uses the camera only when you open the Veil Lens to place game encounters in your surroundings.
