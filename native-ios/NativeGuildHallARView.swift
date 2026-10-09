@@ -136,14 +136,14 @@ private struct GuildHallRealityView: UIViewRepresentable {
         door.position = [0, 0.075, 0.106]
         anchor.addChild(door)
 
-        for side: Float in [-1, 1] {
+        for side in [Float(-1), Float(1)] {
             let pillar = ModelEntity(mesh: .generateBox(size: [0.035, hallHeight + 0.055, 0.035]), materials: [trim])
             pillar.position = [side * 0.20, (hallHeight + 0.055) / 2, 0.115]
             anchor.addChild(pillar)
         }
 
         if tier >= 2 {
-            for side: Float in [-1, 1] {
+            for side in [Float(-1), Float(1)] {
                 let wing = ModelEntity(mesh: .generateBox(size: [0.16, 0.15, 0.22]), materials: [stone])
                 wing.position = [side * 0.31, 0.075, -0.07]
                 anchor.addChild(wing)
