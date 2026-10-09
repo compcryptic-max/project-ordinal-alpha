@@ -1,9 +1,11 @@
 import SwiftUI
+import ARKit
 
 struct NativeGuildView: View {
     @ObservedObject var world: WorldStore
     @Environment(\.dismiss) private var dismiss
     @State private var envelope: OrdinalAPI.GuildEnvelope?
+    @State private var hallAROpen = false
     @State private var arenaOpen = false
     @State private var exchangeOpen = false
     @State private var name = ""
@@ -28,6 +30,9 @@ struct NativeGuildView: View {
                     if let guild = envelope.guild {
                         Section(guild.name) {
                             Text("Town Hall · Level \(guild.hallLevel)")
+                            if ARWorldTrackingConfiguration.isSupported {
+                                Button("Explore your Guild Hall in AR") { hallAROpen = true }
+                            }
                             Text(guild.role)
                             Text("\(guild.resources) supplies · \(guild.renown) renown")
                             Button("Bring field supplies") { Task { await request(.init(action: "contribute")) } }
@@ -156,6 +161,11 @@ struct NativeGuildView: View {
                     Task { await request(action) }
                 }
                 Button("Cancel", role: .cancel) { pending = nil }
+            }
+            .sheet(isPresented: $hallAROpen) {
+                if let guild = envelope?.guild {
+                    NativeGuildHallARView(name: guild.name, level: guild.hallLevel, specialty: guild.specialty)
+                }
             }
             .sheet(isPresented: $arenaOpen) { NativePvPView(world: world) }
             .sheet(isPresented: $exchangeOpen, onDismiss: { Task { await request(nil) } }) { NativeExchangeView(world: world) }
