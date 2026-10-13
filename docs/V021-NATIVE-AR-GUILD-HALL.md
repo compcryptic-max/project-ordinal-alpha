@@ -14,8 +14,12 @@
 - Unsupported depth/mesh modes are skipped; they are not a requirement for ordinary gameplay.
 - Real-world tracking quality and occlusion behavior still require physical-device acceptance.
 
-## Verification status
-Source has been committed to GitHub and the native compile workflow is configured to build an unsigned arm64 iPhone IPA on a macOS runner. Do not claim the v0.21 compile, physical installation, AR tracking, or multiplayer spatial sync passed until a successful run and device test are recorded.
+## Verification status — October 13, 2026
+- Native iPhone CI run **38454299029** completed successfully for source commit `afd84dad3e2ccf1b628243dd4d7bcb8ebdafe7cf`.
+- iOS Simulator compilation: **passed**. Unsigned iPhone device compilation: **passed**. IPA packaging and artifact upload: **passed**.
+- Verified artifact **ProjectOrdinal-iPhone-unsigned** (ID **11842295078**): https://github.com/compcryptic-max/project-ordinal-alpha/actions/runs/38454299029/artifacts/11842295078
+- The game server was redeployed through Render on October 13. The `/health` endpoint returned `ok: true`, version `0.20.0`, and PostgreSQL `connected` after redeploy.
+- **Not yet verified:** personal IPA signing/install on a physical iPhone, live camera tracking/occlusion, performance and battery usage, or multiplayer spatial sync. CI compilation does not establish these.
 
 ## Test from Windows 11 with iPhone 15
 1. Open the latest successful **Native iOS Compile Gate** workflow in the repository Actions tab.
