@@ -81,6 +81,7 @@ private struct GuildHallRealityView: UIViewRepresentable {
             guard let view else { return }
             let config = ARWorldTrackingConfiguration()
             config.planeDetection = [.horizontal]
+            OrdinalAROcclusion.configure(config, view: view)
             view.session.run(config, options: [.resetTracking, .removeExistingAnchors])
         }
     }
@@ -97,6 +98,7 @@ private struct GuildHallRealityView: UIViewRepresentable {
         if ARWorldTrackingConfiguration.isSupported {
             let config = ARWorldTrackingConfiguration()
             config.planeDetection = [.horizontal]
+            OrdinalAROcclusion.configure(config, view: view)
             view.session.run(config)
         }
         return view
