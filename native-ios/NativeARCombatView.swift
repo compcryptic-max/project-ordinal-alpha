@@ -299,6 +299,7 @@ private struct ARCombatScene: UIViewRepresentable {
         let configuration = ARWorldTrackingConfiguration()
         configuration.planeDetection = [.horizontal]
         configuration.environmentTexturing = .automatic
+        OrdinalAROcclusion.configure(configuration, view: view)
         view.session.run(configuration)
 
         installEnemy(in: view)
