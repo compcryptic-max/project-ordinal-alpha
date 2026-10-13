@@ -154,11 +154,7 @@ struct OrdinalARView: UIViewRepresentable {
         configuration.planeDetection = [.horizontal, .vertical]
         configuration.environmentTexturing = .automatic
 
-        if ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) {
-            configuration.sceneReconstruction = .mesh
-            view.environment.sceneUnderstanding.options.insert(.occlusion)
-            view.environment.sceneUnderstanding.options.insert(.collision)
-        }
+        OrdinalAROcclusion.configure(configuration, view: view)
 
         let options: ARSession.RunOptions = reset ? [.resetTracking, .removeExistingAnchors] : []
         view.session.run(configuration, options: options)
