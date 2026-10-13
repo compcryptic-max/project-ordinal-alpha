@@ -8,6 +8,12 @@
 - Kept the full solo sanctuary, story, Field, combat, and guild progression paths available without AR.
 - Native version advanced to 0.21.0; server remains on the deployed v0.20 branch until separately updated.
 
+## AR occlusion improvements
+- Veil Lens, AR combat, and the Guild Hall now request ARKit person-segmentation occlusion when supported, including on eligible non-LiDAR iPhones.
+- LiDAR-capable devices additionally use scene-mesh reconstruction for environment occlusion and collisions.
+- Unsupported depth/mesh modes are skipped; they are not a requirement for ordinary gameplay.
+- Real-world tracking quality and occlusion behavior still require physical-device acceptance.
+
 ## Verification status
 Source has been committed to GitHub and the native compile workflow is configured to build an unsigned arm64 iPhone IPA on a macOS runner. Do not claim the v0.21 compile, physical installation, AR tracking, or multiplayer spatial sync passed until a successful run and device test are recorded.
 
